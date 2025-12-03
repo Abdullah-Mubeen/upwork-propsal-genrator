@@ -1,0 +1,66 @@
+# Python
+*.pyc
+*.pyo
+__pycache__/
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# FastAPI-related
+instance/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Python Wheel distribution
+*.egg-info/
+*.dist-info/
+*.egg
+
+# Data files (if any, adjust for your project)
+data/
+
+# AI model files (large files you don't want to track)
+*.h5
+*.pkl
+*.pt
+*.pytorch
+
+# Machine learning cache files
+*.cache
+*.joblib
+
+# Logs
+*.log
+
+# Environment variables file
+.env
+
+# Secrets (API keys, credentials)
+*.key
+*.pem
+*.cer
+
+# Local FastAPI test files (if any)
+*.sqlite3
+
+# Docker
+*.dockerfile
+.docker/
+
+# Miscellaneous
+*.DS_Store
+Thumbs.db
+
+# Other common ignored files
+*.bak
+*.swp
