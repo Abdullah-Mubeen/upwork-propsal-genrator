@@ -1,66 +1,188 @@
-# Python
+# ==================== Python ====================
 *.pyc
 *.pyo
+*.pyd
 __pycache__/
+*.egg-info/
+*.dist-info/
+*.egg
+build/
+dist/
+*.so
 
-# Virtual environment
+# ==================== Virtual Environment ====================
 venv/
 env/
 .venv/
 .env/
+ENV/
+env.bak/
+venv.bak/
 
-# FastAPI-related
+# ==================== FastAPI & Web Framework ====================
 instance/
+.webassets-cache
+*.db
+*.sqlite
+*.sqlite3
 
-# PyCharm
+# ==================== IDEs ====================
 .idea/
-
-# VS Code
 .vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
 
-# Jupyter Notebooks
+# ==================== Jupyter Notebooks ====================
 .ipynb_checkpoints/
+*.ipynb
+.jupyter/
 
-# Python Wheel distribution
-*.egg-info/
-*.dist-info/
-*.egg
-
-# Data files (if any, adjust for your project)
-data/
-
-# AI model files (large files you don't want to track)
-*.h5
-*.pkl
-*.pt
-*.pytorch
-
-# Machine learning cache files
-*.cache
-*.joblib
-
-# Logs
-*.log
-
-# Environment variables file
+# ==================== Environment & Secrets ====================
 .env
-
-# Secrets (API keys, credentials)
+.env.local
+.env.*.local
 *.key
 *.pem
 *.cer
+*.crt
+*.p12
+credentials.json
+secrets.json
 
-# Local FastAPI test files (if any)
-*.sqlite3
+# ==================== Logs ====================
+*.log
+*.log.*
+logs/
+log/
 
-# Docker
-*.dockerfile
+# ==================== Data Files ====================
+data/
+datasets/
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.json
+*.jsonl
+output/
+results/
+tmp/
+temp/
+
+# ==================== AI Model & Cache Files ====================
+*.h5
+*.pkl
+*.pickle
+*.pt
+*.pytorch
+*.pth
+*.model
+*.onnx
+*.pb
+*.cache
+*.joblib
+model_cache/
+checkpoints/
+weights/
+
+# ==================== Docker ====================
+Dockerfile
+docker-compose.yml
+docker-compose.override.yml
+.dockerignore
 .docker/
 
-# Miscellaneous
-*.DS_Store
-Thumbs.db
+# ==================== Git ====================
+.git/
+.gitignore
+.gitmodules
 
-# Other common ignored files
+# ==================== OS-specific ====================
+.DS_Store
+Thumbs.db
+Desktop.ini
+.Directory
+*.lnk
+
+# ==================== Temporary Files ====================
 *.bak
+*.backup
+*.tmp
+*.temp
 *.swp
+*~
+.~*
+
+# ==================== IDE-specific ====================
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+*.sublime-project
+.clang_complete
+.tern-port
+.env.vscode
+
+# ==================== Testing ====================
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.pytest_cache/
+.hypothesis/
+test-results/
+coverage.xml
+*.cover
+
+# ==================== Distribution & Packaging ====================
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==================== Poetry ====================
+poetry.lock
+Pipfile.lock
+
+# ==================== Node/npm (if frontend is present) ====================
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm/
+
+# ==================== MongoDB ====================
+data/db/
+data/mongod.lock
+
+# ==================== Pinecone & Vector DBs ====================
+vector_cache/
+embeddings_cache/
+
+# ==================== AWS & Cloud ====================
+.aws/
+.credentials
+awsconfig
+
+# ==================== Generated Files ====================
+*.generated
+*.auto-generated
+
