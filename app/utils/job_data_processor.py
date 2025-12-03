@@ -436,11 +436,33 @@ class JobDataProcessor:
                 except Exception as e:
                     logger.warning(f"Error deleting chunk {chunk['chunk_id']}: {str(e)}")
             
+            # Delete associated proposals
+            try:
+                self.db.db["proposals"].delete_many({"contract_id": contract_id})
+                logger.info(f"Deleted proposals for {contract_id}")
+            except Exception as e:
+                logger.warning(f"Error deleting proposals for {contract_id}: {str(e)}")
+            
+            # Delete associated feedback_data
+            try:
+                self.db.db["feedback_data"].delete_many({"contract_id": contract_id})
+                logger.info(f"Deleted feedback_data for {contract_id}")
+            except Exception as e:
+                logger.warning(f"Error deleting feedback_data for {contract_id}: {str(e)}")
+            
+            # Delete from Pinecone vector database
+            if self.pinecone_service:
+                try:
+                    vectors_deleted = self.pinecone_service.delete_by_contract(contract_id)
+                    logger.info(f"Deleted {vectors_deleted} vectors from Pinecone for {contract_id}")
+                except Exception as e:
+                    logger.warning(f"Error deleting vectors from Pinecone for {contract_id}: {str(e)}")
+            
             # Delete job data
             result = self.db.db["training_data"].delete_one({"contract_id": contract_id})
             jobs_deleted = result.deleted_count
             
-            logger.info(f"✓ Deleted job (1) and {chunks_count} chunks")
+            logger.info(f"✓ Deleted job (1), {chunks_count} chunks, and associated Pinecone vectors")
             return jobs_deleted, chunks_count
         
         except ValueError:
