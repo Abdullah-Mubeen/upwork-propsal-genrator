@@ -145,13 +145,22 @@ class JobDataUploadRequest(BaseModel):
     @validator("skills_required", pre=True)
     def validate_skills(cls, v):
         """Validate and clean skills list"""
+        if isinstance(v, str):
+            import json
+            try:
+                v = json.loads(v)
+            except:
+                v = [v] if v else []
+        if not v:
+            raise ValueError("Skills list cannot be empty")
         return SkillsValidator.validate_skills(v)
     
     @validator("has_feedback", pre=True, always=True)
     def set_has_feedback(cls, v, values):
         """Auto-set has_feedback based on client_feedback presence"""
         if "client_feedback" in values:
-            return bool(values.get("client_feedback") and values["client_feedback"].strip())
+            feedback = values.get("client_feedback")
+            return bool(feedback and (isinstance(feedback, str) and feedback.strip()))
         return v or False
     
     @validator("company_name", "job_title", "industry")
@@ -167,14 +176,37 @@ class JobDataUploadRequest(BaseModel):
         if not v:
             return []
         if isinstance(v, str):
-            v = [v]
-        return [url.strip() for url in v if url and url.strip()]
+            import json
+            try:
+                v = json.loads(v)
+            except:
+                v = [v] if v else []
+        if not isinstance(v, list):
+            return []
+        return [url.strip() for url in v if url and isinstance(url, str) and url.strip()]
     
-    @validator("task_type")
+    @validator("task_type", pre=True)
     def validate_task_type(cls, v):
         """Validate task type"""
         if isinstance(v, str):
-            return v.strip().lower()
+            v = v.strip().lower()
+            return v if v else "other"
+        return v or "other"
+    
+    @validator("client_feedback", pre=True)
+    def validate_client_feedback(cls, v):
+        """Ensure client_feedback is properly handled"""
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        if isinstance(v, str):
+            return v.strip()
+        return v
+    
+    @validator("start_date", "end_date", pre=True)
+    def validate_dates(cls, v):
+        """Handle optional date fields"""
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
         return v
     
     class Config:
