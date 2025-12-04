@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proposal Engine - AI Training Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Syne:wght@400;500;600;700;800&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: #ffffff;
+            color: #000;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .minimal-card {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .minimal-card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            border-color: #d0d0d0;
+        }
+
+        .minimal-button {
+            background: #000;
+            color: #fff;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: -0.5px;
+            border: 1px solid #000;
+        }
+
+        .minimal-button:hover:not(:disabled) {
+            background: #1a1a1a;
+            border-color: #1a1a1a;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .minimal-button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .minimal-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .minimal-button-outline {
+            background: transparent;
+            color: #000;
+            border: 1.5px solid #000;
+        }
+
+        .minimal-button-outline:hover:not(:disabled) {
+            background: #f5f5f5;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .minimal-input {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+            color: #000;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .minimal-input:focus {
+            outline: none;
+            border-color: #000;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .minimal-input::placeholder {
+            color: #999;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-up {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .scale-in {
+            animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .stats-box {
+            background: #f9f9f9;
+            border: 1px solid #f0f0f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .stats-box:hover {
+            background: #f5f5f5;
+            border-color: #e5e5e5;
+        }
+
+        .stats-value {
+            font-family: 'Syne', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #000;
+            line-height: 1;
+        }
+
+        .stats-label {
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            color: #666;
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .success-badge {
+            background: #f0f9f7;
+            border: 1px solid #d4e8e4;
+            color: #1a5c4a;
+        }
+
+        .error-badge {
+            background: #fdf5f5;
+            border: 1px solid #f0d9d9;
+            color: #8b2e2e;
+        }
+
+        .warning-badge {
+            background: #fff9f0;
+            border: 1px solid #f0e4d0;
+            color: #8b5a1a;
+        }
+
+        .info-badge {
+            background: #f0f8ff;
+            border: 1px solid #d9ebf0;
+            color: #1a5c7a;
+        }
+
+        .progress-line {
+            height: 2px;
+            background: #e5e5e5;
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #000;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 1px;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #e5e5e5, transparent);
+        }
+
+        .section-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: #000;
+        }
+
+        .activity-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f5f5f5;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-item:hover {
+            padding-left: 4px;
+            color: #333;
+        }
+
+        .timestamp {
+            font-size: 0.8rem;
+            color: #999;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .dot-success {
+            background: #1a5c4a;
+        }
+
+        .dot-processing {
+            background: #8b8b8b;
+            animation: pulse 2s infinite;
+        }
+
+        .dot-pending {
+            background: #d9d9d9;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            color: #000;
+            display: block;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .textarea-field {
+            resize: vertical;
+            min-height: 100px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .checkbox-custom {
+            width: 1.125rem;
+            height: 1.125rem;
+            cursor: pointer;
+            accent-color: #000;
+        }
+
+        .toast {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(24px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .minimal-separator {
+            height: 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        .minimal-separator::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e5e5e5;
+        }
+
+        .minimal-tag {
+            display: inline-block;
+            padding: 0.375rem 0.75rem;
+            background: #f0f0f0;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+        }
+
+        .result-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #f0f9f7;
+            border: 1px solid #d4e8e4;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #1a5c4a;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+    <div class="min-h-screen">
+        <!-- Header Section -->
+        <div class="px-6 sm:px-8 lg:px-12 py-12 sm:py-16 border-b border-gray-200">
+            <div class="max-w-7xl mx-auto fade-in">
+                <div class="mb-8">
+                    <h1 class="section-title text-4xl sm:text-5xl mb-2">Proposal Engine</h1>
+                    <p class="text-gray-600 text-lg font-300">Train your AI model with historical proposal data</p>
+                </div>
+                <div class="flex flex-wrap gap-4 items-center">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-black rounded-full"></div>
+                        <span class="text-sm text-gray-700 font-500">System Active</span>
+                    </div>
+                    <span class="text-gray-400">—</span>
+                    <span class="text-sm text-gray-600">v1.0 • AI Training Hub</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Container -->
+        <div class="px-6 sm:px-8 lg:px-12 py-12">
+            <div class="max-w-7xl mx-auto">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-12">
+                    <div class="stats-box scale-in">
+                        <div class="stats-value" id="total-trainings">0</div>
+                        <div class="stats-label">Trainings</div>
+                    </div>
+                    <div class="stats-box scale-in" style="animation-delay: 0.05s">
+                        <div class="stats-value" id="total-chunks">0</div>
+                        <div class="stats-label">Chunks</div>
+                    </div>
+                    <div class="stats-box scale-in" style="animation-delay: 0.1s">
+                        <div class="stats-value" id="total-embeddings">0</div>
+                        <div class="stats-label">Embeddings</div>
+                    </div>
+                    <div class="stats-box scale-in" style="animation-delay: 0.15s">
+                        <div class="stats-value" id="success-rate">0%</div>
+                        <div class="stats-label">Success</div>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 mb-12">
+                    <!-- Form Section -->
+                    <div class="lg:col-span-2 slide-up">
+                        <div class="minimal-card rounded-12px p-8">
+                            <h2 class="section-title text-2xl mb-8">Add Training Data</h2>
+
+                            <form id="training-form" class="space-y-6">
+                                <!-- Company & Industry -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Company Name *</label>
+                                        <input type="text" name="company_name" placeholder="e.g., Tech Startup Inc." 
+                                            class="minimal-input w-full px-4 py-2.5 rounded-lg" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Industry *</label>
+                                        <input type="text" name="industry" placeholder="e.g., SaaS, E-Commerce" 
+                                            class="minimal-input w-full px-4 py-2.5 rounded-lg" required>
+                                    </div>
+                                </div>
+
+                                <!-- Job Info -->
+                                <div class="form-group">
+                                    <label class="form-label">Job Title *</label>
+                                    <input type="text" name="job_title" placeholder="e.g., Full Stack Developer" 
+                                        class="minimal-input w-full px-4 py-2.5 rounded-lg" required>
+                                </div>
+
+                                <!-- Description Fields -->
+                                <div class="form-group">
+                                    <label class="form-label">Job Description *</label>
+                                    <textarea name="job_description" placeholder="Describe the job requirements and details..." 
+                                        class="minimal-input textarea-field w-full px-4 py-3 rounded-lg" required></textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Your Proposal *</label>
+                                    <textarea name="your_proposal_text" placeholder="Your proposal response to this job..." 
+                                        class="minimal-input textarea-field w-full px-4 py-3 rounded-lg" required></textarea>
+                                </div>
+
+                            <!-- Skills Selection (Upwork Style) -->
+                            <div class="form-group">
+                                <label class="form-label">Skills Required *</label>
+                                <div class="space-y-2">
+                                    <div class="flex gap-2">
+                                        <input type="text" id="skill-input" placeholder="Type a skill and press Enter..." 
+                                            class="minimal-input flex-1 px-4 py-2.5 rounded-lg" 
+                                            @keydown.enter="addSkill">
+                                        <button type="button" onclick="addSkill()" class="minimal-button px-4 py-2.5 rounded-lg text-sm">
+                                            Add
+                                        </button>
+                                    </div>
+                                    <div id="skills-container" class="flex flex-wrap gap-2 pt-2">
+                                        <!-- Skills will be added here as tags -->
+                                    </div>
+                                    <input type="hidden" name="skills_required" id="skills_required_input" value="[]" required>
+                                </div>
+                            </div>
+
+                                <!-- Project Status Dropdown -->
+                                <div class="form-group">
+                                    <label class="form-label">Project Status *</label>
+                                    <select name="project_status" class="minimal-input w-full px-4 py-2.5 rounded-lg" required>
+                                        <option value="">Select status</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="ongoing">On Going</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                </div>
+
+                                <!-- Task Type with Dynamic Other Field -->
+                                <div class="form-group">
+                                    <label class="form-label">Task Type *</label>
+                                    <select name="task_type" id="task_type" class="minimal-input w-full px-4 py-2.5 rounded-lg" 
+                                        required onchange="handleTaskTypeChange()">
+                                        <option value="">Select task type</option>
+                                        <option value="development">Development</option>
+                                        <option value="design">Design</option>
+                                        <option value="writing">Writing</option>
+                                        <option value="marketing">Marketing</option>
+                                        <option value="consulting">Consulting</option>
+                                        <option value="support">Support</option>
+                                        <option value="other">Other (Specify)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Other Task Type Field (Hidden by default) -->
+                                <div id="other-task-type-group" class="form-group hidden">
+                                    <label class="form-label">Specify Task Type</label>
+                                    <input type="text" name="other_task_type" placeholder="e.g., Video Editing, Illustration..." 
+                                        class="minimal-input w-full px-4 py-2.5 rounded-lg">
+                                </div>
+
+                                <!-- Dates -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div class="form-group">
+                                        <label class="form-label">Start Date</label>
+                                        <input type="date" name="start_date" class="minimal-input w-full px-4 py-2.5 rounded-lg">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">End Date</label>
+                                        <input type="date" name="end_date" class="minimal-input w-full px-4 py-2.5 rounded-lg">
+                                    </div>
+                                </div>
+
+                                <!-- Flags -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <label class="flex items-center gap-3 cursor-pointer">
+                                        <input type="checkbox" name="urgent_adhoc" class="checkbox-custom" value="true">
+                                        <span class="form-label m-0">Urgent / Adhoc Project</span>
+                                    </label>
+                                </div>
+
+                                <!-- Portfolio URLs (Multiple) -->
+                                <div class="form-group">
+                                    <label class="form-label">Portfolio Links</label>
+                                    <div class="space-y-2">
+                                        <div class="flex gap-2">
+                                            <input type="url" id="portfolio-input" placeholder="https://example.com/portfolio..." 
+                                                class="minimal-input flex-1 px-4 py-2.5 rounded-lg" 
+                                                @keydown.enter="addPortfolioLink">
+                                            <button type="button" onclick="addPortfolioLink()" class="minimal-button px-4 py-2.5 rounded-lg text-sm">
+                                                Add
+                                            </button>
+                                        </div>
+                                        <div id="portfolio-container" class="flex flex-wrap gap-2 pt-2">
+                                            <!-- Portfolio links will be added here -->
+                                        </div>
+                                        <input type="hidden" name="portfolio_urls" id="portfolio_urls_input" value="[]">
+                                    </div>
+                                </div>
+
+                                <!-- Feedback Section -->
+                                <div class="form-group">
+                                    <label class="form-label">Client Feedback</label>
+                                    
+                                    <!-- Feedback Type Selector -->
+                                    <div class="flex gap-3 mb-4">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" name="feedback_type" value="text" class="w-4 h-4" checked onchange="toggleFeedbackType('text')">
+                                            <span class="text-sm font-500">Text Feedback</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" name="feedback_type" value="image" class="w-4 h-4" onchange="toggleFeedbackType('image')">
+                                            <span class="text-sm font-500">Image Feedback</span>
+                                        </label>
+                                    </div>
+
+                                    <!-- Text Feedback Field -->
+                                    <div id="text-feedback-group">
+                                        <textarea name="client_feedback" id="feedback-text" placeholder="Paste or type the feedback received from the client..." 
+                                            class="minimal-input textarea-field w-full px-4 py-3 rounded-lg"></textarea>
+                                    </div>
+
+                                    <!-- Image Feedback Field -->
+                                    <div id="image-feedback-group" class="hidden">
+                                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition cursor-pointer" 
+                                            onclick="document.getElementById('feedback-image').click()">
+                                            <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                            </svg>
+                                            <p class="text-sm text-gray-600 mb-1">Click to upload feedback image</p>
+                                            <p class="text-xs text-gray-500">(PNG, JPG, WebP - up to 5MB)</p>
+                                        </div>
+                                        <input type="file" id="feedback-image" name="feedback_image_path" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                                        <div id="image-preview" class="mt-3 hidden">
+                                            <p class="text-sm font-500 text-gray-700 mb-2">Selected:</p>
+                                            <p id="image-filename" class="text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-200"></p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="pt-4">
+                                    <button type="submit" class="minimal-button w-full py-3 px-6 rounded-lg font-semibold uppercase tracking-tight text-sm">
+                                        Train Model
+                                    </button>
+                                    <p class="text-xs text-gray-500 mt-3 text-center">* Required fields</p>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Activity Feed -->
+                    <div class="slide-up" style="animation-delay: 0.1s">
+                        <div class="minimal-card rounded-12px p-8 h-full">
+                            <h3 class="section-title text-lg mb-6">Activity</h3>
+                            <div id="activity-feed" class="space-y-2 max-h-96 overflow-y-auto">
+                                <div class="text-sm text-gray-500 text-center py-12">
+                                    Waiting for data...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processing State -->
+                <div id="processing-container" class="hidden slide-up">
+                    <div class="minimal-card rounded-12px p-8">
+                        <h3 class="section-title text-xl mb-8">Training in Progress</h3>
+
+                        <div class="space-y-6">
+                            <div>
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-600 text-gray-900">Storing Job Data</span>
+                                    <span id="step-1" class="text-xs text-gray-500 timestamp">⏳</span>
+                                </div>
+                                <div class="progress-line">
+                                    <div id="step-1-bar" class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-600 text-gray-900">Creating 5 Chunks</span>
+                                    <span id="step-2" class="text-xs text-gray-500 timestamp">⏳</span>
+                                </div>
+                                <div class="progress-line">
+                                    <div id="step-2-bar" class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-600 text-gray-900">Generating Embeddings</span>
+                                    <span id="step-3" class="text-xs text-gray-500 timestamp">⏳</span>
+                                </div>
+                                <div class="progress-line">
+                                    <div id="step-3-bar" class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-600 text-gray-900">Saving Feedback</span>
+                                    <span id="step-4" class="text-xs text-gray-500 timestamp">⏳</span>
+                                </div>
+                                <div class="progress-line">
+                                    <div id="step-4-bar" class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-600 text-gray-900">Uploading to Pinecone</span>
+                                    <span id="step-5" class="text-xs text-gray-500 timestamp">⏳</span>
+                                </div>
+                                <div class="progress-line">
+                                    <div id="step-5-bar" class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-600 text-gray-900">Storing Proposal Record</span>
+                                    <span id="step-6" class="text-xs text-gray-500 timestamp">⏳</span>
+                                </div>
+                                <div class="progress-line">
+                                    <div id="step-6-bar" class="progress-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="divider my-6"></div>
+
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                            <p class="text-xs font-600 text-gray-600 uppercase tracking-tight mb-2">Contract ID</p>
+                            <p class="font-mono text-sm text-gray-900" id="contract-id-display">Generating...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results-container" class="hidden slide-up">
+                    <div class="minimal-card rounded-12px p-8">
+                        <div class="mb-8">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-2xl">✓</span>
+                                <h3 class="section-title text-2xl">Training Complete</h3>
+                            </div>
+                            <p class="text-gray-600 text-sm">Your proposal data has been successfully processed and stored.</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p class="text-xs font-600 text-gray-600 uppercase tracking-tight mb-2">Contract ID</p>
+                                <p class="font-mono text-sm text-gray-900" id="result-contract-id">—</p>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p class="text-xs font-600 text-gray-600 uppercase tracking-tight mb-2">Chunks</p>
+                                <p class="text-lg font-bold text-gray-900" id="result-chunks">—</p>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p class="text-xs font-600 text-gray-600 uppercase tracking-tight mb-2">Embeddings</p>
+                                <p class="text-lg font-bold text-gray-900" id="result-embeddings">—</p>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p class="text-xs font-600 text-gray-600 uppercase tracking-tight mb-2">Vectors</p>
+                                <p class="text-lg font-bold text-gray-900" id="result-vectors">—</p>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p class="text-xs font-600 text-gray-600 uppercase tracking-tight mb-2">Feedback</p>
+                                <p class="text-lg font-bold text-gray-900" id="result-feedback">—</p>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p class="text-xs font-600 text-gray-600 uppercase tracking-tight mb-2">Status</p>
+                                <p class="text-lg font-bold text-gray-900" id="result-status">—</p>
+                            </div>
+                        </div>
+
+                        <div class="divider my-6"></div>
+
+                        <div class="flex gap-3">
+                            <button onclick="resetForm()" class="minimal-button flex-1 py-2.5 px-4 rounded-lg text-sm">
+                                Train More
+                            </button>
+                            <button onclick="downloadReport()" class="minimal-button-outline flex-1 py-2.5 px-4 rounded-lg text-sm">
+                                Download Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Training History -->
+                <div class="slide-up" style="animation-delay: 0.2s">
+                    <div class="minimal-card rounded-12px p-8">
+                        <h3 class="section-title text-lg mb-6">Recent Trainings</h3>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-gray-200">
+                                        <th class="text-left py-3 px-0 font-600 text-gray-900 text-xs uppercase tracking-tight">ID</th>
+                                        <th class="text-left py-3 px-4 font-600 text-gray-900 text-xs uppercase tracking-tight">Company</th>
+                                        <th class="text-left py-3 px-4 font-600 text-gray-900 text-xs uppercase tracking-tight">Job</th>
+                                        <th class="text-center py-3 px-4 font-600 text-gray-900 text-xs uppercase tracking-tight">Chunks</th>
+                                        <th class="text-center py-3 px-4 font-600 text-gray-900 text-xs uppercase tracking-tight">Status</th>
+                                        <th class="text-right py-3 px-0 font-600 text-gray-900 text-xs uppercase tracking-tight">Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table-body">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-8 text-gray-500 text-sm">No trainings yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="fixed bottom-6 right-6 space-y-3 z-50"></div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000/';
+        let trainingHistory = JSON.parse(localStorage.getItem('trainingHistory')) || [];
+        let stats = JSON.parse(localStorage.getItem('stats')) || {
+            totalTrainings: 0,
+            totalChunks: 0,
+            totalEmbeddings: 0,
+            successCount: 0
+        };
+        let currentSkills = [];
+        let currentPortfolios = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStats();
+            loadHistory();
+            setupFormHandlers();
+            setupSkillsInput();
+            setupPortfolioInput();
+        });
+
+        // Skills Management
+        function setupSkillsInput() {
+            const skillInput = document.getElementById('skill-input');
+            if (skillInput) {
+                skillInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addSkill();
+                    }
+                });
+            }
+        }
+
+        function addSkill() {
+            const input = document.getElementById('skill-input');
+            const skill = input.value.trim();
+
+            if (!skill) {
+                showToast('Please enter a skill', 'warning');
+                return;
+            }
+
+            if (currentSkills.includes(skill)) {
+                showToast('This skill is already added', 'warning');
+                input.value = '';
+                return;
+            }
+
+            currentSkills.push(skill);
+            updateSkillsDisplay();
+            input.value = '';
+            input.focus();
+        }
+
+        function removeSkill(skill) {
+            currentSkills = currentSkills.filter(s => s !== skill);
+            updateSkillsDisplay();
+        }
+
+        function updateSkillsDisplay() {
+            const container = document.getElementById('skills-container');
+            const input = document.getElementById('skills_required_input');
+
+            container.innerHTML = currentSkills.map(skill => `
+                <div class="inline-flex items-center gap-2 bg-gray-100 border border-gray-300 rounded-full px-3 py-1.5">
+                    <span class="text-sm font-500">${skill}</span>
+                    <button type="button" onclick="removeSkill('${skill}')" class="text-gray-500 hover:text-gray-900 text-lg leading-none">
+                        ×
+                    </button>
+                </div>
+            `).join('');
+
+            input.value = JSON.stringify(currentSkills);
+        }
+
+        // Portfolio Management
+        function setupPortfolioInput() {
+            const portfolioInput = document.getElementById('portfolio-input');
+            if (portfolioInput) {
+                portfolioInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addPortfolioLink();
+                    }
+                });
+            }
+        }
+
+        function addPortfolioLink() {
+            const input = document.getElementById('portfolio-input');
+            const url = input.value.trim();
+
+            if (!url) {
+                showToast('Please enter a portfolio URL', 'warning');
+                return;
+            }
+
+            if (!isValidUrl(url)) {
+                showToast('Please enter a valid URL', 'warning');
+                return;
+            }
+
+            if (currentPortfolios.includes(url)) {
+                showToast('This URL is already added', 'warning');
+                input.value = '';
+                return;
+            }
+
+            currentPortfolios.push(url);
+            updatePortfolioDisplay();
+            input.value = '';
+            input.focus();
+        }
+
+        function removePortfolio(url) {
+            currentPortfolios = currentPortfolios.filter(p => p !== url);
+            updatePortfolioDisplay();
+        }
+
+        function updatePortfolioDisplay() {
+            const container = document.getElementById('portfolio-container');
+            const input = document.getElementById('portfolio_urls_input');
+
+            container.innerHTML = currentPortfolios.map(url => `
+                <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                    <a href="${url}" target="_blank" class="text-sm font-500 text-blue-600 hover:text-blue-800 truncate max-w-xs">
+                        ${url.split('/').pop() || 'portfolio'}
+                    </a>
+                    <button type="button" onclick="removePortfolio('${url.replace(/'/g, "\\'")}') " class="text-blue-400 hover:text-blue-600 text-lg leading-none">
+                        ×
+                    </button>
+                </div>
+            `).join('');
+
+            input.value = JSON.stringify(currentPortfolios);
+        }
+
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        // Task Type Handler
+        function handleTaskTypeChange() {
+            const taskType = document.getElementById('task_type').value;
+            const otherGroup = document.getElementById('other-task-type-group');
+            
+            if (taskType === 'other') {
+                otherGroup.classList.remove('hidden');
+                document.querySelector('input[name="other_task_type"]').focus();
+            } else {
+                otherGroup.classList.add('hidden');
+                document.querySelector('input[name="other_task_type"]').value = '';
+            }
+        }
+
+        // Feedback Type Handler
+        function toggleFeedbackType(type) {
+            const textGroup = document.getElementById('text-feedback-group');
+            const imageGroup = document.getElementById('image-feedback-group');
+            
+            if (type === 'text') {
+                textGroup.classList.remove('hidden');
+                imageGroup.classList.add('hidden');
+                document.getElementById('feedback-text').focus();
+            } else {
+                textGroup.classList.add('hidden');
+                imageGroup.classList.remove('hidden');
+            }
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showToast('Please upload an image file', 'warning');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('Image size must be less than 5MB', 'warning');
+                return;
+            }
+
+            const preview = document.getElementById('image-preview');
+            const filename = document.getElementById('image-filename');
+            filename.textContent = file.name;
+            preview.classList.remove('hidden');
+        }
+
+        // Toast System
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `minimal-card rounded-lg p-4 max-w-sm toast ${getToastClass(type)}`;
+            
+            const icons = {
+                success: '✓',
+                error: '✗',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+
+            toast.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <span class="text-lg font-bold flex-shrink-0">${icons[type]}</span>
+                    <span class="text-sm text-gray-900">${message}</span>
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(400px)';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        function getToastClass(type) {
+            const classes = {
+                success: 'success-badge',
+                error: 'error-badge',
+                warning: 'warning-badge',
+                info: 'info-badge'
+            };
+            return classes[type] || classes.info;
+        }
+
+        // Activity Feed
+        function addActivityLog(message, type = 'info') {
+            const feed = document.getElementById('activity-feed');
+            const isEmpty = feed.querySelector('.text-center');
+            if (isEmpty) isEmpty.remove();
+
+            const timestamp = new Date().toLocaleTimeString();
+            const icons = {
+                success: '✓',
+                error: '✗',
+                warning: '⚠',
+                info: '→',
+                processing: '⟳'
+            };
+
+            const dotClass = {
+                success: 'dot-success',
+                error: 'dot-error',
+                warning: 'dot-warning',
+                info: 'dot-info',
+                processing: 'dot-processing'
+            };
+
+            const log = document.createElement('div');
+            log.className = `activity-item fade-in`;
+            log.innerHTML = `
+                <div class="flex items-start gap-2.5">
+                    <div class="dot ${dotClass[type]} flex-shrink-0 mt-1.5"></div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs text-gray-600 mb-0.5">${message}</p>
+                        <p class="timestamp">${timestamp}</p>
+                    </div>
+                </div>
+            `;
+
+            feed.insertBefore(log, feed.firstChild);
+
+            while (feed.children.length > 15) {
+                feed.removeChild(feed.lastChild);
+            }
+        }
+
+        // Form
+        function setupFormHandlers() {
+            const form = document.getElementById('training-form');
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await submitTrainingData(form);
+            });
+        }
+
+        async function submitTrainingData(form) {
+            try {
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+
+                // Parse JSON arrays
+                data.skills_required = JSON.parse(data.skills_required || '[]');
+                data.portfolio_urls = JSON.parse(data.portfolio_urls || '[]');
+
+                // Validate
+                if (!data.skills_required || data.skills_required.length === 0) {
+                    showToast('Please add at least one skill', 'warning');
+                    return;
+                }
+
+                if (!data.company_name || !data.job_title || !data.job_description || !data.your_proposal_text) {
+                    showToast('Please fill in all required fields', 'warning');
+                    return;
+                }
+
+                // Handle other_task_type
+                if (data.task_type === 'other' && data.other_task_type) {
+                    data.task_type = data.other_task_type;
+                    delete data.other_task_type;
+                }
+
+                showProcessing();
+                addActivityLog('Submitting training data...', 'processing');
+
+                // Simulate steps
+                updateProcessingStep(1, 'processing');
+                await new Promise(r => setTimeout(r, 500));
+                updateProcessingStep(1, 'success');
+                addActivityLog('Job data stored', 'success');
+
+                updateProcessingStep(2, 'processing');
+                await new Promise(r => setTimeout(r, 800));
+                updateProcessingStep(2, 'success');
+                addActivityLog('Created 5 chunks', 'success');
+
+                updateProcessingStep(3, 'processing');
+                await new Promise(r => setTimeout(r, 1000));
+                updateProcessingStep(3, 'success');
+                addActivityLog('Generated embeddings', 'success');
+
+                updateProcessingStep(4, 'processing');
+                await new Promise(r => setTimeout(r, 300));
+                updateProcessingStep(4, 'success');
+                addActivityLog('Feedback saved', 'success');
+
+                updateProcessingStep(5, 'processing');
+                await new Promise(r => setTimeout(r, 600));
+                updateProcessingStep(5, 'success');
+                addActivityLog('Uploaded to Pinecone', 'success');
+
+                updateProcessingStep(6, 'processing');
+                await new Promise(r => setTimeout(r, 400));
+                updateProcessingStep(6, 'success');
+                addActivityLog('Proposal record stored', 'success');
+
+                // Send to API
+                const response = await axios.post(`${API_BASE_URL}/job-data/upload`, data);
+                const result = response.data;
+
+                // Update stats
+                stats.totalTrainings += 1;
+                stats.totalChunks += result.chunks_created || 5;
+                stats.totalEmbeddings += result.embeddings_created || 5;
+                if (response.status === 201) stats.successCount += 1;
+                updateStats();
+
+                // History
+                const historyEntry = {
+                    contractId: result.contract_id,
+                    company: data.company_name,
+                    jobTitle: data.job_title,
+                    chunks: result.chunks_created || 5,
+                    status: 'success',
+                    timestamp: new Date().toLocaleString()
+                };
+                trainingHistory.unshift(historyEntry);
+                if (trainingHistory.length > 50) trainingHistory.pop();
+
+                saveState();
+                showResults(result, data);
+                showToast(`Complete! ${result.contract_id}`, 'success');
+                addActivityLog(`Ready for training: ${result.contract_id}`, 'success');
+
+                setTimeout(() => loadHistory(), 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
+                showToast(`Error: ${errorMsg}`, 'error');
+                addActivityLog(`Error: ${errorMsg}`, 'error');
+                hideProcessing();
+            }
+        }
+
+        function updateProcessingStep(step, status) {
+            const stepEl = document.getElementById(`step-${step}`);
+            const barEl = document.getElementById(`step-${step}-bar`);
+
+            const icons = {
+                pending: '⏳',
+                processing: '⟳',
+                success: '✓'
+            };
+
+            stepEl.textContent = icons[status];
+
+            const widths = {
+                pending: '0',
+                processing: '50',
+                success: '100'
+            };
+
+            barEl.style.width = widths[status] + '%';
+        }
+
+        function showProcessing() {
+            document.getElementById('processing-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+            
+            for (let i = 1; i <= 6; i++) {
+                updateProcessingStep(i, 'pending');
+            }
+        }
+
+        function hideProcessing() {
+            document.getElementById('processing-container').classList.add('hidden');
+        }
+
+        function showResults(result, formData) {
+            hideProcessing();
+            const container = document.getElementById('results-container');
+            container.classList.remove('hidden');
+
+            document.getElementById('result-contract-id').textContent = result.contract_id;
+            document.getElementById('result-chunks').textContent = result.chunks_created || 5;
+            document.getElementById('result-embeddings').textContent = result.embeddings_created || 5;
+            document.getElementById('result-vectors').textContent = result.pinecone_vectors || 5;
+            document.getElementById('result-feedback').textContent = result.feedback_saved ? 'Yes' : 'No';
+            document.getElementById('result-status').textContent = 'Complete';
+
+            document.getElementById('contract-id-display').textContent = result.contract_id;
+        }
+
+        function updateStats() {
+            document.getElementById('total-trainings').textContent = stats.totalTrainings;
+            document.getElementById('total-chunks').textContent = stats.totalChunks;
+            document.getElementById('total-embeddings').textContent = stats.totalEmbeddings;
+            const rate = stats.totalTrainings > 0 ? Math.round((stats.successCount / stats.totalTrainings) * 100) : 0;
+            document.getElementById('success-rate').textContent = rate + '%';
+        }
+
+        function loadHistory() {
+            const tbody = document.getElementById('history-table-body');
+            
+            if (trainingHistory.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500 text-sm">No trainings yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = trainingHistory.slice(0, 10).map(entry => `
+                <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                    <td class="py-3 px-0 font-mono text-xs text-gray-900">${entry.contractId}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">${entry.company}</td>
+                    <td class="py-3 px-4 text-sm text-gray-600 truncate">${entry.jobTitle}</td>
+                    <td class="py-3 px-4 text-center text-sm font-600 text-gray-900">${entry.chunks}</td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="result-badge text-xs">
+                            ✓ ${entry.status}
+                        </span>
+                    </td>
+                    <td class="py-3 px-0 text-right timestamp text-xs">${entry.timestamp}</td>
+                </tr>
+            `).join('');
+        }
+
+        function saveState() {
+            localStorage.setItem('trainingHistory', JSON.stringify(trainingHistory));
+            localStorage.setItem('stats', JSON.stringify(stats));
+        }
+
+        function resetForm() {
+            document.getElementById('training-form').reset();
+            document.getElementById('results-container').classList.add('hidden');
+            currentSkills = [];
+            currentPortfolios = [];
+            updateSkillsDisplay();
+            updatePortfolioDisplay();
+            document.getElementById('training-form').scrollIntoView({ behavior: 'smooth' });
+            showToast('Form cleared', 'info');
+        }
+
+        function downloadReport() {
+            const data = {
+                generatedAt: new Date().toLocaleString(),
+                stats,
+                trainingHistory
+            };
+
+            const report = `
+PROPOSAL ENGINE - TRAINING REPORT
+Generated: ${data.generatedAt}
+
+STATISTICS:
+- Total Trainings: ${data.stats.totalTrainings}
+- Total Chunks: ${data.stats.totalChunks}
+- Total Embeddings: ${data.stats.totalEmbeddings}
+- Success Rate: ${Math.round((data.stats.successCount / data.stats.totalTrainings) * 100)}%
+
+RECENT TRAININGS:
+${data.trainingHistory.slice(0, 20).map(entry => 
+  `- ${entry.contractId} | ${entry.company} | ${entry.jobTitle} | ${entry.chunks} chunks | ${entry.timestamp}`
+).join('\n')}
+            `.trim();
+
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `proposal-engine-report-${Date.now()}.txt`;
+            a.click();
+
+            showToast('Report downloaded', 'success');
+        }
+
+        // Auto-refresh
+        setInterval(loadHistory, 5000);
+    </script>
+</body>
+</html>

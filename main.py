@@ -38,7 +38,7 @@ async def root():
     }
 
 
-app.include_router(job_data_router, prefix="/api/v1/jobs")
+app.include_router(job_data_router, prefix="/api/jobs")
 
 
 if __name__ == "__main__":

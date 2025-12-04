@@ -105,21 +105,33 @@ class JobDataUploadRequest(BaseModel):
         None,
         description="Project end date (ISO format)"
     )
-    portfolio_url: Optional[str] = Field(
-        None,
-        description="Portfolio or past work URL"
+    portfolio_urls: Optional[List[str]] = Field(
+        default_factory=list,
+        description="List of portfolio or past work URLs"
     )
     client_feedback: Optional[str] = Field(
         None,
         description="Client feedback or review text"
     )
-    project_status: ProjectStatus = Field(
-        ProjectStatus.COMPLETED,
-        description="Status of the project"
+    feedback_type: Optional[str] = Field(
+        "text",
+        description="Type of feedback: 'text' or 'image'"
     )
-    task_type: TaskType = Field(
-        TaskType.OTHER,
-        description="Type of task/project (website, mobile_app, backend_api, etc.)"
+    feedback_image_path: Optional[str] = Field(
+        None,
+        description="Path or URL to feedback image (if feedback_type is 'image')"
+    )
+    project_status: str = Field(
+        "completed",
+        description="Status of the project: completed, ongoing, cancelled"
+    )
+    task_type: str = Field(
+        "other",
+        description="Type of task/project"
+    )
+    other_task_type: Optional[str] = Field(
+        None,
+        description="Custom task type if task_type is 'other'"
     )
     urgent_adhoc: bool = Field(
         False,
@@ -149,6 +161,22 @@ class JobDataUploadRequest(BaseModel):
             return v.strip()
         return v
     
+    @validator("portfolio_urls", pre=True)
+    def validate_portfolio_urls(cls, v):
+        """Validate portfolio URLs"""
+        if not v:
+            return []
+        if isinstance(v, str):
+            v = [v]
+        return [url.strip() for url in v if url and url.strip()]
+    
+    @validator("task_type")
+    def validate_task_type(cls, v):
+        """Validate task type"""
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+    
     class Config:
         use_enum_values = True
         json_schema_extra = {
@@ -165,8 +193,9 @@ class JobDataUploadRequest(BaseModel):
                 "has_feedback": True,
                 "start_date": "2024-12-01",
                 "end_date": "2024-12-15",
-                "portfolio_url": "https://github.com/yourname",
-                "client_feedback": "Great work! Very responsive."
+                "portfolio_urls": ["https://github.com/yourname", "https://yourportfolio.com"],
+                "client_feedback": "Great work! Very responsive.",
+                "feedback_type": "text"
             }
         }
 
@@ -181,11 +210,14 @@ class UpdateJobDataRequest(BaseModel):
     skills_required: Optional[List[str]] = Field(None, min_items=1)
     industry: Optional[str] = Field(None, max_length=100)
     client_feedback: Optional[str] = Field(None)
+    feedback_type: Optional[str] = Field(None)
+    feedback_image_path: Optional[str] = Field(None)
     start_date: Optional[str] = Field(None, description="Project start date (ISO format)")
     end_date: Optional[str] = Field(None, description="Project end date (ISO format)")
-    portfolio_url: Optional[str] = Field(None, description="Portfolio or past work URL")
-    project_status: Optional[ProjectStatus] = Field(None)
-    task_type: Optional[TaskType] = Field(None, description="Type of task/project")
+    portfolio_urls: Optional[List[str]] = Field(None, description="List of portfolio URLs")
+    project_status: Optional[str] = Field(None)
+    task_type: Optional[str] = Field(None, description="Type of task/project")
+    other_task_type: Optional[str] = Field(None, description="Custom task type")
     urgent_adhoc: Optional[bool] = Field(None)
     
     @validator("skills_required", pre=True, always=True)
