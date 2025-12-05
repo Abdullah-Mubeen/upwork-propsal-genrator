@@ -7,10 +7,14 @@ API endpoints for:
 - Delete job data
 - Get chunks
 - Statistics
+- OCR text extraction
 """
 import logging
-from fastapi import APIRouter, HTTPException, Query, status
+import base64
+from fastapi import APIRouter, HTTPException, Query, status, UploadFile, File
 from typing import List, Optional
+import io
+from PIL import Image
 
 from app.models.job_data_schema import (
     JobDataUploadRequest,
@@ -191,60 +195,7 @@ async def upload_job_data(job_data: JobDataUploadRequest):
 # ===================== RETRIEVE ENDPOINTS =====================
 
 @router.get(
-    "/{contract_id}",
-    response_model=JobDataDetailResponse,
-    summary="Get job data by contract ID",
-    responses={
-        200: {"description": "Job data retrieved"},
-        404: {"model": ErrorResponse, "description": "Job not found"},
-        500: {"model": ErrorResponse, "description": "Server error"}
-    }
-)
-async def get_job_data(contract_id: str):
-    """
-    Retrieve detailed job data by contract ID
-    
-    **Returns:**
-    - Complete job information
-    - Chunk statistics (total chunks and embedded chunks)
-    - All metadata and feedback
-    """
-    try:
-        processor = get_processor()
-        
-        job_data = processor.get_job_with_chunks(contract_id)
-        
-        return JobDataDetailResponse(
-            db_id=str(job_data["_id"]),
-            contract_id=job_data["contract_id"],
-            company_name=job_data["company_name"],
-            job_title=job_data["job_title"],
-            job_description=job_data["job_description"],
-            your_proposal_text=job_data["your_proposal_text"],
-            skills_required=job_data["skills_required"],
-            industry=job_data["industry"],
-            project_status=job_data["project_status"],
-            start_date=job_data.get("start_date"),
-            end_date=job_data.get("end_date"),
-            portfolio_url=job_data.get("portfolio_url"),
-            client_feedback=job_data.get("client_feedback"),
-            task_type=job_data.get("task_type"),
-            urgent_adhoc=job_data.get("urgent_adhoc", False),
-            created_at=job_data["created_at"],
-            updated_at=job_data.get("updated_at"),
-            chunks_count=job_data.get("chunks_count"),
-            embedded_chunks_count=job_data.get("embedded_chunks_count")
-        )
-    
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
-    except Exception as e:
-        logger.error(f"Error retrieving job data: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve job data")
-
-
-@router.get(
-    "",
+    "/list",
     response_model=ListResponse,
     summary="List all job data",
     responses={
@@ -323,6 +274,59 @@ async def list_job_data(
     except Exception as e:
         logger.error(f"Error listing job data: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve jobs")
+
+
+@router.get(
+    "/{contract_id}",
+    response_model=JobDataDetailResponse,
+    summary="Get job data by contract ID",
+    responses={
+        200: {"description": "Job data retrieved"},
+        404: {"model": ErrorResponse, "description": "Job not found"},
+        500: {"model": ErrorResponse, "description": "Server error"}
+    }
+)
+async def get_job_data(contract_id: str):
+    """
+    Retrieve detailed job data by contract ID
+    
+    **Returns:**
+    - Complete job information
+    - Chunk statistics (total chunks and embedded chunks)
+    - All metadata and feedback
+    """
+    try:
+        processor = get_processor()
+        
+        job_data = processor.get_job_with_chunks(contract_id)
+        
+        return JobDataDetailResponse(
+            db_id=str(job_data["_id"]),
+            contract_id=job_data["contract_id"],
+            company_name=job_data["company_name"],
+            job_title=job_data["job_title"],
+            job_description=job_data["job_description"],
+            your_proposal_text=job_data["your_proposal_text"],
+            skills_required=job_data["skills_required"],
+            industry=job_data["industry"],
+            project_status=job_data["project_status"],
+            start_date=job_data.get("start_date"),
+            end_date=job_data.get("end_date"),
+            portfolio_url=job_data.get("portfolio_url"),
+            client_feedback=job_data.get("client_feedback"),
+            task_type=job_data.get("task_type"),
+            urgent_adhoc=job_data.get("urgent_adhoc", False),
+            created_at=job_data["created_at"],
+            updated_at=job_data.get("updated_at"),
+            chunks_count=job_data.get("chunks_count"),
+            embedded_chunks_count=job_data.get("embedded_chunks_count")
+        )
+    
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
+    except Exception as e:
+        logger.error(f"Error retrieving job data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve job data")
 
 
 # ===================== CHUNKS ENDPOINTS =====================
@@ -414,7 +418,7 @@ async def get_job_chunks(
 # ===================== DELETE ENDPOINTS =====================
 
 @router.delete(
-    "/{contract_id}",
+    "/delete/{contract_id}",
     response_model=DeleteResponse,
     summary="Delete job data by contract ID",
     responses={
@@ -458,7 +462,7 @@ async def delete_job_data(contract_id: str):
 
 
 @router.post(
-    "/bulk/delete",
+    "/bulk-delete",
     response_model=DeleteResponse,
     summary="Bulk delete jobs",
     responses={
@@ -502,6 +506,136 @@ async def bulk_delete_jobs(request: DeleteJobsRequest):
     except Exception as e:
         logger.error(f"Error bulk deleting jobs: {str(e)}")
         raise HTTPException(status_code=500, detail="Bulk deletion failed")
+
+
+# ===================== OCR ENDPOINTS =====================
+
+@router.post(
+    "/extract-ocr",
+    summary="Extract text from image using OCR (GPT-4 Vision)",
+    responses={
+        200: {"description": "Text extracted successfully"},
+        400: {"model": ErrorResponse, "description": "Invalid image or no image provided"},
+        500: {"model": ErrorResponse, "description": "OCR processing failed"}
+    }
+)
+async def extract_text_from_feedback_image(file: UploadFile = File(...)):
+    """
+    Extract text from feedback image using GPT-4 Vision OCR
+    
+    This endpoint accepts an image file and uses GPT-4 Vision to extract
+    all text content. Perfect for processing client feedback screenshots,
+    reviews, or handwritten notes.
+    
+    **Request:**
+    - Multipart form with 'file' field containing image
+    
+    **Supported formats:** PNG, JPG, JPEG, GIF, WebP
+    
+    **Returns:**
+    - extracted_text: The text content found in the image
+    - success: Whether extraction was successful
+    - message: Status message
+    """
+    try:
+        # Validate file type
+        allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type: {file.content_type}. Allowed: PNG, JPG, GIF, WebP"
+            )
+        
+        # Validate file size (max 5MB)
+        file_content = await file.read()
+        if len(file_content) > 5 * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail="File size exceeds 5MB limit"
+            )
+        
+        # Validate image format
+        try:
+            image = Image.open(io.BytesIO(file_content))
+            image.verify()
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid image file: {str(e)}"
+            )
+        
+        logger.info(f"🔍 Starting OCR text extraction for file: {file.filename}")
+        
+        # Get OpenAI service
+        processor = get_processor()
+        openai_service = processor.openai_service
+        
+        # Convert image to base64 for Vision API
+        import base64
+        image_data = base64.standard_b64encode(file_content).decode("utf-8")
+        
+        # Determine media type
+        media_type = file.content_type if file.content_type in allowed_types else "image/jpeg"
+        
+        # Create data URL
+        data_url = f"data:{media_type};base64,{image_data}"
+        
+        # Extract text using Vision API via base64 data URL
+        image_content = {
+            "type": "image_url",
+            "image_url": {
+                "url": data_url,
+                "detail": "high"
+            }
+        }
+        
+        response = openai_service.client.chat.completions.create(
+            model=openai_service.vision_model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        image_content,
+                        {
+                            "type": "text",
+                            "text": """Please extract ALL text from this image. 
+
+Extract:
+1. All written text
+2. All typed text
+3. All labels and headers
+4. All numbers and dates
+5. Any feedback or review content
+
+Format the output clearly, maintaining the structure as much as possible. 
+If this is a review/feedback screenshot, extract the complete feedback text."""
+                        }
+                    ]
+                }
+            ],
+            max_tokens=2000
+        )
+        
+        extracted_text = response.choices[0].message.content
+        
+        logger.info(f"✅ OCR extraction completed for {file.filename} - Extracted {len(extracted_text)} characters")
+        
+        return {
+            "success": True,
+            "message": "Text extracted successfully from image",
+            "extracted_text": extracted_text,
+            "filename": file.filename,
+            "character_count": len(extracted_text)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during OCR extraction: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"OCR extraction failed: {str(e)}"
+        )
 
 
 # ===================== STATISTICS ENDPOINTS =====================

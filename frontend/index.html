@@ -258,30 +258,40 @@
 
     <!-- Header -->
     <div class="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-8 py-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-3xl font-700 tracking-tight text-black">Proposal Hub</h1>
-                <p class="text-sm text-gray-500 mt-1 font-300 letter-spacing">AI Training Platform</p>
-            </div>
-            <div class="flex gap-8 items-center">
-                <div class="text-right">
-                    <div class="text-4xl font-700 tracking-tight text-black" id="total-trained">0</div>
-                    <div class="text-xs text-gray-500 uppercase font-600 letter-spacing">Jobs Trained</div>
+        <div class="max-w-7xl mx-auto px-8 py-5">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-2xl font-700 tracking-tight text-black">Proposal Generator</h1>
+                    <p class="text-xs text-gray-500 mt-1 font-500 tracking-wide">TRAINING PLATFORM</p>
                 </div>
-                <div class="counter-badge" id="counter-badge">0</div>
+                <div class="flex gap-8 items-center">
+                    <div class="text-right border-r border-gray-200 pr-8">
+                        <div class="text-3xl font-700 tracking-tight text-black" id="total-trained">0</div>
+                        <div class="text-xs text-gray-500 uppercase font-600 tracking-wide">Entries Trained</div>
+                    </div>
+                    <div class="w-12 h-12 bg-black text-white rounded-lg flex items-center justify-center font-700 text-lg" id="counter-badge">0</div>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <div class="flex gap-8 border-t border-gray-200 pt-4">
+                <button class="nav-tab active px-0 py-2 text-sm font-600 border-b-2 border-black text-black transition-all" data-tab="upload">Data Entry</button>
+                <button class="nav-tab px-0 py-2 text-sm font-600 border-b-2 border-transparent text-gray-500 hover:text-black transition-all" data-tab="dashboard">Overview</button>
+                <button class="nav-tab px-0 py-2 text-sm font-600 border-b-2 border-transparent text-gray-500 hover:text-black transition-all" data-tab="jobs">Entries</button>
             </div>
         </div>
     </div>
 
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-8 py-12">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            <!-- Form Panel -->
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-8px border border-gray-200 p-10 space-y-8 shadow-sm">
+        
+        <!-- UPLOAD TAB -->
+        <div id="tab-upload" class="tab-content active">
+            <div class="max-w-3xl">
+                <div class="bg-white rounded-lg border border-gray-200 p-8 space-y-8">
                     <div>
-                        <h2 class="text-2xl font-700 tracking-tight text-black mb-2">Add Proposal Data</h2>
-                        <p class="text-sm text-gray-500 font-300">Complete information will be automatically saved</p>
+                        <h2 class="text-xl font-700 tracking-tight text-black mb-1">Add Training Entry</h2>
+                        <p class="text-sm text-gray-500 font-400">Fill in the proposal details below. Auto-saved to local storage.</p>
                     </div>
 
                     <form id="proposal-form" class="space-y-7">
@@ -353,9 +363,10 @@
 
                         <!-- Skills -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-3">Skills Required * (Tab to add)</label>
+                            <label class="block text-sm font-600 text-black mb-3">Skills Required * (comma-separate)</label>
                             <div class="flex gap-2 mb-3">
-                                <input type="text" id="skill-input" placeholder="Type skill name and press Tab" class="flex-1 px-4 py-3 form-input rounded-6px">
+                                <input type="text" id="skill-input" placeholder="e.g. Python, JavaScript" class="flex-1 px-4 py-2.5 form-input rounded-lg">
+                                <button type="button" id="add-skill-btn" onclick="addSkill()" class="px-4 py-2.5 bg-black text-white rounded-lg font-500 text-sm hover:bg-gray-900 transition-colors">Add</button>
                             </div>
                             <div id="skills-container" class="flex flex-wrap gap-2">
                             </div>
@@ -364,10 +375,10 @@
 
                         <!-- Portfolio URLs -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-3">Portfolio Links</label>
+                            <label class="block text-sm font-600 text-black mb-3">Portfolio Links (click Add)</label>
                             <div class="flex gap-2 mb-3">
-                                <input type="url" id="portfolio-input" placeholder="https://example.com" class="flex-1 px-4 py-3 form-input rounded-6px">
-                                <button type="button" onclick="addPortfolio()" class="px-6 py-3 bg-black text-white rounded-6px font-600 text-sm hover:bg-gray-800 transition-all">Add</button>
+                                <input type="url" id="portfolio-input" placeholder="https://example.com" class="flex-1 px-4 py-2.5 form-input rounded-lg">
+                                <button type="button" onclick="addPortfolio()" class="px-4 py-2.5 bg-black text-white rounded-lg font-500 text-sm hover:bg-gray-900 transition-colors">Add</button>
                             </div>
                             <div id="portfolio-container" class="flex flex-wrap gap-2">
                             </div>
@@ -402,16 +413,40 @@
                             </div>
 
                             <!-- Image feedback -->
-                            <div id="feedback-image-group" class="hidden">
+                            <div id="feedback-image-group" class="hidden space-y-4">
+                                <!-- Image upload area -->
                                 <div class="border-2 border-dashed border-gray-300 rounded-6px p-6 text-center cursor-pointer hover:border-black transition-colors" id="feedback-drop-zone">
                                     <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
                                     </svg>
                                     <p class="text-sm font-500 text-gray-700">Drop image here or click to select</p>
-                                    <p class="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</p>
+                                    <p class="text-xs text-gray-500 mt-1">PNG, JPG, GIF, WebP up to 5MB</p>
                                     <input type="file" id="feedback-image-input" accept="image/*" class="hidden">
                                 </div>
+                                
+                                <!-- Image preview -->
                                 <div id="image-preview-container" class="mt-4"></div>
+                                
+                                <!-- OCR Extract button -->
+                                <div id="ocr-button-container" class="hidden">
+                                    <button type="button" id="extract-ocr-btn" class="w-full px-4 py-3 bg-black text-white rounded-6px font-600 text-sm hover:bg-gray-800 transition-all flex items-center justify-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span id="extract-ocr-text">Extract Text with OCR</span>
+                                    </button>
+                                </div>
+                                
+                                <!-- OCR status message -->
+                                <div id="ocr-status" class="hidden p-4 rounded-6px text-sm"></div>
+                                
+                                <!-- Extracted text area (shown after extraction) -->
+                                <div id="extracted-text-container" class="hidden">
+                                    <p class="text-xs text-gray-600 mb-2 font-500">Extracted Text - Review and Submit Below:</p>
+                                    <div id="extracted-text-preview" class="p-4 bg-gray-50 rounded-6px border border-gray-200 max-h-32 overflow-y-auto text-sm text-gray-700"></div>
+                                    <button type="button" id="use-extracted-text-btn" class="w-full mt-3 px-4 py-2 bg-green-600 text-white rounded-6px font-600 text-sm hover:bg-green-700 transition-all">Use This Text</button>
+                                </div>
+                                
                                 <input type="hidden" name="feedback_image_path" id="feedback-image-hidden">
                             </div>
                         </div>
@@ -424,30 +459,102 @@
                     </form>
                 </div>
             </div>
-
-            <!-- Sidebar -->
-            <div class="lg:col-span-1 space-y-6">
-                <!-- Stats Cards -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-black text-white rounded-6px p-5">
-                        <div class="text-xs font-600 text-gray-300 mb-2 letter-spacing">Total</div>
-                        <div class="text-3xl font-700 tracking-tight" id="stat-total">0</div>
-                    </div>
-                    <div class="bg-gray-100 text-black rounded-6px p-5">
-                        <div class="text-xs font-600 text-gray-600 mb-2 letter-spacing">Chunks</div>
-                        <div class="text-3xl font-700 tracking-tight" id="stat-chunks">0</div>
+        </div>
+        <!-- END UPLOAD TAB -->
+        
+        <!-- DASHBOARD TAB -->
+        <div id="tab-dashboard" class="tab-content hidden">
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Total Entries</p>
+                    <p class="text-3xl font-700 text-black" id="dash-total-jobs">0</p>
+                </div>
+                
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Total Chunks</p>
+                    <p class="text-3xl font-700 text-black" id="dash-total-chunks">0</p>
+                </div>
+                
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Embeddings</p>
+                    <p class="text-3xl font-700 text-black" id="dash-embeddings">0</p>
+                </div>
+                
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Storage</p>
+                    <p class="text-3xl font-700 text-black" id="dash-storage">0 KB</p>
+                </div>
+            </div>
+            
+            <!-- Breakdown Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h3 class="text-sm font-700 text-black mb-4 uppercase tracking-wider">Distribution by Status</h3>
+                    <div id="status-breakdown" class="space-y-3">
+                        <p class="text-sm text-gray-500">Loading...</p>
                     </div>
                 </div>
-
-                <!-- Recent Entries -->
-                <div class="bg-white border border-gray-200 rounded-6px p-6">
-                    <h3 class="text-sm font-700 tracking-tight text-black mb-4">Recent Entries</h3>
-                    <div id="history-list" class="space-y-3 max-h-96 overflow-y-auto">
-                        <p class="text-xs text-gray-500 text-center py-8">No entries yet</p>
+                
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                    <h3 class="text-sm font-700 text-black mb-4 uppercase tracking-wider">Distribution by Industry</h3>
+                    <div id="industry-breakdown" class="space-y-3">
+                        <p class="text-sm text-gray-500">Loading...</p>
                     </div>
                 </div>
             </div>
         </div>
+        <!-- END DASHBOARD TAB -->
+        
+        <!-- JOBS LIST TAB -->
+        <div id="tab-jobs" class="tab-content hidden">
+            <div class="bg-white border border-gray-200 rounded-lg">
+                <!-- Search and Filter -->
+                <div class="p-6 border-b border-gray-200 flex gap-3">
+                    <input type="text" id="jobs-search" placeholder="Search entries..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg form-input text-sm">
+                    <select id="jobs-filter-status" class="px-4 py-2 border border-gray-300 rounded-lg form-input text-sm">
+                        <option value="">All Status</option>
+                        <option value="completed">Completed</option>
+                        <option value="ongoing">Ongoing</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                
+                <!-- Jobs Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-gray-200 bg-gray-50">
+                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Company</th>
+                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Title</th>
+                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Industry</th>
+                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Chunks</th>
+                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jobs-table-body">
+                            <tr>
+                                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                    <p class="text-sm">Loading entries...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                    <p class="text-sm text-gray-600">Showing <span id="jobs-showing">0</span> of <span id="jobs-total">0</span> jobs</p>
+                    <div class="flex gap-2">
+                        <button id="jobs-prev" class="px-3 py-2 border border-gray-300 rounded-6px font-600 text-sm hover:bg-gray-50 disabled:opacity-50">← Previous</button>
+                        <button id="jobs-next" class="px-3 py-2 border border-gray-300 rounded-6px font-600 text-sm hover:bg-gray-50 disabled:opacity-50">Next →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- END JOBS LIST TAB -->
+        
     </div>
 
     <script>
@@ -462,15 +569,61 @@
 
         // Initialize
         window.addEventListener('DOMContentLoaded', () => {
+            setupTabSwitching();
             loadFormData();
             loadStats();
             loadHistory();
+            loadDashboard();
             setupAutoSave();
             setupSkillInput();
+            setupPortfolioInput();
             setupTaskTypeToggle();
             setupFeedbackTabs();
             setupImageUpload();
+            setupOCRExtraction();
+            setupJobsView();
         });
+
+        // === TAB SWITCHING ===
+        function setupTabSwitching() {
+            const tabs = document.querySelectorAll('.nav-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    
+                    // Update active tab
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Update tab styling
+                    tabs.forEach(t => {
+                        t.classList.remove('border-black', 'text-black');
+                        t.classList.add('border-transparent', 'text-gray-600');
+                    });
+                    tab.classList.add('border-black', 'text-black');
+                    
+                    // Hide all tab contents
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.add('hidden');
+                        content.classList.remove('active');
+                    });
+                    
+                    // Show selected tab
+                    const selectedTab = document.getElementById(`tab-${tabName}`);
+                    if (selectedTab) {
+                        selectedTab.classList.remove('hidden');
+                        selectedTab.classList.add('active');
+                        
+                        // Load data when switching to tab
+                        if (tabName === 'dashboard') {
+                            loadDashboard();
+                        } else if (tabName === 'jobs') {
+                            loadJobsTable();
+                        }
+                    }
+                });
+            });
+        }
 
         // === AUTO-SAVE SYSTEM ===
         function setupAutoSave() {
@@ -556,23 +709,42 @@
         // === SKILLS MANAGEMENT ===
         function setupSkillInput() {
             const input = document.getElementById('skill-input');
+            if (!input) return;
+            
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Tab' || e.key === 'Enter') {
+                if (e.key === 'Enter' || e.key === ',') {
                     e.preventDefault();
-                    addSkill();
+                    const text = input.value.replace(/,/g, '').trim();
+                    if (text) {
+                        currentSkills.push(text);
+                        updateSkillsDisplay();
+                        input.value = '';
+                        saveFormData();
+                    }
                 }
             });
         }
 
         function addSkill() {
             const input = document.getElementById('skill-input');
-            const skill = input.value.trim();
-            if (skill && !currentSkills.includes(skill)) {
-                currentSkills.push(skill);
-                updateSkillsDisplay();
-                input.value = '';
-                saveFormData();
+            const text = input.value.trim();
+            
+            // Handle comma-separated values
+            if (text.includes(',')) {
+                text.split(',').forEach(skill => {
+                    const trimmed = skill.trim();
+                    if (trimmed && !currentSkills.includes(trimmed)) {
+                        currentSkills.push(trimmed);
+                    }
+                });
+            } else if (text && !currentSkills.includes(text)) {
+                currentSkills.push(text);
             }
+            
+            updateSkillsDisplay();
+            input.value = '';
+            input.focus();
+            saveFormData();
         }
 
         function removeSkill(skill) {
@@ -593,20 +765,49 @@
         }
 
         // === PORTFOLIO MANAGEMENT ===
+        function setupPortfolioInput() {
+            const input = document.getElementById('portfolio-input');
+            if (!input) return;
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addPortfolio();
+                }
+            });
+        }
+
         function addPortfolio() {
             const input = document.getElementById('portfolio-input');
-            const url = input.value.trim();
-            if (url && !currentPortfolios.includes(url)) {
+            const text = input.value.trim();
+            
+            // Handle comma-separated URLs
+            if (text.includes(',')) {
+                text.split(',').forEach(url => {
+                    const trimmed = url.trim();
+                    if (trimmed && !currentPortfolios.includes(trimmed)) {
+                        try {
+                            new URL(trimmed);
+                            currentPortfolios.push(trimmed);
+                        } catch {
+                            console.warn('Invalid URL skipped:', trimmed);
+                        }
+                    }
+                });
+            } else if (text && !currentPortfolios.includes(text)) {
                 try {
-                    new URL(url);
-                    currentPortfolios.push(url);
-                    updatePortfolioDisplay();
-                    input.value = '';
-                    saveFormData();
+                    new URL(text);
+                    currentPortfolios.push(text);
                 } catch {
-                    alert('Invalid URL');
+                    alert('Invalid URL format');
+                    return;
                 }
             }
+            
+            updatePortfolioDisplay();
+            input.value = '';
+            input.focus();
+            saveFormData();
         }
 
         function removePortfolio(url) {
@@ -627,6 +828,13 @@
         }
 
         // === TASK TYPE TOGGLE ===
+        function setupTaskTypeToggle() {
+            const select = document.querySelector('select[name="task_type"]');
+            if (select) {
+                select.addEventListener('change', handleTaskTypeChange);
+            }
+        }
+
         function handleTaskTypeChange() {
             const select = document.querySelector('select[name="task_type"]');
             const group = document.getElementById('custom-task-group');
@@ -705,10 +913,16 @@
                 preview.innerHTML = `
                     <div class="image-preview">
                         <img src="${e.target.result}" alt="Feedback image">
-                        <button class="remove-btn" onclick="removeImage()">×</button>
+                        <button type="button" class="remove-btn" onclick="removeImage()">×</button>
                     </div>
                 `;
                 document.getElementById('feedback-image-hidden').value = file.name;
+                
+                // Show OCR button after image is selected
+                document.getElementById('ocr-button-container').classList.remove('hidden');
+                document.getElementById('extracted-text-container').classList.add('hidden');
+                document.getElementById('ocr-status').classList.add('hidden');
+                
                 saveFormData();
             };
             reader.readAsDataURL(file);
@@ -719,8 +933,102 @@
             document.getElementById('feedback-image-input').value = '';
             document.getElementById('image-preview-container').innerHTML = '';
             document.getElementById('feedback-image-hidden').value = '';
+            document.getElementById('ocr-button-container').classList.add('hidden');
+            document.getElementById('extracted-text-container').classList.add('hidden');
+            document.getElementById('ocr-status').classList.add('hidden');
             saveFormData();
         }
+
+        // === OCR EXTRACTION ===
+        let extractedOCRText = '';
+        
+        async function setupOCRExtraction() {
+            const extractBtn = document.getElementById('extract-ocr-btn');
+            const useTextBtn = document.getElementById('use-extracted-text-btn');
+            
+            extractBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await extractTextFromImage();
+            });
+            
+            useTextBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (extractedOCRText) {
+                    document.getElementById('feedback-text').value = extractedOCRText;
+                    // Switch back to text mode
+                    const textTab = document.querySelector('.feedback-tab[data-type="text"]');
+                    textTab.click();
+                    saveFormData();
+                }
+            });
+        }
+
+        async function extractTextFromImage() {
+            if (!selectedImage) {
+                alert('Please select an image first');
+                return;
+            }
+            
+            const extractBtn = document.getElementById('extract-ocr-btn');
+            const statusDiv = document.getElementById('ocr-status');
+            const originalText = document.getElementById('extract-ocr-text').textContent;
+            
+            try {
+                // Show loading state
+                extractBtn.disabled = true;
+                document.getElementById('extract-ocr-text').textContent = 'Extracting text...';
+                statusDiv.classList.remove('hidden');
+                statusDiv.classList.remove('bg-red-50', 'text-red-700', 'bg-green-50', 'text-green-700');
+                statusDiv.classList.add('bg-blue-50', 'text-blue-700');
+                statusDiv.textContent = '⏳ Processing image with OCR...';
+                
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('file', selectedImage);
+                
+                // Send to backend
+                const response = await axios.post(`${API_BASE}/extract-ocr`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+                
+                if (response.data.success) {
+                    extractedOCRText = response.data.extracted_text;
+                    
+                    // Show success message
+                    statusDiv.classList.remove('bg-blue-50', 'text-blue-700');
+                    statusDiv.classList.add('bg-green-50', 'text-green-700');
+                    statusDiv.innerHTML = `✅ Successfully extracted ${response.data.character_count} characters`;
+                    
+                    // Show extracted text preview
+                    const extractedContainer = document.getElementById('extracted-text-container');
+                    const preview = document.getElementById('extracted-text-preview');
+                    preview.textContent = extractedOCRText.substring(0, 500) + (extractedOCRText.length > 500 ? '...' : '');
+                    extractedContainer.classList.remove('hidden');
+                    
+                    // Update button
+                    document.getElementById('extract-ocr-text').textContent = 'Text Extracted! ✓';
+                } else {
+                    throw new Error(response.data.message || 'Extraction failed');
+                }
+            } catch (error) {
+                statusDiv.classList.remove('bg-blue-50', 'text-blue-700', 'bg-green-50', 'text-green-700');
+                statusDiv.classList.add('bg-red-50', 'text-red-700');
+                statusDiv.textContent = `❌ Error: ${error.response?.data?.detail || error.message}`;
+                document.getElementById('extracted-text-container').classList.add('hidden');
+            } finally {
+                extractBtn.disabled = false;
+                document.getElementById('extract-ocr-text').textContent = originalText;
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            setupFeedbackTabs();
+            setupImageUpload();
+            setupOCRExtraction();
+        });
+
 
         // === CLEAR FORM ===
         function handleClearForm() {
@@ -892,21 +1200,273 @@
         }
 
         function loadStats() {
-            const saved = localStorage.getItem('proposal_stats');
-            const stats = saved ? JSON.parse(saved) : { total: 0, chunks: 0 };
-            document.getElementById('stat-total').textContent = stats.total;
-            document.getElementById('stat-chunks').textContent = stats.chunks;
-            document.getElementById('total-trained').textContent = stats.total;
-            document.getElementById('counter-badge').textContent = stats.total;
+            // Fetch from API instead of localStorage
+            axios.get(`${API_BASE}/stats/overview`)
+                .then(response => {
+                    const stats = response.data;
+                    document.getElementById('total-trained').textContent = stats.total_jobs || 0;
+                    document.getElementById('counter-badge').textContent = stats.total_jobs || 0;
+                })
+                .catch(error => {
+                    console.error('Error loading stats:', error);
+                    // Fallback to localStorage
+                    const saved = localStorage.getItem('proposal_stats');
+                    const stats = saved ? JSON.parse(saved) : { total: 0, chunks: 0 };
+                    document.getElementById('total-trained').textContent = stats.total || 0;
+                    document.getElementById('counter-badge').textContent = stats.total || 0;
+                });
         }
 
         function updateStats() {
-            const saved = localStorage.getItem('proposal_stats');
-            const stats = saved ? JSON.parse(saved) : { total: 0, chunks: 0 };
-            stats.total += 1;
-            stats.chunks += 5;
-            localStorage.setItem('proposal_stats', JSON.stringify(stats));
-            loadStats();
+            // Stats will be updated when new job is added via API
+            // Reload the stats after a short delay
+            setTimeout(() => {
+                loadStats();
+            }, 500);
+        }
+
+        // === DASHBOARD FUNCTIONS ===
+        async function loadDashboard() {
+            try {
+                const response = await axios.get(`${API_BASE}/stats/overview`);
+                const stats = response.data;
+                
+                // Update dashboard cards
+                document.getElementById('dash-total-jobs').textContent = stats.total_jobs || 0;
+                document.getElementById('dash-total-chunks').textContent = stats.total_chunks || 0;
+                document.getElementById('dash-embeddings').textContent = stats.embedded_chunks || 0;
+                
+                // Calculate storage (rough estimate: ~500 bytes per chunk)
+                const storageKB = Math.round((stats.total_chunks || 0) * 0.5);
+                document.getElementById('dash-storage').textContent = storageKB + ' KB';
+                
+                // Status breakdown
+                const statusBreakdown = document.getElementById('status-breakdown');
+                if (stats.by_status && Object.keys(stats.by_status).length > 0) {
+                    statusBreakdown.innerHTML = Object.entries(stats.by_status).map(([status, count]) => `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-6px">
+                            <span class="text-sm font-600 capitalize">${status}</span>
+                            <span class="px-3 py-1 bg-black text-white rounded-4px text-xs font-700">${count}</span>
+                        </div>
+                    `).join('');
+                }
+                
+                // Industry breakdown
+                const industryBreakdown = document.getElementById('industry-breakdown');
+                if (stats.by_industry && Object.keys(stats.by_industry).length > 0) {
+                    industryBreakdown.innerHTML = Object.entries(stats.by_industry)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 5)
+                        .map(([industry, count]) => `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-6px">
+                                <span class="text-sm font-600">${industry || 'Unknown'}</span>
+                                <span class="px-3 py-1 bg-black text-white rounded-4px text-xs font-700">${count}</span>
+                            </div>
+                        `).join('');
+                }
+                
+                // Load recent entries
+                loadRecentEntries();
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('status-breakdown').innerHTML = '<p class="text-sm text-red-600">Error loading data</p>';
+            }
+        }
+
+        async function loadRecentEntries() {
+            try {
+                const response = await axios.get(`${API_BASE}/list?limit=50`);
+                let jobs = response.data.items || [];
+                
+                // Sort by creation date (newest first)
+                jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                
+                // Show only last 5
+                const recentJobs = jobs.slice(0, 5);
+                
+                const tbody = document.getElementById('recent-entries-body');
+                
+                if (recentJobs.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                <p class="text-sm">No entries yet</p>
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    tbody.innerHTML = recentJobs.map(job => {
+                        const date = new Date(job.created_at);
+                        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        
+                        return `
+                            <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <p class="font-600 text-black">${job.company_name}</p>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-700">${job.job_title}</td>
+                                <td class="px-6 py-4 text-sm text-gray-600">${job.industry || '-'}</td>
+                                <td class="px-6 py-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-600 ${
+                                        job.project_status === 'completed' ? 'bg-green-100 text-green-700' :
+                                        job.project_status === 'ongoing' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-gray-100 text-gray-700'
+                                    }">
+                                        ${job.project_status}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600">${formattedDate}</td>
+                                <td class="px-6 py-4 flex gap-2">
+                                    <button onclick="deleteJob('${job.contract_id}', '${job.company_name}')" class="px-3 py-1 text-xs font-600 bg-red-100 text-red-700 rounded-4px hover:bg-red-200 transition-colors">Delete</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading recent entries:', error);
+                document.getElementById('recent-entries-body').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-red-600">
+                            <p class="text-sm">Error loading entries</p>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // === JOBS LIST FUNCTIONS ===
+        let jobsCurrentPage = 0;
+        const jobsPerPage = 10;
+        let jobsData = [];
+
+        function setupJobsView() {
+            document.getElementById('jobs-search').addEventListener('input', loadJobsTable);
+            document.getElementById('jobs-filter-status').addEventListener('change', loadJobsTable);
+            document.getElementById('jobs-prev').addEventListener('click', () => {
+                if (jobsCurrentPage > 0) {
+                    jobsCurrentPage--;
+                    loadJobsTable();
+                }
+            });
+            document.getElementById('jobs-next').addEventListener('click', () => {
+                if ((jobsCurrentPage + 1) * jobsPerPage < jobsData.length) {
+                    jobsCurrentPage++;
+                    loadJobsTable();
+                }
+            });
+        }
+
+        async function loadJobsTable() {
+            try {
+                const response = await axios.get(`${API_BASE}/list?limit=100`);
+                let jobs = response.data.items || [];
+                
+                // Filter
+                const searchTerm = document.getElementById('jobs-search').value.toLowerCase();
+                const statusFilter = document.getElementById('jobs-filter-status').value;
+                
+                jobs = jobs.filter(job => {
+                    const matchesSearch = !searchTerm || 
+                        (job.company_name || '').toLowerCase().includes(searchTerm) ||
+                        (job.job_title || '').toLowerCase().includes(searchTerm);
+                    const matchesStatus = !statusFilter || job.project_status === statusFilter;
+                    return matchesSearch && matchesStatus;
+                });
+                
+                jobsData = jobs;
+                jobsCurrentPage = 0;
+                renderJobsTable();
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+                document.getElementById('jobs-table-body').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-red-600">
+                            <p class="text-sm">Error loading jobs</p>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderJobsTable() {
+            const start = jobsCurrentPage * jobsPerPage;
+            const end = start + jobsPerPage;
+            const paginatedJobs = jobsData.slice(start, end);
+            
+            const tbody = document.getElementById('jobs-table-body');
+            
+            if (paginatedJobs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <p class="text-sm">No jobs found</p>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = paginatedJobs.map(job => `
+                    <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <p class="font-600 text-black">${job.company_name}</p>
+                            <p class="text-xs text-gray-600">${job.contract_id}</p>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-700">${job.job_title}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${job.industry || '-'}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-3 py-1 rounded-full text-xs font-600 ${
+                                job.project_status === 'completed' ? 'bg-green-100 text-green-700' :
+                                job.project_status === 'ongoing' ? 'bg-blue-100 text-blue-700' :
+                                'bg-gray-100 text-gray-700'
+                            }">
+                                ${job.project_status}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm font-600">${job.chunks_count || 0}</td>
+                        <td class="px-6 py-4 flex gap-2">
+                            <button onclick="viewJobDetails('${job.contract_id}')" class="px-3 py-1 text-xs font-600 bg-black text-white rounded-4px hover:bg-gray-800 transition-colors">View</button>
+                            <button onclick="deleteJob('${job.contract_id}', '${job.company_name}')" class="px-3 py-1 text-xs font-600 bg-red-100 text-red-700 rounded-4px hover:bg-red-200 transition-colors">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            
+            // Update pagination info
+            const total = jobsData.length;
+            const showing = Math.min(end, total);
+            document.getElementById('jobs-showing').textContent = showing;
+            document.getElementById('jobs-total').textContent = total;
+            
+            // Update button states
+            document.getElementById('jobs-prev').disabled = jobsCurrentPage === 0;
+            document.getElementById('jobs-next').disabled = end >= total;
+        }
+
+        async function viewJobDetails(contractId) {
+            try {
+                const response = await axios.get(`${API_BASE}/${contractId}`);
+                const job = response.data;
+                
+                alert(`Job: ${job.company_name}\nTitle: ${job.job_title}\nChunks: ${job.chunks_count || 0}\nEmbedded: ${job.embedded_chunks_count || 0}`);
+            } catch (error) {
+                alert('Error loading job details');
+            }
+        }
+
+        async function deleteJob(contractId, companyName) {
+            if (!confirm(`Are you sure you want to delete "${companyName}" and all its associated data?`)) {
+                return;
+            }
+            
+            try {
+                await axios.delete(`${API_BASE}/delete/${contractId}`);
+                alert('Job deleted successfully');
+                loadJobsTable();
+                loadDashboard();
+                loadStats();
+            } catch (error) {
+                alert('Error deleting job: ' + (error.response?.data?.detail || error.message));
+            }
         }
     </script>
 </body>
