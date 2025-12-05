@@ -306,11 +306,11 @@ Respond in JSON format."""
         """
         try:
             # Filter empty texts but keep track of indices
-            valid_texts = [(i, t. strip()) for i, t in enumerate(texts) if t and t.strip()]
+            valid_texts = [(i, t.strip()) for i, t in enumerate(texts) if t and t.strip()]
             
             if not valid_texts:
-                logger.warning("No valid texts provided for batch embedding")
-                return [[0.0] * dimensions] * len(texts)
+                logger.warning(f"No valid texts provided for batch embedding (input had {len(texts)} texts)")
+                return []  # Return empty list instead of zero embeddings
             
             all_embeddings = [None] * len(texts)
             

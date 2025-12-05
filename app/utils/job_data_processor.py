@@ -199,8 +199,22 @@ class JobDataProcessor:
             
             logger.info(f"Embedding {len(chunks)} chunks...")
             
-            # Extract texts
-            texts = [chunk["content"] for chunk in chunks]
+            # Extract texts - support both old and new chunk formats
+            # Keep track of which chunks have text
+            chunks_with_text = []
+            texts = []
+            
+            for chunk in chunks:
+                text = chunk.get("content") or chunk.get("text", "")
+                if text and text.strip():
+                    chunks_with_text.append(chunk)
+                    texts.append(text)
+            
+            if not texts:
+                logger.warning(f"No valid chunk texts found for embedding for {contract_id}")
+                return 0, 0
+            
+            logger.info(f"Found {len(texts)} valid texts to embed out of {len(chunks)} chunks")
             
             # Generate embeddings
             embeddings = self.openai_service.get_embeddings_batch(
@@ -216,7 +230,7 @@ class JobDataProcessor:
             successful_count = 0
             failed_count = 0
             
-            for chunk, embedding in zip(chunks, embeddings):
+            for chunk, embedding in zip(chunks_with_text, embeddings):
                 if embedding is None:
                     failed_count += 1
                     continue
@@ -552,6 +566,21 @@ class JobDataProcessor:
             for embedding in embeddings:
                 chunk_id = embedding.get("chunk_id")
                 chunk = chunks_by_id.get(chunk_id, {})
+                embedding_vector = embedding.get("embedding", [])
+                
+                # Validate embedding
+                if not embedding_vector or len(embedding_vector) == 0:
+                    logger.warning(f"Skipping embedding for {chunk_id}: empty vector")
+                    continue
+                
+                if len(embedding_vector) != settings.PINECONE_DIMENSION:
+                    logger.warning(f"Skipping embedding for {chunk_id}: wrong dimension {len(embedding_vector)} vs {settings.PINECONE_DIMENSION}")
+                    continue
+                
+                # Check for all-zero vector
+                if all(v == 0.0 for v in embedding_vector):
+                    logger.warning(f"Skipping embedding for {chunk_id}: all-zero vector (invalid embedding)")
+                    continue
                 
                 # Create rich metadata for AI training
                 metadata = {
@@ -573,14 +602,12 @@ class JobDataProcessor:
                 
                 # Use embedding ID as vector ID
                 vector_id = embedding.get("pinecone_vector_id", f"{contract_id}_{chunk_id}")
-                embedding_vector = embedding.get("embedding", [])
                 
-                if embedding_vector and len(embedding_vector) == settings.PINECONE_DIMENSION:
-                    vectors_to_upsert.append((
-                        vector_id,
-                        embedding_vector,
-                        metadata
-                    ))
+                vectors_to_upsert.append((
+                    vector_id,
+                    embedding_vector,
+                    metadata
+                ))
             
             if not vectors_to_upsert:
                 logger.warning(f"No valid embeddings to upsert for {contract_id}")

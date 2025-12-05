@@ -267,13 +267,21 @@ class DatabaseManager:
             insert_docs = []
             
             for idx, chunk in enumerate(chunks):
-                chunk_id = f"{contract_id}_{chunk.get('type', 'text')}_{idx}"
+                # Support both old ('content', 'type') and new ('text', 'chunk_type') formats
+                chunk_text = chunk.get("text") or chunk.get("content", "")
+                chunk_type = chunk.get("chunk_type") or chunk.get("type", "text")
+                
+                if not chunk_text or not chunk_text.strip():
+                    logger.warning(f"Skipping empty chunk {idx} for {contract_id}")
+                    continue
+                
+                chunk_id = f"{contract_id}_{chunk_type}_{idx}"
                 
                 chunk_doc = {
                     "chunk_id": chunk_id,
                     "contract_id": contract_id,
-                    "content": chunk.get("content", ""),
-                    "chunk_type": chunk.get("type", "text"),
+                    "content": chunk_text,
+                    "chunk_type": chunk_type,
                     "priority": chunk.get("priority", 1.0),
                     "length": chunk.get("length", len(chunk.get("content", ""))),
                     "industry": chunk.get("industry", "general"),

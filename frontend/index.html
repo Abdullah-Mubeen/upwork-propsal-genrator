@@ -755,13 +755,19 @@
 
         function updateSkillsDisplay() {
             const container = document.getElementById('skills-container');
-            container.innerHTML = currentSkills.map(skill => `
-                <div class="skill-tag">
-                    ${skill}
-                    <button type="button" onclick="removeSkill('${skill}')">×</button>
-                </div>
-            `).join('');
-            document.getElementById('skills-hidden').value = JSON.stringify(currentSkills);
+            if (container) {
+                container.innerHTML = currentSkills.map(skill => `
+                    <div class="skill-tag">
+                        ${skill}
+                        <button type="button" onclick="removeSkill('${skill}')">×</button>
+                    </div>
+                `).join('');
+            }
+
+            const hiddenInput = document.getElementById('skills-hidden');
+            if (hiddenInput) {
+                hiddenInput.value = JSON.stringify(currentSkills);
+            }
         }
 
         // === PORTFOLIO MANAGEMENT ===
@@ -818,13 +824,19 @@
 
         function updatePortfolioDisplay() {
             const container = document.getElementById('portfolio-container');
-            container.innerHTML = currentPortfolios.map(url => `
-                <div class="skill-tag">
-                    <a href="${url}" target="_blank" class="text-black hover:underline">${new URL(url).hostname}</a>
-                    <button type="button" onclick="removePortfolio('${url}')">×</button>
-                </div>
-            `).join('');
-            document.getElementById('portfolio-hidden').value = JSON.stringify(currentPortfolios);
+            if (container) {
+                container.innerHTML = currentPortfolios.map(url => `
+                    <div class="skill-tag">
+                        <a href="${url}" target="_blank" class="text-black hover:underline">${new URL(url).hostname}</a>
+                        <button type="button" onclick="removePortfolio('${url}')">×</button>
+                    </div>
+                `).join('');
+            }
+
+            const hiddenInput = document.getElementById('portfolio-hidden');
+            if (hiddenInput) {
+                hiddenInput.value = JSON.stringify(currentPortfolios);
+            }
         }
 
         // === TASK TYPE TOGGLE ===
