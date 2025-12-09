@@ -59,7 +59,9 @@ class DatabaseManager:
                 "embeddings": "Embedding metadata and references",
                 "proposals": "Generated proposals",
                 "feedback_data": "Client feedback analysis",
-                "embedding_cache": "Cache of embeddings for quick retrieval"
+                "embedding_cache": "Cache of embeddings for quick retrieval",
+                "skills": "Unique skills with frequency and usage tracking",
+                "skill_embeddings": "Embeddings for skill vectors"
             }
             
             for collection_name in collections.keys():
@@ -85,12 +87,24 @@ class DatabaseManager:
             self.db["training_data"].create_index([("skills_required", ASCENDING)])
             self.db["training_data"].create_index([("project_status", ASCENDING)])
             self.db["training_data"].create_index([("urgent_adhoc", ASCENDING)])
-            # Text index for full-text search
-            self.db["training_data"].create_index([
-                ("job_description", TEXT),
-                ("your_proposal_text", TEXT),
-                ("client_feedback", TEXT)
-            ])
+            
+            # Text index for full-text search - try to drop old index first
+            try:
+                # Drop old text index if it exists
+                self.db["training_data"].drop_index("job_description_text_your_proposal_text_text_client_feedback.text_text")
+                logger.info("Dropped old text index with client_feedback.text")
+            except Exception as e:
+                logger.debug(f"Old index not found or already dropped: {str(e)}")
+            
+            try:
+                # Create new text index with new field name
+                self.db["training_data"].create_index([
+                    ("job_description", TEXT),
+                    ("your_proposal_text", TEXT),
+                    ("client_feedback_text", TEXT)
+                ])
+            except Exception as e:
+                logger.warning(f"Could not create new text index: {str(e)}")
             
             # Chunks Collection Indexes - CRITICAL for retrieval
             self.db["chunks"].create_index([("contract_id", ASCENDING)])
@@ -125,6 +139,16 @@ class DatabaseManager:
             self.db["embedding_cache"]. create_index([("text_hash", ASCENDING)], unique=True)
             self.db["embedding_cache"].create_index([("model", ASCENDING)])
             self.db["embedding_cache"].create_index([("created_at", DESCENDING)])
+            
+            # Skills Collection Indexes
+            self.db["skills"].create_index([("skill_name_lower", ASCENDING)], unique=True)
+            self.db["skills"].create_index([("frequency", DESCENDING)])
+            self.db["skills"].create_index([("contracts", ASCENDING)])
+            self.db["skills"].create_index([("last_used", DESCENDING)])
+            
+            # Skill Embeddings Collection Indexes
+            self.db["skill_embeddings"].create_index([("skill_name_lower", ASCENDING)], unique=True)
+            self.db["skill_embeddings"].create_index([("created_at", DESCENDING)])
             
             logger. info("Successfully created all database indexes")
         except Exception as e:
@@ -545,6 +569,164 @@ class DatabaseManager:
             logger.error(f"Error retrieving cached embedding: {str(e)}")
             return None
     
+    # ===================== SKILLS OPERATIONS =====================
+    
+    def save_skills(self, contract_id: str, skills: List[str]) -> List[str]:
+        """
+        Save skills from a job to skills collection
+        
+        Args:
+            contract_id: Contract ID for reference
+            skills: List of skill names
+            
+        Returns:
+            List of skill IDs saved
+        """
+        try:
+            skill_ids = []
+            
+            for skill in skills:
+                if not skill or not isinstance(skill, str):
+                    continue
+                
+                skill_lower = skill.strip().lower()
+                
+                # Update or insert skill
+                skill_doc = {
+                    "skill_name": skill,
+                    "skill_name_lower": skill_lower,
+                    "contracts": [contract_id],
+                    "frequency": 1,
+                    "last_used": datetime.utcnow(),
+                    "created_at": datetime.utcnow()
+                }
+                
+                # Check if skill already exists
+                existing = self.db["skills"].find_one({"skill_name_lower": skill_lower})
+                
+                if existing:
+                    # Update frequency and add contract if not already there
+                    self.db["skills"].update_one(
+                        {"_id": existing["_id"]},
+                        {
+                            "$inc": {"frequency": 1},
+                            "$addToSet": {"contracts": contract_id},
+                            "$set": {"last_used": datetime.utcnow()}
+                        }
+                    )
+                    skill_ids.append(str(existing["_id"]))
+                else:
+                    # Insert new skill
+                    result = self.db["skills"].insert_one(skill_doc)
+                    skill_ids.append(str(result.inserted_id))
+            
+            if skill_ids:
+                logger.info(f"✓ Saved {len(skill_ids)} skills for contract {contract_id}")
+            
+            return skill_ids
+        
+        except Exception as e:
+            logger.error(f"Error saving skills: {str(e)}")
+            return []
+    
+    def get_all_skills(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get all unique skills with frequency and usage info
+        
+        Args:
+            limit: Maximum number of skills to return
+            
+        Returns:
+            List of skill documents sorted by frequency
+        """
+        try:
+            skills = list(
+                self.db["skills"]
+                .find()
+                .sort("frequency", DESCENDING)
+                .limit(limit)
+            )
+            return skills
+        except Exception as e:
+            logger.error(f"Error retrieving skills: {str(e)}")
+            return []
+    
+    def get_skills_by_contract(self, contract_id: str) -> List[Dict[str, Any]]:
+        """Get skills associated with a specific contract"""
+        try:
+            skills = list(
+                self.db["skills"]
+                .find({"contracts": contract_id})
+                .sort("frequency", DESCENDING)
+            )
+            return skills
+        except Exception as e:
+            logger.error(f"Error retrieving skills for contract: {str(e)}")
+            return []
+    
+    def search_skills(self, search_term: str) -> List[Dict[str, Any]]:
+        """
+        Search for skills by name (case-insensitive)
+        
+        Args:
+            search_term: Skill name to search for
+            
+        Returns:
+            List of matching skills
+        """
+        try:
+            search_lower = search_term.strip().lower()
+            skills = list(
+                self.db["skills"]
+                .find({"skill_name_lower": {"$regex": search_lower, "$options": "i"}})
+                .sort("frequency", DESCENDING)
+            )
+            return skills
+        except Exception as e:
+            logger.error(f"Error searching skills: {str(e)}")
+            return []
+    
+    def save_skill_embedding(self, skill_name: str, embedding: List[float]) -> str:
+        """
+        Save embedding for a skill
+        
+        Args:
+            skill_name: Name of the skill
+            embedding: Embedding vector
+            
+        Returns:
+            Embedding document ID
+        """
+        try:
+            skill_embedding = {
+                "skill_name": skill_name,
+                "skill_name_lower": skill_name.strip().lower(),
+                "embedding": embedding,
+                "embedding_model": settings.OPENAI_EMBEDDING_MODEL,
+                "created_at": datetime.utcnow()
+            }
+            
+            result = self.db["skill_embeddings"].insert_one(skill_embedding)
+            logger.info(f"✓ Saved embedding for skill: {skill_name}")
+            return str(result.inserted_id)
+        
+        except Exception as e:
+            logger.error(f"Error saving skill embedding: {str(e)}")
+            return ""
+    
+    def get_skill_embedding(self, skill_name: str) -> Optional[List[float]]:
+        """Get embedding for a skill"""
+        try:
+            skill_lower = skill_name.strip().lower()
+            doc = self.db["skill_embeddings"].find_one({"skill_name_lower": skill_lower})
+            
+            if doc:
+                return doc.get("embedding")
+            return None
+        except Exception as e:
+            logger.error(f"Error retrieving skill embedding: {str(e)}")
+            return None
+
     # ===================== ANALYTICS & STATISTICS =====================
     
     def get_database_statistics(self) -> Dict[str, Any]:

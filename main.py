@@ -11,6 +11,7 @@ load_dotenv()
 from app.config import settings
 from app.db import get_db
 from app.routes import job_data_router
+from app.routes.proposals import router as proposals_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ async def root():
 
 
 app.include_router(job_data_router, prefix="/api/job-data")
+app.include_router(proposals_router)
 
 
 if __name__ == "__main__":

@@ -15,14 +15,15 @@ from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# Import the new advanced chunker
+# Import the new advanced chunker (5-layer semantic strategy)
 from app.utils.advanced_chunker import (
     AdvancedChunkProcessor,
     ChunkTypeEnum,
-    JobFactsChunker,
-    ProposalChunker,
-    FeedbackChunker,
-    TemplateChunker
+    ContextSnapshotChunker,
+    RequirementsProfileChunker,
+    TimelineScopeChunker,
+    DeliverablesPortfolioChunker,
+    FeedbackOutcomesChunker
 )
 
 
@@ -89,25 +90,27 @@ class DataChunker:
     
     def _create_metadata_chunk(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """Legacy method - kept for backward compatibility"""
-        return JobFactsChunker.extract_job_facts(job_data)
+        return ContextSnapshotChunker.extract(job_data)
     
     def _chunk_proposal_text(self, job_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Legacy method - kept for backward compatibility"""
-        chunk = ProposalChunker.extract_proposal(job_data)
+        # Not part of new 5-layer strategy, but provide fallback
+        chunk = RequirementsProfileChunker.extract(job_data)
         return [chunk] if chunk else []
     
     def _chunk_job_description(self, job_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Legacy method - kept for backward compatibility"""
-        return JobFactsChunker.extract_job_facts(job_data)
+        chunk = RequirementsProfileChunker.extract(job_data)
+        return [chunk] if chunk else []
     
     def _chunk_feedback(self, job_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Legacy method - kept for backward compatibility"""
-        chunk = FeedbackChunker.extract_feedback(job_data)
+        chunk = FeedbackOutcomesChunker.extract(job_data)
         return [chunk] if chunk else []
     
     def _create_summary_chunk(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
         """Legacy method - kept for backward compatibility"""
-        return JobFactsChunker.extract_job_facts(job_data)
+        return ContextSnapshotChunker.extract(job_data)
     
     def _smart_chunk_text(self, text: str, overlap_ratio: float = 0.2) -> List[str]:
         """Legacy method - kept for backward compatibility"""

@@ -1,0 +1,465 @@
+"""
+Metadata Extractor for Multi-Dimensional Job Analysis
+
+Computes and extracts:
+1. Proposal Effectiveness Scores (0-1) from feedback
+2. Client Satisfaction Ratings (1-5) from feedback sentiment
+3. Task Complexity Levels (low, medium, high)
+4. Industry Tags for categorical filtering
+5. Success Patterns from completed projects
+6. Reusable Sections from successful proposals
+
+These metadata dimensions enable optimal hybrid retrieval and proposal generation.
+"""
+
+import logging
+import re
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+
+class MetadataExtractor:
+    """Extracts multi-dimensional metadata from job data"""
+
+    # Industry mapping for standardization
+    INDUSTRY_KEYWORDS = {
+        "saas": ["saas", "software as a service", "cloud", "subscription"],
+        "e-commerce": ["e-commerce", "ecommerce", "shopify", "woo commerce", "store"],
+        "healthcare": ["healthcare", "health", "medical", "hospital", "clinic", "telemedicine"],
+        "finance": ["finance", "financial", "banking", "fintech", "crypto"],
+        "education": ["education", "edtech", "learning", "course", "university"],
+        "real_estate": ["real estate", "realestate", "property", "rental"],
+        "manufacturing": ["manufacturing", "factory", "industrial", "logistics"],
+        "travel": ["travel", "tourism", "booking", "hotel", "flight"],
+        "social": ["social", "networking", "community", "forum"],
+        "media": ["media", "entertainment", "streaming", "video", "podcast"],
+    }
+
+    # Complexity factors
+    COMPLEXITY_INDICATORS = {
+        "high": ["machine learning", "ai", "blockchain", "real-time", "high volume", "complex integration", "multi-tenant", "microservices", "distributed"],
+        "medium": ["api", "database", "authentication", "payment", "integration", "mobile responsive"],
+        "low": ["landing page", "blog", "portfolio", "static", "basic crud"],
+    }
+
+    @staticmethod
+    def extract_all_metadata(job_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract all metadata dimensions from job data.
+        
+        Args:
+            job_data: Complete job data dictionary
+            
+        Returns:
+            Enriched job_data with computed metadata
+        """
+        job_id = job_data.get("contract_id", "unknown")
+        logger.debug(f"[Metadata] Extracting metadata for {job_id}")
+
+        # Extract all dimensions
+        job_data["proposal_effectiveness_score"] = MetadataExtractor.compute_effectiveness_score(job_data)
+        job_data["client_satisfaction"] = MetadataExtractor.extract_satisfaction_score(job_data)
+        job_data["task_complexity"] = MetadataExtractor.assess_complexity(job_data)
+        job_data["industry_tags"] = MetadataExtractor.extract_industry_tags(job_data)
+        job_data["project_duration_days"] = MetadataExtractor.calculate_duration(job_data)
+        job_data["reusable_sections"] = MetadataExtractor.identify_reusable_sections(job_data)
+
+        logger.debug(f"✓ Metadata extracted: effectiveness={job_data.get('proposal_effectiveness_score')}, "
+                    f"satisfaction={job_data.get('client_satisfaction')}, "
+                    f"complexity={job_data.get('task_complexity')}")
+
+        return job_data
+
+    @staticmethod
+    def compute_effectiveness_score(job_data: Dict[str, Any]) -> float:
+        """
+        Compute proposal effectiveness score (0-1) based on:
+        - Project completion status
+        - Client feedback sentiment
+        - Feedback length (more detailed = more positive engagement)
+        
+        Returns:
+            Effectiveness score 0-1
+        """
+        score = 0.0
+
+        # Base score on completion
+        if job_data.get("project_status") == "completed":
+            score += 0.5
+        elif job_data.get("project_status") == "ongoing":
+            score += 0.25
+
+        # Add based on feedback
+        feedback_text = (job_data.get("client_feedback_text") or 
+                        job_data.get("client_feedback") or "")
+        
+        if feedback_text:
+            # Longer feedback = more engagement
+            feedback_length = len(feedback_text.split())
+            if feedback_length > 100:
+                score += 0.25
+            elif feedback_length > 50:
+                score += 0.15
+            elif feedback_length > 20:
+                score += 0.05
+
+            # Sentiment analysis
+            sentiment = MetadataExtractor._analyze_sentiment(feedback_text)
+            if sentiment == "positive":
+                score += 0.2
+            elif sentiment == "negative":
+                score -= 0.2
+
+        # Normalize to 0-1
+        return max(0.0, min(1.0, score))
+
+    @staticmethod
+    def extract_satisfaction_score(job_data: Dict[str, Any]) -> Optional[float]:
+        """
+        Extract or infer client satisfaction (1-5 scale) from feedback.
+        
+        Returns:
+            Satisfaction score 1-5 or None
+        """
+        feedback_text = (job_data.get("client_feedback_text") or 
+                        job_data.get("client_feedback") or "")
+        
+        if not feedback_text:
+            return None
+
+        # Look for explicit ratings (★, 5 stars, etc.)
+        rating_match = re.search(r'(\d+)\s*(?:\/5|out of 5|stars?)', feedback_text, re.IGNORECASE)
+        if rating_match:
+            try:
+                return float(rating_match.group(1))
+            except:
+                pass
+
+        # Infer from sentiment
+        sentiment = MetadataExtractor._analyze_sentiment(feedback_text)
+        if sentiment == "positive":
+            return 4.5
+        elif sentiment == "neutral":
+            return 3.0
+        elif sentiment == "negative":
+            return 2.0
+        
+        return 3.5  # Default neutral
+
+    @staticmethod
+    def assess_complexity(job_data: Dict[str, Any]) -> str:
+        """
+        Assess task complexity (low, medium, high) based on:
+        - Skills required count
+        - Complexity keywords in description
+        - Task type
+        
+        Returns:
+            Complexity level: 'low', 'medium', or 'high'
+        """
+        job_desc = job_data.get("job_description", "").lower()
+        skills = job_data.get("skills_required", [])
+        task_type = job_data.get("task_type", "").lower()
+
+        score = 0
+
+        # High complexity keywords
+        for keyword in MetadataExtractor.COMPLEXITY_INDICATORS["high"]:
+            if keyword in job_desc:
+                score += 3
+
+        # Medium complexity keywords
+        for keyword in MetadataExtractor.COMPLEXITY_INDICATORS["medium"]:
+            if keyword in job_desc:
+                score += 2
+
+        # Low complexity keywords
+        for keyword in MetadataExtractor.COMPLEXITY_INDICATORS["low"]:
+            if keyword in job_desc:
+                score += 1
+
+        # Factor in skills count
+        score += len(skills)
+
+        # Map score to complexity
+        if score >= 10:
+            return "high"
+        elif score >= 5:
+            return "medium"
+        else:
+            return "low"
+
+    @staticmethod
+    def extract_industry_tags(job_data: Dict[str, Any]) -> List[str]:
+        """
+        Extract industry tags from industry field and description.
+        
+        Returns:
+            List of standardized industry tags
+        """
+        tags = set()
+
+        industry = job_data.get("industry", "").lower()
+        job_desc = job_data.get("job_description", "").lower()
+        company_name = job_data.get("company_name", "").lower()
+
+        text = f"{industry} {job_desc} {company_name}".lower()
+
+        # Match against known industries
+        for industry_tag, keywords in MetadataExtractor.INDUSTRY_KEYWORDS.items():
+            for keyword in keywords:
+                if keyword in text:
+                    tags.add(industry_tag)
+                    break
+
+        # Add raw industry if provided
+        if industry and industry != "general":
+            tags.add(industry)
+
+        return list(tags) if tags else ["general"]
+
+    @staticmethod
+    def calculate_duration(job_data: Dict[str, Any]) -> Optional[int]:
+        """
+        Calculate project duration in days from start and end dates.
+        
+        Returns:
+            Duration in days or None
+        """
+        start_date = job_data.get("start_date")
+        end_date = job_data.get("end_date")
+
+        if not (start_date and end_date):
+            return None
+
+        try:
+            from datetime import datetime as dt
+            start = dt.fromisoformat(start_date.replace('Z', '+00:00'))
+            end = dt.fromisoformat(end_date.replace('Z', '+00:00'))
+            duration = (end - start).days
+            return duration if duration > 0 else None
+        except Exception as e:
+            logger.debug(f"Could not parse dates: {e}")
+            return None
+
+    @staticmethod
+    def identify_reusable_sections(job_data: Dict[str, Any]) -> List[str]:
+        """
+        Identify sections from the proposal that could be reused in future proposals.
+        
+        This analyzes the proposal text and feedback to find what worked.
+        
+        Returns:
+            List of reusable section descriptions
+        """
+        sections = []
+        proposal = job_data.get("your_proposal_text", "").lower()
+        feedback = (job_data.get("client_feedback_text") or 
+                   job_data.get("client_feedback") or "").lower()
+
+        # Check if proposal has common winning sections
+        if "timeline" in proposal or "schedule" in feedback and "great" in feedback:
+            sections.append("detailed_timeline")
+
+        if "approach" in proposal or "method" in feedback and "impressed" in feedback:
+            sections.append("technical_approach")
+
+        if "experience" in proposal or "portfolio" in proposal:
+            if "perfect" in feedback or "impressed" in feedback:
+                sections.append("portfolio_reference")
+
+        if "communication" in proposal or "responsive" in feedback or "responsive" in feedback:
+            sections.append("communication_plan")
+
+        if "risk" in proposal or "challenges" in proposal:
+            sections.append("risk_mitigation")
+
+        if "budget" in proposal or "price" in proposal or "cost" in proposal:
+            if "reasonable" in feedback or "fair" in feedback or "good value" in feedback:
+                sections.append("pricing_justification")
+
+        # Identify specific patterns that got praise
+        sentiment = MetadataExtractor._analyze_sentiment(feedback)
+        if sentiment == "positive":
+            sections.append("winning_pattern")  # General positive pattern
+
+        return sections if sections else []
+
+    @staticmethod
+    def _analyze_sentiment(text: str) -> str:
+        """
+        Simple sentiment analysis using keyword matching.
+        
+        Returns:
+            'positive', 'negative', or 'neutral'
+        """
+        positive_words = [
+            'excellent', 'great', 'amazing', 'wonderful', 'fantastic',
+            'love', 'awesome', 'perfect', 'professional', 'highly',
+            'recommend', 'best', 'impressed', 'satisfied', 'happy',
+            'great work', 'well done', 'impressed', 'on time'
+        ]
+
+        negative_words = [
+            'poor', 'bad', 'terrible', 'awful', 'horrible',
+            'hate', 'disappointed', 'issues', 'problem', 'broken',
+            'late', 'slow', 'regret', 'unsatisfied', 'poor quality'
+        ]
+
+        text_lower = text.lower()
+
+        positive_count = sum(1 for word in positive_words if word in text_lower)
+        negative_count = sum(1 for word in negative_words if word in text_lower)
+
+        if positive_count > negative_count:
+            return "positive"
+        elif negative_count > positive_count:
+            return "negative"
+        else:
+            return "neutral"
+
+    @staticmethod
+    def compare_projects(
+        job1: Dict[str, Any],
+        job2: Dict[str, Any]
+    ) -> Dict[str, float]:
+        """
+        Compare two projects across multiple dimensions.
+        
+        Returns:
+            Similarity scores for each dimension (0-1)
+        """
+        similarity = {}
+
+        # Industry similarity
+        industries1 = job1.get("industry_tags") or []
+        industries2 = job2.get("industry_tags") or []
+        industries1 = set(industries1) if isinstance(industries1, list) else set()
+        industries2 = set(industries2) if isinstance(industries2, list) else set()
+        if industries1 or industries2:
+            intersection = len(industries1 & industries2)
+            union = len(industries1 | industries2)
+            similarity["industry"] = intersection / union if union > 0 else 0.0
+        else:
+            similarity["industry"] = 0.0
+
+        # Skills similarity
+        skills1 = set(s.lower() for s in job1.get("skills_required", []))
+        skills2 = set(s.lower() for s in job2.get("skills_required", []))
+        if skills1 or skills2:
+            intersection = len(skills1 & skills2)
+            union = len(skills1 | skills2)
+            similarity["skills"] = intersection / union if union > 0 else 0.0
+        else:
+            similarity["skills"] = 0.0
+
+        # Task type similarity
+        if job1.get("task_type") == job2.get("task_type"):
+            similarity["task_type"] = 1.0
+        else:
+            similarity["task_type"] = 0.0
+
+        # Complexity similarity (exact match)
+        if job1.get("task_complexity") == job2.get("task_complexity"):
+            similarity["complexity"] = 1.0
+        else:
+            similarity["complexity"] = 0.5 if (
+                job1.get("task_complexity") in ["low", "medium", "high"] and
+                job2.get("task_complexity") in ["low", "medium", "high"]
+            ) else 0.0
+
+        # Duration similarity (within 50%)
+        duration1 = job1.get("project_duration_days")
+        duration2 = job2.get("project_duration_days")
+        if duration1 and duration2:
+            ratio = min(duration1, duration2) / max(duration1, duration2)
+            similarity["duration"] = ratio
+        else:
+            similarity["duration"] = 0.5 if duration1 == duration2 else 0.0
+
+        return similarity
+
+    @staticmethod
+    def calculate_overall_similarity(similarity_scores: Dict[str, float]) -> float:
+        """
+        Calculate overall similarity from individual dimension scores.
+        
+        Uses weighted average with industry and skills most important.
+        """
+        weights = {
+            "industry": 0.25,
+            "skills": 0.25,
+            "task_type": 0.20,
+            "complexity": 0.15,
+            "duration": 0.15
+        }
+
+        total_score = 0.0
+        total_weight = 0.0
+
+        for dimension, score in similarity_scores.items():
+            weight = weights.get(dimension, 0.1)
+            total_score += score * weight
+            total_weight += weight
+
+        return total_score / total_weight if total_weight > 0 else 0.0
+
+    @staticmethod
+    def rank_similar_projects(
+        reference_job: Dict[str, Any],
+        all_jobs: List[Dict[str, Any]],
+        top_k: int = 5
+    ) -> List[Tuple[str, float]]:
+        """
+        Rank all jobs by similarity to reference job.
+        
+        Returns:
+            List of (contract_id, similarity_score) tuples, sorted by score descending
+        """
+        rankings = []
+
+        for job in all_jobs:
+            if job.get("contract_id") == reference_job.get("contract_id"):
+                continue  # Skip self-comparison
+
+            similarity_scores = MetadataExtractor.compare_projects(reference_job, job)
+            overall_similarity = MetadataExtractor.calculate_overall_similarity(similarity_scores)
+            
+            rankings.append((job.get("contract_id"), overall_similarity))
+
+        # Sort by similarity descending
+        rankings.sort(key=lambda x: x[1], reverse=True)
+
+        return rankings[:top_k] if top_k else rankings
+
+    @staticmethod
+    def generate_metadata_summary(job_data: Dict[str, Any]) -> str:
+        """
+        Generate a human-readable summary of extracted metadata.
+        
+        Returns:
+            Summary string
+        """
+        summary = f"""
+Metadata Summary for {job_data.get('contract_id')}:
+
+📊 Effectiveness Metrics:
+  - Proposal Effectiveness: {job_data.get('proposal_effectiveness_score', 0):.0%}
+  - Client Satisfaction: {job_data.get('client_satisfaction', 0)}/5
+  - Project Status: {job_data.get('project_status', 'unknown')}
+
+🎯 Task Profile:
+  - Complexity: {job_data.get('task_complexity', 'unknown')}
+  - Task Type: {job_data.get('task_type', 'unknown')}
+  - Duration: {job_data.get('project_duration_days', 'unknown')} days
+  - Industries: {', '.join(job_data.get('industry_tags', []))}
+
+💡 Reusable Elements:
+  - Sections: {', '.join(job_data.get('reusable_sections', [])) if job_data.get('reusable_sections') else 'None identified'}
+
+🛠️ Skills Required:
+  - {', '.join(job_data.get('skills_required', []))}
+"""
+        return summary

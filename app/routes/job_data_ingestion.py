@@ -14,6 +14,7 @@ import base64
 from fastapi import APIRouter, HTTPException, Query, status, UploadFile, File
 from typing import List, Optional
 import io
+from datetime import datetime
 from PIL import Image
 
 from app.models.job_data_schema import (
@@ -144,6 +145,10 @@ async def upload_job_data(job_data: JobDataUploadRequest):
         # Convert request to dict
         job_dict = job_data.model_dump(exclude_unset=False)
         
+        # Convert HttpUrl to string for MongoDB compatibility
+        if "client_feedback_url" in job_dict and job_dict["client_feedback_url"] is not None:
+            job_dict["client_feedback_url"] = str(job_dict["client_feedback_url"])
+        
         # Execute complete pipeline: store → chunks → embeddings → feedback → pinecone
         logger.info("🚀 Starting complete training pipeline...")
         pipeline_result = processor.process_complete_pipeline(job_dict, save_to_pinecone=True)
@@ -161,12 +166,12 @@ async def upload_job_data(job_data: JobDataUploadRequest):
             industry=stored_job["industry"],
             skills_required=stored_job.get("skills_required"),
             task_type=stored_job.get("task_type"),
-            project_status=stored_job["project_status"],
+            project_status=stored_job.get("project_status", "completed"),
             urgent_adhoc=stored_job.get("urgent_adhoc", False),
             start_date=stored_job.get("start_date"),
             end_date=stored_job.get("end_date"),
             portfolio_url=stored_job.get("portfolio_url"),
-            created_at=stored_job["created_at"],
+            created_at=stored_job.get("created_at", datetime.utcnow().isoformat()),
             updated_at=stored_job.get("updated_at")
         )
         
@@ -251,12 +256,12 @@ async def list_job_data(
                 industry=job["industry"],
                 skills_required=job.get("skills_required"),
                 task_type=job.get("task_type"),
-                project_status=job["project_status"],
+                project_status=job.get("project_status", "completed"),
                 urgent_adhoc=job.get("urgent_adhoc", False),
                 start_date=job.get("start_date"),
                 end_date=job.get("end_date"),
                 portfolio_url=job.get("portfolio_url"),
-                created_at=job["created_at"],
+                created_at=job.get("created_at", datetime.utcnow().isoformat()),
                 updated_at=job.get("updated_at")
             )
             for job in jobs
@@ -309,14 +314,15 @@ async def get_job_data(contract_id: str):
             your_proposal_text=job_data["your_proposal_text"],
             skills_required=job_data["skills_required"],
             industry=job_data["industry"],
-            project_status=job_data["project_status"],
+            project_status=job_data.get("project_status", "completed"),
             start_date=job_data.get("start_date"),
             end_date=job_data.get("end_date"),
             portfolio_url=job_data.get("portfolio_url"),
-            client_feedback=job_data.get("client_feedback"),
+            client_feedback_url=job_data.get("client_feedback_url"),
+            client_feedback_text=job_data.get("client_feedback_text"),
             task_type=job_data.get("task_type"),
             urgent_adhoc=job_data.get("urgent_adhoc", False),
-            created_at=job_data["created_at"],
+            created_at=job_data.get("created_at", datetime.utcnow().isoformat()),
             updated_at=job_data.get("updated_at"),
             chunks_count=job_data.get("chunks_count"),
             embedded_chunks_count=job_data.get("embedded_chunks_count")
@@ -392,9 +398,9 @@ async def get_job_chunks(
                 industry=chunk["industry"],
                 skills_required=chunk["skills_required"],
                 company_name=chunk["company_name"],
-                project_status=chunk["project_status"],
+                project_status=chunk.get("project_status", "completed"),
                 embedding_status=chunk["embedding_status"],
-                created_at=chunk["created_at"]
+                created_at=chunk.get("created_at", datetime.utcnow().isoformat())
             )
             for chunk in chunks
         ]
@@ -668,3 +674,5 @@ async def get_statistics():
     except Exception as e:
         logger.error(f"Error getting statistics: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve statistics")
+
+

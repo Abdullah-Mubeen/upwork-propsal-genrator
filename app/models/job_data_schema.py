@@ -7,7 +7,7 @@ Defines request/response models for:
 - Query responses
 - Error handling
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, HttpUrl
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
@@ -109,17 +109,13 @@ class JobDataUploadRequest(BaseModel):
         default_factory=list,
         description="List of portfolio or past work URLs"
     )
-    client_feedback: Optional[str] = Field(
-        None,
-        description="Client feedback or review text"
+    client_feedback_url: HttpUrl = Field(
+        ...,
+        description="URL to client feedback (required)"
     )
-    feedback_type: Optional[str] = Field(
-        "text",
-        description="Type of feedback: 'text' or 'image'"
-    )
-    feedback_image_path: Optional[str] = Field(
+    client_feedback_text: Optional[str] = Field(
         None,
-        description="Path or URL to feedback image (if feedback_type is 'image')"
+        description="Client feedback text (optional, extracted from URL)"
     )
     project_status: str = Field(
         "completed",
@@ -137,9 +133,45 @@ class JobDataUploadRequest(BaseModel):
         False,
         description="Whether this was an urgent/adhoc project"
     )
-    has_feedback: bool = Field(
-        False,
-        description="Whether client feedback is provided (auto-set)"
+    
+    # ===== NEW: Proposal tracking & analytics =====
+    proposal_status: Optional[str] = Field(
+        "submitted",
+        description="Status of the proposal: draft, submitted, accepted, rejected"
+    )
+    proposal_effectiveness_score: Optional[float] = Field(
+        None,
+        description="Effectiveness score 0-1 based on client feedback (automated)"
+    )
+    client_satisfaction: Optional[float] = Field(
+        None,
+        description="Client satisfaction 1-5 scale extracted from feedback"
+    )
+    
+    # ===== NEW: Contextual project info =====
+    project_duration_days: Optional[int] = Field(
+        None,
+        description="Project duration in days (auto-calculated from dates)"
+    )
+    estimated_budget: Optional[float] = Field(
+        None,
+        description="Estimated budget for the project in USD"
+    )
+    
+    # ===== NEW: Retrieval optimization =====
+    industry_tags: Optional[List[str]] = Field(
+        default_factory=list,
+        description="Industry classification tags (SaaS, E-commerce, Healthcare, etc.)"
+    )
+    task_complexity: Optional[str] = Field(
+        "medium",
+        description="Task complexity level: low, medium, high"
+    )
+    
+    # ===== NEW: Reusable sections =====
+    reusable_sections: Optional[List[str]] = Field(
+        default_factory=list,
+        description="Proposal sections that worked well and can be reused"
     )
     
     @validator("skills_required", pre=True)
@@ -154,14 +186,6 @@ class JobDataUploadRequest(BaseModel):
         if not v:
             raise ValueError("Skills list cannot be empty")
         return SkillsValidator.validate_skills(v)
-    
-    @validator("has_feedback", pre=True, always=True)
-    def set_has_feedback(cls, v, values):
-        """Auto-set has_feedback based on client_feedback presence"""
-        if "client_feedback" in values:
-            feedback = values.get("client_feedback")
-            return bool(feedback and (isinstance(feedback, str) and feedback.strip()))
-        return v or False
     
     @validator("company_name", "job_title", "industry")
     def strip_whitespace(cls, v):
@@ -193,9 +217,9 @@ class JobDataUploadRequest(BaseModel):
             return v if v else "other"
         return v or "other"
     
-    @validator("client_feedback", pre=True)
-    def validate_client_feedback(cls, v):
-        """Ensure client_feedback is properly handled"""
+    @validator("client_feedback_text", pre=True)
+    def validate_client_feedback_text(cls, v):
+        """Ensure client_feedback_text is properly handled"""
         if v is None or (isinstance(v, str) and not v.strip()):
             return None
         if isinstance(v, str):
@@ -222,12 +246,11 @@ class JobDataUploadRequest(BaseModel):
                 "task_type": "backend_api",
                 "project_status": "completed",
                 "urgent_adhoc": False,
-                "has_feedback": True,
                 "start_date": "2024-12-01",
                 "end_date": "2024-12-15",
                 "portfolio_urls": ["https://github.com/yourname", "https://yourportfolio.com"],
-                "client_feedback": "Great work! Very responsive.",
-                "feedback_type": "text"
+                "client_feedback_url": "https://upwork.com/reviews/feedback-123",
+                "client_feedback_text": "Great work! Very responsive."
             }
         }
 
@@ -241,9 +264,8 @@ class UpdateJobDataRequest(BaseModel):
     your_proposal_text: Optional[str] = Field(None, min_length=10)
     skills_required: Optional[List[str]] = Field(None, min_items=1)
     industry: Optional[str] = Field(None, max_length=100)
-    client_feedback: Optional[str] = Field(None)
-    feedback_type: Optional[str] = Field(None)
-    feedback_image_path: Optional[str] = Field(None)
+    client_feedback_url: Optional[HttpUrl] = Field(None, description="URL to client feedback")
+    client_feedback_text: Optional[str] = Field(None, description="Client feedback text")
     start_date: Optional[str] = Field(None, description="Project start date (ISO format)")
     end_date: Optional[str] = Field(None, description="Project end date (ISO format)")
     portfolio_urls: Optional[List[str]] = Field(None, description="List of portfolio URLs")
@@ -251,6 +273,20 @@ class UpdateJobDataRequest(BaseModel):
     task_type: Optional[str] = Field(None, description="Type of task/project")
     other_task_type: Optional[str] = Field(None, description="Custom task type")
     urgent_adhoc: Optional[bool] = Field(None)
+    
+    # ===== NEW: Proposal tracking fields =====
+    proposal_status: Optional[str] = Field(None, description="Status of the proposal")
+    proposal_effectiveness_score: Optional[float] = Field(None, description="Effectiveness score 0-1")
+    client_satisfaction: Optional[float] = Field(None, description="Client satisfaction 1-5")
+    
+    # ===== NEW: Project context fields =====
+    project_duration_days: Optional[int] = Field(None, description="Project duration in days")
+    estimated_budget: Optional[float] = Field(None, description="Estimated budget in USD")
+    
+    # ===== NEW: Retrieval optimization fields =====
+    industry_tags: Optional[List[str]] = Field(None, description="Industry classification tags")
+    task_complexity: Optional[str] = Field(None, description="Task complexity: low, medium, high")
+    reusable_sections: Optional[List[str]] = Field(None, description="Reusable proposal sections")
     
     @validator("skills_required", pre=True, always=True)
     def validate_skills(cls, v):
@@ -324,7 +360,8 @@ class JobDataDetailResponse(JobDataResponse):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     portfolio_url: Optional[str] = None
-    client_feedback: Optional[str] = None
+    client_feedback_url: Optional[str] = None
+    client_feedback_text: Optional[str] = None
     task_type: Optional[str] = Field(None, description="Type of task/project")
     urgent_adhoc: bool
     chunks_count: Optional[int] = Field(None, description="Number of chunks created")

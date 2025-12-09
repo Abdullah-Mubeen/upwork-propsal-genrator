@@ -86,7 +86,6 @@ class JobDataProcessor:
             job_data.setdefault("industry", "general")
             job_data.setdefault("project_status", "completed")
             job_data.setdefault("urgent_adhoc", False)
-            job_data.setdefault("has_feedback", False)
             
             # Store in database
             result = self.db.insert_training_data(job_data)
@@ -97,6 +96,145 @@ class JobDataProcessor:
         except Exception as e:
             logger.error(f"✗ Error processing job data: {str(e)}")
             raise
+    
+    def process_and_save_skills(self, contract_id: str, skills: List[str]) -> Tuple[int, int]:
+        """
+        Extract, process and save skills from job data
+        
+        Steps:
+        1. Save unique skills to skills collection
+        2. Generate embeddings for skill descriptions
+        3. Save skill embeddings to database
+        4. Store skills in Pinecone for keyword matching
+        
+        Args:
+            contract_id: Contract ID for reference
+            skills: List of skill names
+            
+        Returns:
+            Tuple of (skills_saved, embeddings_created)
+            
+        Raises:
+            Exception: If processing fails
+        """
+        try:
+            if not skills:
+                logger.info(f"No skills provided for {contract_id}")
+                return 0, 0
+            
+            logger.info(f"Processing {len(skills)} skills for contract: {contract_id}")
+            
+            # Save skills to MongoDB collection
+            skill_ids = self.db.save_skills(contract_id, skills)
+            
+            if not skill_ids:
+                logger.warning(f"No skills were saved for {contract_id}")
+                return 0, 0
+            
+            logger.info(f"✓ Saved {len(skill_ids)} unique skills")
+            
+            # Generate embeddings for skills
+            embeddings_count = 0
+            
+            for skill in skills:
+                if not skill or not isinstance(skill, str):
+                    continue
+                
+                try:
+                    # Check if embedding already exists
+                    existing_embedding = self.db.get_skill_embedding(skill)
+                    
+                    if existing_embedding:
+                        logger.debug(f"Skill embedding already exists: {skill}")
+                        embeddings_count += 1
+                        continue
+                    
+                    # Generate embedding for skill
+                    skill_embedding = self.openai_service.get_embedding(
+                        text=skill,
+                        dimensions=settings.PINECONE_DIMENSION
+                    )
+                    
+                    if skill_embedding:
+                        self.db.save_skill_embedding(skill, skill_embedding)
+                        embeddings_count += 1
+                
+                except Exception as e:
+                    logger.warning(f"Could not generate embedding for skill '{skill}': {str(e)}")
+                    continue
+            
+            logger.info(f"✓ Generated {embeddings_count} skill embeddings")
+            return len(skill_ids), embeddings_count
+        
+        except Exception as e:
+            logger.error(f"✗ Error processing skills: {str(e)}")
+            raise
+    
+    def save_skills_to_pinecone(self, contract_id: str, skills: List[str]) -> int:
+        """
+        Save skill vectors to Pinecone for keyword matching
+        
+        Args:
+            contract_id: Contract ID for reference
+            skills: List of skills to save
+            
+        Returns:
+            Number of skill vectors saved to Pinecone
+        """
+        if not self.pinecone_service:
+            logger.warning("Pinecone service not initialized, skipping skill vectors")
+            return 0
+        
+        try:
+            logger.info(f"Saving {len(skills)} skill vectors to Pinecone for {contract_id}")
+            
+            vectors_to_upsert = []
+            
+            for idx, skill in enumerate(skills):
+                if not skill or not isinstance(skill, str):
+                    continue
+                
+                # Get skill embedding
+                skill_embedding = self.db.get_skill_embedding(skill)
+                
+                if not skill_embedding or len(skill_embedding) == 0:
+                    logger.debug(f"Skipping skill {skill}: no embedding")
+                    continue
+                
+                # Check for all-zero vector
+                if all(v == 0.0 for v in skill_embedding):
+                    logger.warning(f"Skipping skill {skill}: all-zero vector")
+                    continue
+                
+                # Create vector ID and metadata
+                vector_id = f"{contract_id}_skill_{skill.lower().replace(' ', '_')}"
+                
+                metadata = {
+                    "contract_id": contract_id,
+                    "skill_name": skill,
+                    "vector_type": "skill",
+                    "created_at": str(datetime.utcnow())
+                }
+                
+                vectors_to_upsert.append((
+                    vector_id,
+                    skill_embedding,
+                    metadata
+                ))
+            
+            if not vectors_to_upsert:
+                logger.warning(f"No valid skill embeddings to upsert for {contract_id}")
+                return 0
+            
+            # Upsert to Pinecone
+            upserted_count = self.pinecone_service.upsert_vectors(vectors_to_upsert)
+            logger.info(f"✓ Successfully saved {upserted_count} skill vectors to Pinecone")
+            
+            return upserted_count
+        
+        except Exception as e:
+            logger.error(f"✗ Error saving skills to Pinecone: {str(e)}")
+            return 0
     
     def process_and_chunk_job(
         self,
@@ -271,7 +409,8 @@ class JobDataProcessor:
         contract_id: str,
         feedback_text: str,
         feedback_type: str = "text",
-        sentiment: str = "neutral"
+        sentiment: str = "neutral",
+        feedback_url: str = None
     ) -> str:
         """
         Save feedback to feedback_data collection
@@ -281,6 +420,7 @@ class JobDataProcessor:
             feedback_text: Feedback content
             feedback_type: Type of feedback (text, image, etc)
             sentiment: Sentiment analysis result (positive, negative, neutral)
+            feedback_url: URL to the feedback source
             
         Returns:
             Feedback document ID
@@ -294,6 +434,7 @@ class JobDataProcessor:
                 "feedback_text": feedback_text,
                 "feedback_type": feedback_type,
                 "sentiment": sentiment,
+                "feedback_url": feedback_url,
                 "created_at": datetime.utcnow(),
                 "length": len(feedback_text) if feedback_text else 0
             }
@@ -583,6 +724,15 @@ class JobDataProcessor:
                     continue
                 
                 # Create rich metadata for AI training
+                # Ensure skills is a proper array, not a string
+                skills = chunk.get("skills_required", [])
+                if isinstance(skills, str):
+                    try:
+                        import json
+                        skills = json.loads(skills)
+                    except:
+                        skills = []
+                
                 metadata = {
                     "contract_id": contract_id,
                     "chunk_id": chunk_id,
@@ -591,17 +741,20 @@ class JobDataProcessor:
                     "company_name": job_data.get("company_name", ""),
                     "job_title": job_data.get("job_title", ""),
                     "industry": job_data.get("industry", "general"),
-                    "skills": chunk.get("skills_required", []),
+                    "skills": skills,
                     "task_type": job_data.get("task_type", "other"),
                     "urgent": job_data.get("urgent_adhoc", False),
                     "project_status": job_data.get("project_status", "completed"),
-                    "has_feedback": job_data.get("has_feedback", False),
                     "portfolio_url": job_data.get("portfolio_url", ""),
+                    "client_feedback_url": str(job_data.get("client_feedback_url", "")),
+                    "client_feedback_text": job_data.get("client_feedback_text", ""),
                     "created_at": str(job_data.get("created_at", ""))
                 }
                 
-                # Use embedding ID as vector ID
-                vector_id = embedding.get("pinecone_vector_id", f"{contract_id}_{chunk_id}")
+                # Generate clean vector ID: contract_id_chunk_type_index (no duplicate)
+                # The chunk_id is already in format: contract_id_chunk_type_idx
+                # So we use it directly as the vector_id
+                vector_id = chunk_id
                 
                 vectors_to_upsert.append((
                     vector_id,
@@ -654,8 +807,8 @@ class JobDataProcessor:
                 "skills_required": job_data.get("skills_required", []),
                 "project_status": job_data.get("project_status", "completed"),
                 "urgent_adhoc": job_data.get("urgent_adhoc", False),
-                "has_feedback": job_data.get("has_feedback", False),
                 "portfolio_url": job_data.get("portfolio_url", ""),
+                "client_feedback_url": job_data.get("client_feedback_url", ""),
                 "status": "completed",
                 "created_at": datetime.utcnow(),
                 "proposal_length": len(job_data.get("your_proposal_text", ""))
@@ -716,19 +869,22 @@ class JobDataProcessor:
             
             # Step 4: Handle feedback
             logger.info("💬 Step 4: Processing feedback...")
-            if job_data.get("client_feedback"):
+            feedback_text = job_data.get("client_feedback_text") or job_data.get("client_feedback")
+            feedback_url = job_data.get("client_feedback_url")
+            if feedback_text:
                 try:
                     self.save_feedback_to_collection(
                         contract_id,
-                        job_data["client_feedback"],
+                        feedback_text,
                         feedback_type="text",
-                        sentiment="neutral"
+                        sentiment="neutral",
+                        feedback_url=feedback_url
                     )
                     logger.info(f"✓ Feedback saved to collection")
                 except Exception as e:
                     logger.warning(f"Could not save feedback: {str(e)}")
             else:
-                logger.info("⊘ No feedback provided")
+                logger.info("⊘ No feedback text provided")
             
             # Step 5: Save proposal reference
             logger.info("📄 Step 5: Saving proposal record...")
@@ -750,6 +906,27 @@ class JobDataProcessor:
             else:
                 logger.info("⊘ Pinecone save skipped")
             
+            # Step 7: Process and save skills
+            logger.info("🔧 Step 7: Processing skills...")
+            skills = job_data.get("skills_required", [])
+            skills_saved = 0
+            skills_embeddings = 0
+            skills_pinecone = 0
+            
+            if skills:
+                try:
+                    skills_saved, skills_embeddings = self.process_and_save_skills(contract_id, skills)
+                    logger.info(f"✓ Saved {skills_saved} unique skills with {skills_embeddings} embeddings")
+                    
+                    # Save skill vectors to Pinecone
+                    if save_to_pinecone and skills_embeddings > 0:
+                        skills_pinecone = self.save_skills_to_pinecone(contract_id, skills)
+                        logger.info(f"✓ Saved {skills_pinecone} skill vectors to Pinecone")
+                except Exception as e:
+                    logger.warning(f"Could not process skills: {str(e)}")
+            else:
+                logger.info("⊘ No skills provided")
+            
             logger.info("=" * 60)
             logger.info("✅ PIPELINE COMPLETE")
             logger.info("=" * 60)
@@ -761,7 +938,10 @@ class JobDataProcessor:
                 "embeddings_created": embeddings_count,
                 "embeddings_failed": failed_count,
                 "pinecone_vectors": pinecone_count,
-                "feedback_saved": bool(job_data.get("client_feedback"))
+                "skills_saved": skills_saved,
+                "skills_embeddings": skills_embeddings,
+                "skills_pinecone_vectors": skills_pinecone,
+                "feedback_saved": bool(job_data.get("client_feedback_text") or job_data.get("client_feedback"))
             }
         
         except Exception as e:

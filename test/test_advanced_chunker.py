@@ -1,11 +1,12 @@
 """
-Test suite for Advanced Data Chunking Strategy
+Test suite for Advanced Data Chunking Strategy (5-Layer Semantic)
 
-Tests the 4-chunk strategy:
-1. JOB_FACTS_CHUNK
-2. PROPOSAL_CHUNK
-3. FEEDBACK_CHUNK
-4. TEMPLATE_CHUNK
+Tests the 5-layer semantic strategy:
+1. CONTEXT_SNAPSHOT
+2. REQUIREMENTS_PROFILE
+3. TIMELINE_SCOPE
+4. DELIVERABLES_PORTFOLIO
+5. FEEDBACK_OUTCOMES
 """
 
 import json
@@ -17,10 +18,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.utils.advanced_chunker import (
     AdvancedChunkProcessor,
-    JobFactsChunker,
-    ProposalChunker,
-    FeedbackChunker,
-    TemplateChunker,
+    ContextSnapshotChunker,
+    RequirementsProfileChunker,
+    TimelineScopeChunker,
+    DeliverablesPortfolioChunker,
+    FeedbackOutcomesChunker,
     ChunkTypeEnum
 )
 
@@ -98,164 +100,126 @@ SAMPLE_JOB_DATA = {
 }
 
 
-def test_job_facts_chunker():
-    """Test JOB_FACTS_CHUNK creation"""
+def test_context_snapshot():
+    """Test CONTEXT_SNAPSHOT chunk creation"""
     print("\n" + "="*70)
-    print("TEST 1: JOB_FACTS_CHUNK")
+    print("TEST 1: CONTEXT_SNAPSHOT")
     print("="*70)
     
-    chunk = JobFactsChunker.extract_job_facts(SAMPLE_JOB_DATA)
+    chunk = ContextSnapshotChunker.extract(SAMPLE_JOB_DATA)
     
-    assert chunk is not None, "JOB_FACTS_CHUNK should not be None"
-    assert chunk["chunk_type"] == ChunkTypeEnum.JOB_FACTS.value
+    assert chunk is not None, "CONTEXT_SNAPSHOT should not be None"
+    assert chunk["chunk_type"] == ChunkTypeEnum.CONTEXT_SNAPSHOT.value
     assert "text" in chunk
     assert "metadata" in chunk
-    assert len(chunk["text"]) > 0
     
-    # Verify cleaned text (no URLs, no extra formatting)
-    assert "http" not in chunk["text"].lower(), "Text should not contain URLs"
-    assert "<" not in chunk["text"], "Text should not contain HTML tags"
-    
-    # Verify metadata
     metadata = chunk["metadata"]
-    assert metadata["job_id"] == SAMPLE_JOB_DATA["contract_id"]
-    assert metadata["title"] == SAMPLE_JOB_DATA["job_title"]
-    assert metadata["company"] == SAMPLE_JOB_DATA["company_name"]
-    assert len(metadata["skills"]) > 0
+    assert metadata["industry"] == SAMPLE_JOB_DATA["industry"]
+    assert metadata["task_type"] == SAMPLE_JOB_DATA["task_type"]
     
-    print(f"✓ JOB_FACTS_CHUNK created successfully")
+    print(f"✓ CONTEXT_SNAPSHOT created successfully")
+    print(f"  - Text: {chunk['text'][:100]}...")
+    print(f"  - Industry: {metadata['industry']}")
+    print(f"  - Task type: {metadata['task_type']}")
+    print(f"  - Urgency: {metadata.get('urgency', 'normal')}")
+    
+    json_str = json.dumps(chunk, default=str)
+    assert json_str, "Should be JSON serializable"
+    
+    return chunk
+
+
+def test_requirements_profile():
+    """Test REQUIREMENTS_PROFILE chunk creation"""
+    print("\n" + "="*70)
+    print("TEST 2: REQUIREMENTS_PROFILE")
+    print("="*70)
+    
+    chunk = RequirementsProfileChunker.extract(SAMPLE_JOB_DATA)
+    
+    assert chunk is not None, "REQUIREMENTS_PROFILE should not be None"
+    assert chunk["chunk_type"] == ChunkTypeEnum.REQUIREMENTS_PROFILE.value
+    
+    metadata = chunk["metadata"]
+    assert len(metadata["skills"]) > 0, "Should have skills"
+    
+    print(f"✓ REQUIREMENTS_PROFILE created successfully")
     print(f"  - Text length: {chunk['length']} chars")
-    print(f"  - Skills: {metadata['skills']}")
-    print(f"  - Urgency: {metadata['urgency']}")
-    print(f"  - Category: {metadata['category']}")
-    print(f"  - JSON serializable: ✓")
+    print(f"  - Skills: {', '.join(metadata['skills'])}")
+    print(f"  - Complexity: {metadata.get('task_complexity', 'medium')}")
     
-    # Test JSON serialization
     json_str = json.dumps(chunk, default=str)
     assert json_str, "Should be JSON serializable"
-    print(f"  - JSON size: {len(json_str)} bytes")
     
     return chunk
 
 
-def test_proposal_chunker():
-    """Test PROPOSAL_CHUNK creation (never split)"""
+def test_timeline_scope():
+    """Test TIMELINE_SCOPE chunk creation"""
     print("\n" + "="*70)
-    print("TEST 2: PROPOSAL_CHUNK (Never Split)")
+    print("TEST 3: TIMELINE_SCOPE")
     print("="*70)
     
-    chunk = ProposalChunker.extract_proposal(SAMPLE_JOB_DATA)
+    chunk = TimelineScopeChunker.extract(SAMPLE_JOB_DATA)
     
-    assert chunk is not None, "PROPOSAL_CHUNK should not be None"
-    assert chunk["chunk_type"] == ChunkTypeEnum.PROPOSAL.value
+    assert chunk is not None, "TIMELINE_SCOPE should not be None"
+    assert chunk["chunk_type"] == ChunkTypeEnum.TIMELINE_SCOPE.value
     
-    # CRITICAL: Verify proposal is NEVER split
-    original_length = len(SAMPLE_JOB_DATA["your_proposal_text"].strip())
-    chunk_length = len(chunk["text"])
-    assert chunk_length == original_length, f"Proposal should NOT be split. Original: {original_length}, Chunk: {chunk_length}"
-    
-    # Verify metadata
     metadata = chunk["metadata"]
-    assert metadata["did_win"] == (SAMPLE_JOB_DATA["project_status"] == "completed")
-    assert len(metadata["skills"]) > 0
+    print(f"✓ TIMELINE_SCOPE created successfully")
+    print(f"  - Duration: {metadata.get('duration_days', 'N/A')} days")
+    print(f"  - Is completed: {metadata.get('is_completed', False)}")
+    print(f"  - Text: {chunk['text'][:100]}...")
     
-    print(f"✓ PROPOSAL_CHUNK created successfully (NO SPLIT)")
-    print(f"  - Original length: {original_length} chars")
-    print(f"  - Chunk length: {chunk_length} chars")
-    print(f"  - Did win: {metadata['did_win']}")
-    print(f"  - Style: {metadata['style']}")
-    print(f"  - Tone: {metadata['tone']}")
-    
-    # Test JSON serialization
     json_str = json.dumps(chunk, default=str)
     assert json_str, "Should be JSON serializable"
-    print(f"  - JSON size: {len(json_str)} bytes")
     
     return chunk
 
 
-def test_feedback_chunker():
-    """Test FEEDBACK_CHUNK creation (cleaned)"""
+def test_deliverables_portfolio():
+    """Test DELIVERABLES_PORTFOLIO chunk creation"""
     print("\n" + "="*70)
-    print("TEST 3: FEEDBACK_CHUNK (Cleaned)")
+    print("TEST 4: DELIVERABLES_PORTFOLIO")
     print("="*70)
     
-    chunk = FeedbackChunker.extract_feedback(SAMPLE_JOB_DATA)
+    chunk = DeliverablesPortfolioChunker.extract(SAMPLE_JOB_DATA)
     
-    assert chunk is not None, "FEEDBACK_CHUNK should not be None"
-    assert chunk["chunk_type"] == ChunkTypeEnum.FEEDBACK.value
+    if chunk is not None:
+        assert chunk["chunk_type"] == ChunkTypeEnum.DELIVERABLES_PORTFOLIO.value
+        print(f"✓ DELIVERABLES_PORTFOLIO created successfully")
+        print(f"  - Text: {chunk['text'][:100]}...")
+        
+        json_str = json.dumps(chunk, default=str)
+        assert json_str, "Should be JSON serializable"
+    else:
+        print(f"✓ DELIVERABLES_PORTFOLIO skipped (no portfolio URLs)")
     
-    # Verify cleaning
-    text = chunk["text"]
-    assert "★" not in text, "Feedback should not contain star symbols"
-    assert "Date:" not in text, "Feedback should not contain dates"
-    assert "Review by:" not in text, "Feedback should not contain labels"
+    return chunk
+
+
+def test_feedback_outcomes():
+    """Test FEEDBACK_OUTCOMES chunk creation"""
+    print("\n" + "="*70)
+    print("TEST 5: FEEDBACK_OUTCOMES")
+    print("="*70)
     
-    # Verify sentiment detection
+    chunk = FeedbackOutcomesChunker.extract(SAMPLE_JOB_DATA)
+    
+    assert chunk is not None, "FEEDBACK_OUTCOMES should not be None"
+    assert chunk["chunk_type"] == ChunkTypeEnum.FEEDBACK_OUTCOMES.value
+    
     metadata = chunk["metadata"]
-    print(f"  - Detected sentiment: {metadata['sentiment']}")
-    assert metadata["sentiment"] in ["positive", "negative", "neutral", "mixed"]
-    
-    print(f"✓ FEEDBACK_CHUNK created successfully (CLEANED)")
-    print(f"  - Original feedback had stars and dates: ✓ Removed")
+    print(f"✓ FEEDBACK_OUTCOMES created successfully")
     print(f"  - Text length: {chunk['length']} chars")
-    print(f"  - Sentiment: {metadata['sentiment']}")
+    print(f"  - Effectiveness: {metadata.get('proposal_effectiveness', 'N/A')}")
+    print(f"  - Satisfaction: {metadata.get('client_satisfaction', 'N/A')}/5")
     
-    # Test JSON serialization
     json_str = json.dumps(chunk, default=str)
     assert json_str, "Should be JSON serializable"
-    print(f"  - JSON size: {len(json_str)} bytes")
     
     return chunk
 
-
-def test_template_chunker():
-    """Test TEMPLATE_CHUNK creation"""
-    print("\n" + "="*70)
-    print("TEST 4: TEMPLATE_CHUNK")
-    print("="*70)
-    
-    template_text = """
-    Professional Project Proposal Template
-    
-    Subject: Proposal for [PROJECT_NAME] - [COMPANY_NAME]
-    
-    Dear [HIRING_MANAGER],
-    
-    I am writing to express my strong interest in [PROJECT_DESCRIPTION].
-    With [YEARS] years of experience in [DOMAIN], I am confident I can deliver exceptional results.
-    
-    Key Qualifications:
-    • Expertise in [SKILL_1], [SKILL_2], [SKILL_3]
-    • Proven track record with [RELEVANT_ACHIEVEMENT]
-    • Strong communication and team collaboration skills
-    
-    Project Approach:
-    1. Initial discovery and requirements gathering
-    2. Technical architecture and planning
-    3. Implementation and development
-    4. Testing and quality assurance
-    5. Deployment and support
-    
-    Timeline: [DURATION]
-    Investment: [BUDGET]
-    
-    I would welcome the opportunity to discuss this proposal further.
-    
-    Best regards,
-    [YOUR_NAME]
-    """
-    
-    chunk = TemplateChunker.extract_template(
-        template_name="Professional Proposal",
-        template_text=template_text,
-        category="formal_proposal",
-        use_cases=["web_development", "consultation", "technical_projects"]
-    )
-    
-    assert chunk is not None
-    assert chunk["chunk_type"] == ChunkTypeEnum.TEMPLATE.value
-    assert "template_name" in chunk["metadata"]
     
     print(f"✓ TEMPLATE_CHUNK created successfully")
     print(f"  - Template name: {chunk['metadata']['template_name']}")
@@ -358,27 +322,29 @@ def run_all_tests():
     print("\n")
     print("╔" + "="*68 + "╗")
     print("║" + " "*68 + "║")
-    print("║" + " ADVANCED CHUNKING STRATEGY - TEST SUITE".center(68) + "║")
+    print("║" + " ADVANCED CHUNKING STRATEGY (5-LAYER) - TEST SUITE".center(68) + "║")
     print("║" + " "*68 + "║")
     print("╚" + "="*68 + "╝")
     
     try:
-        test_job_facts_chunker()
-        test_proposal_chunker()
-        test_feedback_chunker()
-        test_template_chunker()
+        test_context_snapshot()
+        test_requirements_profile()
+        test_timeline_scope()
+        test_deliverables_portfolio()
+        test_feedback_outcomes()
         test_advanced_processor()
         test_json_validation()
         
         print("\n" + "="*70)
         print("✓ ALL TESTS PASSED!")
         print("="*70)
-        print("\nSummary:")
-        print("  ✓ JOB_FACTS_CHUNK: Cleaned job descriptions with metadata")
-        print("  ✓ PROPOSAL_CHUNK: Full proposals (never split)")
-        print("  ✓ FEEDBACK_CHUNK: Cleaned feedback (no noise)")
-        print("  ✓ TEMPLATE_CHUNK: Writing templates")
-        print("  ✓ All chunks are JSON-ready for embedding")
+        print("\nSummary (5-Layer Semantic Strategy):")
+        print("  ✓ CONTEXT_SNAPSHOT: Company, industry, job title, urgency")
+        print("  ✓ REQUIREMENTS_PROFILE: Skills, job description, complexity")
+        print("  ✓ TIMELINE_SCOPE: Duration, status, timeline analysis")
+        print("  ✓ DELIVERABLES_PORTFOLIO: Portfolio links for reference")
+        print("  ✓ FEEDBACK_OUTCOMES: Client feedback, success patterns")
+        print("  ✓ All chunks are JSON-ready with enhanced metadata")
         print("  ✓ Backward compatible with existing DataChunker interface")
         print("\n")
         
@@ -394,3 +360,4 @@ def run_all_tests():
 
 if __name__ == "__main__":
     run_all_tests()
+

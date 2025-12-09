@@ -13,11 +13,11 @@
   "task_type": "backend_api",
   "project_status": "completed",
   "urgent_adhoc": true,
-  "has_feedback": true,
   "start_date": "2024-12-02",
   "end_date": "2024-12-05",
-  "portfolio_url": "https://github.com/yourname/fintech-optimization",
-  "client_feedback": "Outstanding work! They diagnosed the issue in 2 hours and had a fix deployed by day 1. The system now handles 3x the load. Highly responsive, great communicator. Would hire again immediately."
+  "portfolio_urls": ["https://github.com/yourname/fintech-optimization"],
+  "client_feedback_url": "https://upwork.com/reviews/fintech-payment-api",
+  "client_feedback_text": "Outstanding work! They diagnosed the issue in 2 hours and had a fix deployed by day 1. The system now handles 3x the load. Highly responsive, great communicator. Would hire again immediately."
 }
 ```
 
@@ -38,11 +38,11 @@
   "task_type": "full_stack",
   "project_status": "completed",
   "urgent_adhoc": false,
-  "has_feedback": true,
   "start_date": "2024-11-01",
   "end_date": "2024-12-10",
-  "portfolio_url": "https://github.com/yourname/brandco-website",
-  "client_feedback": "Fantastic team! They delivered exactly what we needed. The website looks professional, loads incredibly fast, and our SEO rankings improved significantly within 2 weeks. Great attention to detail. Exceeded expectations."
+  "portfolio_urls": ["https://github.com/yourname/brandco-website"],
+  "client_feedback_url": "https://upwork.com/reviews/brandco-marketing-website",
+  "client_feedback_text": "Fantastic team! They delivered exactly what we needed. The website looks professional, loads incredibly fast, and our SEO rankings improved significantly within 2 weeks. Great attention to detail. Exceeded expectations."
 }
 ```
 
@@ -63,11 +63,11 @@
   "task_type": "mobile_app",
   "project_status": "ongoing",
   "urgent_adhoc": false,
-  "has_feedback": false,
   "start_date": "2024-10-15",
   "end_date": "2025-01-13",
-  "portfolio_url": "https://apps.apple.com/us/developer/yourname/id1234567890",
-  "client_feedback": null
+  "portfolio_urls": ["https://apps.apple.com/us/developer/yourname/id1234567890"],
+  "client_feedback_url": "https://upwork.com/profile/fittrack-project",
+  "client_feedback_text": null
 }
 ```
 
@@ -88,11 +88,11 @@
   "task_type": "frontend",
   "project_status": "completed",
   "urgent_adhoc": true,
-  "has_feedback": true,
   "start_date": "2024-12-03",
   "end_date": "2024-12-05",
-  "portfolio_url": "https://github.com/yourname/react-performance",
-  "client_feedback": "Lifesaver! They found the problem within 2 hours - we had accidentally added a memory leak in Redux middleware. Fixed it, deployed, and everything works perfectly now. Response time back to 1.1s. What would have taken us days was done in hours. Highly professional."
+  "portfolio_urls": ["https://github.com/yourname/react-performance"],
+  "client_feedback_url": "https://upwork.com/reviews/startupxyz-emergency",
+  "client_feedback_text": "Lifesaver! They found the problem within 2 hours - we had accidentally added a memory leak in Redux middleware. Fixed it, deployed, and everything works perfectly now. Response time back to 1.1s. What would have taken us days was done in hours. Highly professional."
 }
 ```
 
@@ -113,11 +113,11 @@
   "task_type": "consultation",
   "project_status": "completed",
   "urgent_adhoc": false,
-  "has_feedback": true,
   "start_date": "2024-11-20",
   "end_date": "2024-12-03",
-  "portfolio_url": "https://linkedin.com/in/yourname",
-  "client_feedback": "Exceptional insights. Their recommendations guided our entire transformation. The roadmap was realistic and detailed. Their team was knowledgeable, collaborative, and helped us avoid costly mistakes. Exactly what we needed."
+  "portfolio_urls": ["https://linkedin.com/in/yourname"],
+  "client_feedback_url": "https://upwork.com/reviews/enterprisecorp-consultation",
+  "client_feedback_text": "Exceptional insights. Their recommendations guided our entire transformation. The roadmap was realistic and detailed. Their team was knowledgeable, collaborative, and helped us avoid costly mistakes. Exactly what we needed."
 }
 ```
 
@@ -171,7 +171,8 @@ db.training_data.find().pretty()
   contract_id: "job_a1b2c3d4",
   company_name: "...",
   job_title: "...",
-  has_feedback: true/false,
+  client_feedback_url: "https://...",
+  client_feedback_text: "...",
   urgent_adhoc: true/false,
   created_at: ISODate(...),
   updated_at: ISODate(...)
@@ -217,10 +218,10 @@ After running all 5 test scenarios, you should have:
 - ✅ **25 chunks** total in `chunks` collection (5 per job)
 - ✅ **25 embeddings** in `embeddings` collection
 - ✅ **25 Pinecone vectors** with rich metadata
-- ✅ **3 feedback records** in `feedback_data` collection (scenarios 1, 2, 4, 5 have feedback)
+- ✅ **3 feedback records** in `feedback_data` collection (scenarios 1, 2, 4, 5 have feedback - scenario 3 has none)
 - ✅ **All contract_ids** in format `job_<8-chars>`
-- ✅ **has_feedback flag** correctly set (true for 4 jobs, false for 1)
-- ✅ **No errors** in logs
+- ✅ **All feedback URLs** stored correctly (client_feedback_url field)
+- ✅ **All feedback text** stored correctly (client_feedback_text field)
 
 ---
 
@@ -228,13 +229,19 @@ After running all 5 test scenarios, you should have:
 
 | Issue | Solution |
 |-------|----------|
-| **Contract_id is full UUID** | Update `app/db.py` line 183 (should use `uuid.uuid4().hex[:8]`) |
-| **has_feedback always false** | Check `job_data_schema.py` validator is applied |
-| **Feedback not in MongoDB** | Check logs, verify `client_feedback` field is not empty |
+
+| **Feedback text not in MongoDB** | Check logs, verify `client_feedback_text` field is not empty |
+| **Pinecone vectors not saving** | Check `PINECONE_API_KEY` and `PINECONE_HOST` in `.env` |
+| **Chunks not created** | Check `job_description` and `your_proposal_text` are long enough |
+| **Embeddings generation fails** | Check `OPENAI_API_KEY` is valid in `.env` |
+| **Server won't start** | Check all environment variables in `.env` are set || **Contract_id is full UUID** | Update `app/db.py` line 289 (should use `uuid.uuid4().hex[:8]`) |
+| **Feedback URL not stored** | Check `client_feedback_url` field is provided in request |
+| **Feedback text not in MongoDB** | Check logs, verify `client_feedback_text` field is not empty |
 | **Pinecone vectors not saving** | Check `PINECONE_API_KEY` and `PINECONE_HOST` in `.env` |
 | **Chunks not created** | Check `job_description` and `your_proposal_text` are long enough |
 | **Embeddings generation fails** | Check `OPENAI_API_KEY` is valid in `.env` |
 | **Server won't start** | Check all environment variables in `.env` are set |
+| **Skills stored as string** | Ensure job_data_processor properly parses skills array from chunks |
 
 ---
 
