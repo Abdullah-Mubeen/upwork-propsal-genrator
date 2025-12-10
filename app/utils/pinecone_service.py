@@ -45,18 +45,19 @@ class PineconeService:
             index_names = [idx.name for idx in existing_indexes]
             
             if self.index_name in index_names:
-                # Check if dimension matches
+                # Index exists - use it without deleting data
                 idx = self.pc.Index(self.index_name)
                 idx_info = self.pc.describe_index(self.index_name)
                 existing_dim = idx_info.dimension if hasattr(idx_info, 'dimension') else None
                 
                 if existing_dim and existing_dim != self.dimension:
-                    logger.warning(f"Index {self.index_name} has dimension {existing_dim}, but expecting {self.dimension}. Deleting and recreating...")
-                    self.pc.delete_index(self.index_name)
-                    logger.info(f"Deleted index: {self.index_name}")
+                    logger.warning(f"Index {self.index_name} has dimension {existing_dim}, but expecting {self.dimension}. Using existing index without modification (preserving data).")
+                    # Use existing index without deleting - do not recreate
+                    logger.info(f"Using existing index: {self.index_name} to preserve historical data")
                 else:
                     logger.info(f"Index {self.index_name} already exists with correct dimension")
-                    return idx
+                
+                return idx
             
             logger.info(f"Creating new index: {self.index_name} with dimension {self.dimension}")
             self.pc.create_index(

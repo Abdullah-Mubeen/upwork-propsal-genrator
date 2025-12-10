@@ -274,65 +274,8 @@ async def generate_proposal(request: GenerateProposalRequest):
         if quality_score.get("overall_score", 1.0) < 0.85:
             improvement_suggestions = _generate_improvement_suggestions(quality_score)
         
-        # Step 8: Save to database
-        logger.info(f"[ProposalAPI] Step 8: Saving proposal to database...")
-        
-        try:
-            proposal_record = {
-                "job_title": request.job_title,
-                "company_name": request.company_name,
-                "job_description": request.job_description,
-                "generated_proposal": proposal_text,
-                "word_count": word_count,
-                "proposal_style": request.proposal_style,
-                "proposal_tone": request.tone,
-                "source": "intelligent_generation",
-                "similar_projects_count": len(similar_projects[:request.similar_projects_count]),
-                "portfolio_links_used": portfolio_links_used,
-                "feedback_urls_used": feedback_urls_used,
-                "quality_score": quality_score.get("overall_score", 0),
-                "created_at": datetime.utcnow().isoformat()
-            }
-            
-            result = db.db.proposals.insert_one(proposal_record)
-            logger.info(f"✓ [ProposalAPI] Saved to MongoDB: {result.inserted_id}")
-            
-        except Exception as e:
-            logger.error(f"Failed to save proposal to DB: {str(e)}", exc_info=True)
-        
-        # Step 9: Save to Pinecone
-        try:
-            from app.utils.pinecone_service import PineconeService
-            pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
-            
-            logger.info(f"[ProposalAPI] Embedding and saving to Pinecone...")
-            
-            # Embed the proposal
-            embedding = openai_service.get_embedding(proposal_text)
-            
-            # Prepare Pinecone metadata
-            vector_id = f"proposal_{request.company_name.replace(' ', '_')}_{datetime.utcnow().timestamp()}"
-            
-            pinecone_metadata = {
-                "type": "generated_proposal",
-                "job_title": request.job_title,
-                "company_name": request.company_name,
-                "proposal_style": request.proposal_style,
-                "proposal_tone": request.tone,
-                "word_count": word_count,
-                "industry": request.industry or "unknown",
-                "task_type": request.task_type or "unknown",
-                "quality_score": quality_score.get("overall_score", 0),
-                "created_at": datetime.utcnow().isoformat()
-            }
-            
-            # Upsert to Pinecone
-            pinecone_service.upsert_vectors([(vector_id, embedding, pinecone_metadata)])
-            logger.info(f"✓ [ProposalAPI] Saved to Pinecone: {vector_id}")
-            
-        except Exception as e:
-            logger.error(f"Failed to save to Pinecone: {str(e)}", exc_info=True)
-        
+        # NOTE: Generated proposals are only returned in response.
+        # Only historical job data is saved to MongoDB and Pinecone.
         logger.info(f"✓ [ProposalAPI] Proposal generation complete!")
         
         # Return response
