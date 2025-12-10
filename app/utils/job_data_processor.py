@@ -10,6 +10,7 @@ Business logic for:
 import logging
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
+from bson.objectid import ObjectId
 
 from app.db import DatabaseManager
 from app.utils.data_chunker import DataChunker
@@ -97,145 +98,44 @@ class JobDataProcessor:
             logger.error(f"✗ Error processing job data: {str(e)}")
             raise
     
-    def process_and_save_skills(self, contract_id: str, skills: List[str]) -> Tuple[int, int]:
+    def process_and_save_skills(self, contract_id: str, skills: List[str]) -> int:
         """
-        Extract, process and save skills from job data
+        Track skills in MongoDB for analytics
         
-        Steps:
-        1. Save unique skills to skills collection
-        2. Generate embeddings for skill descriptions
-        3. Save skill embeddings to database
-        4. Store skills in Pinecone for keyword matching
+        Skills are now stored as metadata in chunks for Pinecone queries.
+        This method tracks unique skills in MongoDB for frequency analysis.
         
         Args:
             contract_id: Contract ID for reference
             skills: List of skill names
             
         Returns:
-            Tuple of (skills_saved, embeddings_created)
+            Number of unique skills saved
             
         Raises:
             Exception: If processing fails
         """
         try:
             if not skills:
-                logger.info(f"No skills provided for {contract_id}")
-                return 0, 0
+                logger.debug(f"No skills provided for {contract_id}")
+                return 0
             
-            logger.info(f"Processing {len(skills)} skills for contract: {contract_id}")
-            
-            # Save skills to MongoDB collection
+            # Save skills to MongoDB for analytics/tracking only
+            # Skills are included in chunk metadata for Pinecone searches
             skill_ids = self.db.save_skills(contract_id, skills)
             
             if not skill_ids:
-                logger.warning(f"No skills were saved for {contract_id}")
-                return 0, 0
+                logger.debug(f"No new skills to save for {contract_id}")
+                return 0
             
-            logger.info(f"✓ Saved {len(skill_ids)} unique skills")
-            
-            # Generate embeddings for skills
-            embeddings_count = 0
-            
-            for skill in skills:
-                if not skill or not isinstance(skill, str):
-                    continue
-                
-                try:
-                    # Check if embedding already exists
-                    existing_embedding = self.db.get_skill_embedding(skill)
-                    
-                    if existing_embedding:
-                        logger.debug(f"Skill embedding already exists: {skill}")
-                        embeddings_count += 1
-                        continue
-                    
-                    # Generate embedding for skill
-                    skill_embedding = self.openai_service.get_embedding(
-                        text=skill,
-                        dimensions=settings.PINECONE_DIMENSION
-                    )
-                    
-                    if skill_embedding:
-                        self.db.save_skill_embedding(skill, skill_embedding)
-                        embeddings_count += 1
-                
-                except Exception as e:
-                    logger.warning(f"Could not generate embedding for skill '{skill}': {str(e)}")
-                    continue
-            
-            logger.info(f"✓ Generated {embeddings_count} skill embeddings")
-            return len(skill_ids), embeddings_count
+            logger.debug(f"✓ Tracked {len(skill_ids)} unique skills in MongoDB")
+            return len(skill_ids)
         
         except Exception as e:
             logger.error(f"✗ Error processing skills: {str(e)}")
             raise
     
-    def save_skills_to_pinecone(self, contract_id: str, skills: List[str]) -> int:
-        """
-        Save skill vectors to Pinecone for keyword matching
-        
-        Args:
-            contract_id: Contract ID for reference
-            skills: List of skills to save
-            
-        Returns:
-            Number of skill vectors saved to Pinecone
-        """
-        if not self.pinecone_service:
-            logger.warning("Pinecone service not initialized, skipping skill vectors")
-            return 0
-        
-        try:
-            logger.info(f"Saving {len(skills)} skill vectors to Pinecone for {contract_id}")
-            
-            vectors_to_upsert = []
-            
-            for idx, skill in enumerate(skills):
-                if not skill or not isinstance(skill, str):
-                    continue
-                
-                # Get skill embedding
-                skill_embedding = self.db.get_skill_embedding(skill)
-                
-                if not skill_embedding or len(skill_embedding) == 0:
-                    logger.debug(f"Skipping skill {skill}: no embedding")
-                    continue
-                
-                # Check for all-zero vector
-                if all(v == 0.0 for v in skill_embedding):
-                    logger.warning(f"Skipping skill {skill}: all-zero vector")
-                    continue
-                
-                # Create vector ID and metadata
-                vector_id = f"{contract_id}_skill_{skill.lower().replace(' ', '_')}"
-                
-                metadata = {
-                    "contract_id": contract_id,
-                    "skill_name": skill,
-                    "vector_type": "skill",
-                    "created_at": str(datetime.utcnow())
-                }
-                
-                vectors_to_upsert.append((
-                    vector_id,
-                    skill_embedding,
-                    metadata
-                ))
-            
-            if not vectors_to_upsert:
-                logger.warning(f"No valid skill embeddings to upsert for {contract_id}")
-                return 0
-            
-            # Upsert to Pinecone
-            upserted_count = self.pinecone_service.upsert_vectors(vectors_to_upsert)
-            logger.info(f"✓ Successfully saved {upserted_count} skill vectors to Pinecone")
-            
-            return upserted_count
-        
-        except Exception as e:
-            logger.error(f"✗ Error saving skills to Pinecone: {str(e)}")
-            return 0
-    
+
     def process_and_chunk_job(
         self,
         contract_id: str,
@@ -378,14 +278,14 @@ class JobDataProcessor:
                     "contract_id": chunk["contract_id"],
                     "embedding": embedding,
                     "embedding_model": settings.OPENAI_EMBEDDING_MODEL,
-                    "pinecone_vector_id": f"{chunk['contract_id']}_{chunk['chunk_id']}"
+                    "pinecone_vector_id": chunk["chunk_id"]
                 })
                 
                 # Update chunk status
                 self.db.update_chunk_embedding_status(
                     chunk["chunk_id"],
                     "completed",
-                    f"{chunk['contract_id']}_{chunk['chunk_id']}"
+                    chunk["chunk_id"]
                 )
                 
                 successful_count += 1
@@ -407,20 +307,22 @@ class JobDataProcessor:
     def save_feedback_to_collection(
         self,
         contract_id: str,
-        feedback_text: str,
+        feedback_text: str = None,
         feedback_type: str = "text",
         sentiment: str = "neutral",
-        feedback_url: str = None
+        feedback_url: str = None,
+        save_to_pinecone: bool = False
     ) -> str:
         """
-        Save feedback to feedback_data collection
+        Save feedback to feedback_data collection in MongoDB
         
         Args:
             contract_id: Contract ID for reference
-            feedback_text: Feedback content
+            feedback_text: Feedback content (optional)
             feedback_type: Type of feedback (text, image, etc)
             sentiment: Sentiment analysis result (positive, negative, neutral)
-            feedback_url: URL to the feedback source
+            feedback_url: URL to the feedback source (optional)
+            save_to_pinecone: Whether to also save feedback embedding to Pinecone (default: False)
             
         Returns:
             Feedback document ID
@@ -431,16 +333,49 @@ class JobDataProcessor:
         try:
             feedback_record = {
                 "contract_id": contract_id,
-                "feedback_text": feedback_text,
+                "feedback_text": feedback_text or "",
                 "feedback_type": feedback_type,
                 "sentiment": sentiment,
                 "feedback_url": feedback_url,
                 "created_at": datetime.utcnow(),
-                "length": len(feedback_text) if feedback_text else 0
+                "length": len(feedback_text) if feedback_text else 0,
+                "pinecone_saved": False
             }
             
             feedback_id = self.db.insert_feedback(feedback_record)
-            logger.info(f"✓ Feedback saved to collection for {contract_id}")
+            logger.info(f"✓ Feedback saved to MongoDB for {contract_id}")
+            
+            # Save feedback embedding to Pinecone for semantic search (only if enabled)
+            if save_to_pinecone and self.pinecone_service and feedback_text:
+                try:
+                    embedding = self.openai_service.get_embedding(
+                        text=feedback_text,
+                        dimensions=settings.PINECONE_DIMENSION
+                    )
+                    if embedding:
+                        vector = {
+                            "id": f"{contract_id}_feedback",
+                            "values": embedding,
+                            "metadata": {
+                                "contract_id": contract_id,
+                                "type": "feedback",
+                                "feedback_type": feedback_type,
+                                "sentiment": sentiment,
+                                "text": feedback_text[:500],
+                                "url": feedback_url or ""
+                            }
+                        }
+                        self.pinecone_service.upsert_vectors([vector])
+                        
+                        # Update MongoDB to mark as saved to Pinecone
+                        self.db.db["feedback_data"].update_one(
+                            {"_id": ObjectId(feedback_id)},
+                            {"$set": {"pinecone_saved": True}}
+                        )
+                        logger.info(f"✓ Feedback embedding saved to Pinecone for {contract_id}")
+                except Exception as e:
+                    logger.warning(f"Could not save feedback to Pinecone: {str(e)}")
+            
             return feedback_id
         
         except Exception as e:
@@ -822,6 +757,77 @@ class JobDataProcessor:
             logger.error(f"✗ Error saving proposal record: {str(e)}")
             raise
     
+    def save_proposal_to_pinecone(
+        self,
+        contract_id: str,
+        job_data: Dict[str, Any],
+        save_to_pinecone: bool = True
+    ) -> bool:
+        """
+        Save proposal embedding to Pinecone for semantic search
+        
+        Args:
+            contract_id: Contract ID reference
+            job_data: Job data containing proposal text
+            save_to_pinecone: Whether to save to Pinecone
+            
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        if not save_to_pinecone or not self.pinecone_service:
+            logger.debug(f"Skipping Pinecone save for proposal {contract_id}")
+            return False
+        
+        try:
+            proposal_text = job_data.get("your_proposal_text", "")
+            if not proposal_text:
+                logger.warning(f"No proposal text found for {contract_id}")
+                return False
+            
+            # Generate embedding for proposal
+            embedding = self.openai_service.get_embedding(
+                text=proposal_text,
+                dimensions=settings.PINECONE_DIMENSION
+            )
+            
+            if not embedding:
+                logger.warning(f"Failed to generate embedding for proposal {contract_id}")
+                return False
+            
+            # Create vector for Pinecone
+            vector = {
+                "id": f"{contract_id}_proposal",
+                "values": embedding,
+                "metadata": {
+                    "contract_id": contract_id,
+                    "type": "proposal",
+                    "source": "training",
+                    "company_name": job_data.get("company_name", ""),
+                    "job_title": job_data.get("job_title", ""),
+                    "industry": job_data.get("industry", "general"),
+                    "task_type": job_data.get("task_type", "other"),
+                    "skills": str(job_data.get("skills_required", [])),
+                    "text": proposal_text[:500],
+                    "proposal_length": len(proposal_text)
+                }
+            }
+            
+            # Upsert to Pinecone
+            self.pinecone_service.upsert_vectors([vector])
+            logger.info(f"✓ Proposal embedding saved to Pinecone for {contract_id}")
+            
+            # Update MongoDB to mark as saved to Pinecone
+            self.db.db["proposals"].update_one(
+                {"contract_id": contract_id},
+                {"$set": {"pinecone_saved": True, "pinecone_vector_id": f"{contract_id}_proposal"}}
+            )
+            
+            return True
+        
+        except Exception as e:
+            logger.error(f"✗ Error saving proposal to Pinecone: {str(e)}")
+            return False
+    
     def process_complete_pipeline(
         self,
         job_data: Dict[str, Any],
@@ -871,28 +877,44 @@ class JobDataProcessor:
             logger.info("💬 Step 4: Processing feedback...")
             feedback_text = job_data.get("client_feedback_text") or job_data.get("client_feedback")
             feedback_url = job_data.get("client_feedback_url")
-            if feedback_text:
+            feedback_saved = False
+            if feedback_text or feedback_url:
                 try:
                     self.save_feedback_to_collection(
                         contract_id,
                         feedback_text,
                         feedback_type="text",
                         sentiment="neutral",
-                        feedback_url=feedback_url
+                        feedback_url=feedback_url,
+                        save_to_pinecone=False  # ✅ Do NOT save to Pinecone
                     )
-                    logger.info(f"✓ Feedback saved to collection")
+                    logger.info(f"✓ Feedback saved to MongoDB collection")
+                    feedback_saved = True
                 except Exception as e:
-                    logger.warning(f"Could not save feedback: {str(e)}")
+                    logger.error(f"✗ Error saving feedback: {str(e)}")
+                    raise
             else:
-                logger.info("⊘ No feedback text provided")
+                logger.info("⊘ No feedback text or URL provided")
             
-            # Step 5: Save proposal reference
+            # Step 5: Save proposal record (training proposal for AI learning)
             logger.info("📄 Step 5: Saving proposal record...")
+            proposal_saved = False
+            proposal_pinecone_saved = False
             try:
                 self.save_proposal_record(contract_id, job_data)
-                logger.info(f"✓ Proposal record saved")
+                logger.info(f"✓ Proposal record saved to MongoDB")
+                proposal_saved = True
+                
+                # Save proposal to Pinecone
+                if save_to_pinecone:
+                    if self.save_proposal_to_pinecone(contract_id, job_data, save_to_pinecone=True):
+                        proposal_pinecone_saved = True
+                        logger.info(f"✓ Proposal saved to Pinecone")
+                    else:
+                        logger.warning(f"Could not save proposal to Pinecone")
             except Exception as e:
-                logger.warning(f"Could not save proposal record: {str(e)}")
+                logger.error(f"✗ Error saving proposal record: {str(e)}")
+                raise
             
             # Step 6: Save to Pinecone
             pinecone_count = 0
@@ -906,22 +928,17 @@ class JobDataProcessor:
             else:
                 logger.info("⊘ Pinecone save skipped")
             
-            # Step 7: Process and save skills
+            # Step 7: Track skills (now included in chunk metadata for Pinecone)
             logger.info("🔧 Step 7: Processing skills...")
             skills = job_data.get("skills_required", [])
             skills_saved = 0
-            skills_embeddings = 0
-            skills_pinecone = 0
             
             if skills:
                 try:
-                    skills_saved, skills_embeddings = self.process_and_save_skills(contract_id, skills)
-                    logger.info(f"✓ Saved {skills_saved} unique skills with {skills_embeddings} embeddings")
-                    
-                    # Save skill vectors to Pinecone
-                    if save_to_pinecone and skills_embeddings > 0:
-                        skills_pinecone = self.save_skills_to_pinecone(contract_id, skills)
-                        logger.info(f"✓ Saved {skills_pinecone} skill vectors to Pinecone")
+                    # Save unique skills to MongoDB for analytics/tracking only
+                    # Skills are already included in chunk metadata for Pinecone
+                    skills_saved = self.process_and_save_skills(contract_id, skills)
+                    logger.info(f"✓ Tracked {skills_saved} unique skills (included in chunk metadata)")
                 except Exception as e:
                     logger.warning(f"Could not process skills: {str(e)}")
             else:
@@ -939,9 +956,9 @@ class JobDataProcessor:
                 "embeddings_failed": failed_count,
                 "pinecone_vectors": pinecone_count,
                 "skills_saved": skills_saved,
-                "skills_embeddings": skills_embeddings,
-                "skills_pinecone_vectors": skills_pinecone,
-                "feedback_saved": bool(job_data.get("client_feedback_text") or job_data.get("client_feedback"))
+                "feedback_saved": feedback_saved,
+                "proposal_saved": proposal_saved,
+                "proposal_pinecone_saved": proposal_pinecone_saved
             }
         
         except Exception as e:
