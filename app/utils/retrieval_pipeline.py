@@ -115,7 +115,8 @@ class RetrievalPipeline:
                     "similarity_score": score,
                     "effectiveness": p.get("proposal_effectiveness_score"),
                     "satisfaction": p.get("client_satisfaction"),
-                    "feedback_url": p.get("client_feedback_url"),
+                    "portfolio_urls": p.get("portfolio_urls", []),
+                    "client_feedback_url": p.get("client_feedback_url"),
                 }
                 for p, score in ranked_projects
             ],
@@ -130,7 +131,15 @@ class RetrievalPipeline:
         return result
 
     def _build_filter_criteria(self, job_data: Dict[str, Any]) -> FilterCriteria:
-        """Build filter criteria from new job requirements"""
+        """
+        Build intelligent filter criteria from new job requirements.
+        
+        Prioritizes projects with feedback and proven effectiveness while
+        keeping filters flexible to find relevant matches.
+        
+        NOTE: Training data has client_feedback_text but NOT proposal_effectiveness_score
+        or client_satisfaction fields, so we only filter by feedback presence and status.
+        """
         skills = job_data.get("skills_required", [])
         industry = job_data.get("industry", "")
         task_type = job_data.get("task_type", "")
@@ -138,13 +147,14 @@ class RetrievalPipeline:
         urgency = job_data.get("urgent_adhoc", False)
 
         # Build flexible criteria (not overly restrictive)
+        # We want to find projects with feedback first, then broaden if needed
+        # NOTE: min_effectiveness and min_satisfaction are disabled since those fields don't exist
         return FilterCriteria(
             industries=[industry] if industry else None,
             skills=skills if skills else None,
             task_type=task_type if task_type else None,
-            min_effectiveness=0.3,  # Only consider reasonably successful projects
-            with_feedback=True,  # Prefer projects with feedback
-            completed_only=False  # Include ongoing but require feedback
+            with_feedback=True,  # MUST have feedback to learn from
+            completed_only=True  # Only completed projects (proven success)
         )
 
     def _metadata_filter(
@@ -155,7 +165,8 @@ class RetrievalPipeline:
         """
         STAGE 1: Fast metadata filtering.
         
-        Applies hard filters to reduce search space.
+        Applies smart filters to reduce search space while keeping good candidates.
+        Prioritizes task_type and completed projects with feedback.
         """
         filtered = []
 
@@ -169,24 +180,13 @@ class RetrievalPipeline:
             if criteria.with_feedback and not feedback:
                 continue
 
-            # Effectiveness threshold
-            if criteria.min_effectiveness:
-                effectiveness = job.get("proposal_effectiveness_score") or 0
-                if effectiveness < criteria.min_effectiveness:
+            # Task type filter - SOFT (if specified, try to match but not exclusive)
+            if criteria.task_type:
+                if job.get("task_type") == criteria.task_type:
+                    filtered.append(job)
                     continue
-
-            # Satisfaction threshold
-            if criteria.min_satisfaction:
-                satisfaction = job.get("client_satisfaction") or 0
-                if satisfaction < criteria.min_satisfaction:
-                    continue
-
-            # Industry filter (soft - at least one match)
-            if criteria.industries:
-                job_industries = set(job.get("industry_tags", []))
-                if not any(ind in job_industries for ind in criteria.industries):
-                    if job.get("industry") not in criteria.industries:
-                        continue
+                # If task type doesn't match, might skip but keep looking for other good matches
+                # Don't skip yet - will use skills/industry as fallback
 
             # Skills filter (soft - at least some overlap)
             if criteria.skills:
@@ -195,25 +195,19 @@ class RetrievalPipeline:
                 if not (job_skills & query_skills):  # No overlap
                     continue
 
-            # Complexity filter
-            if criteria.min_complexity or criteria.max_complexity:
-                job_complexity = job.get("task_complexity", "medium")
-                min_level = self.COMPLEXITY_LEVELS.get(criteria.min_complexity or "low", 1)
-                max_level = self.COMPLEXITY_LEVELS.get(criteria.max_complexity or "high", 3)
-                job_level = self.COMPLEXITY_LEVELS.get(job_complexity, 2)
-                if not (min_level <= job_level <= max_level):
-                    continue
+            # If we got here and task_type was specified but didn't match, still add it as fallback
+            if criteria.task_type and job.get("task_type") != criteria.task_type:
+                filtered.append(job)
+            elif not criteria.task_type:
+                filtered.append(job)
 
-            # Duration filter
-            if criteria.min_duration_days or criteria.max_duration_days:
-                duration = job.get("project_duration_days")
-                if duration:
-                    min_dur = criteria.min_duration_days or 0
-                    max_dur = criteria.max_duration_days or float('inf')
-                    if not (min_dur <= duration <= max_dur):
-                        continue
-
-            filtered.append(job)
+        # If we filtered to 0, return all completed projects with feedback
+        if not filtered:
+            for job in jobs:
+                if job.get("project_status") == "completed":
+                    feedback = job.get("client_feedback_text") or job.get("client_feedback")
+                    if feedback:
+                        filtered.append(job)
 
         return filtered
 
@@ -252,24 +246,26 @@ class RetrievalPipeline:
         new_job: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        STAGE 3: Analyze feedback from top projects for patterns.
+        STAGE 3: Analyze feedback from top projects for winning patterns.
         
         Extracts:
-        - Success patterns (what worked)
-        - Common objections/solutions
-        - Winning sections
-        - Writing style patterns
+        - Success patterns (what worked in proposals that won)
+        - Common elements (skills, approaches, messaging)
+        - Winning sections (how to structure proposals)
+        - Client values (what clients praised)
         """
         insights = {
             "success_patterns": [],
             "common_elements": {},
             "winning_sections": [],
-            "feedback_sentiment": {},
-            "writing_patterns": []
+            "client_values": [],
+            "feedback_sentiment": "positive",
+            "success_rate": 0.0
         }
 
         success_count = 0
         feedback_samples = []
+        proposals_samples = []
 
         for job, similarity in similar_projects:
             if job.get("project_status") != "completed":
@@ -282,51 +278,143 @@ class RetrievalPipeline:
             if feedback:
                 feedback_samples.append(feedback)
 
-            # Collect reusable sections
-            sections = job.get("reusable_sections", [])
-            for section in sections:
-                insights["winning_sections"].append(section)
-                insights["common_elements"][section] = insights["common_elements"].get(section, 0) + 1
+            # Collect proposal text for pattern analysis
+            proposal = job.get("your_proposal_text", "")
+            if proposal:
+                proposals_samples.append(proposal)
 
-        # Analyze feedback samples
+        # Extract success patterns from proposals and feedback
+        if proposals_samples:
+            insights["success_patterns"] = self._extract_winning_patterns(proposals_samples, feedback_samples)
+
+        # Extract what clients valued
         if feedback_samples:
-            # Extract common positive phrases
-            phrases = self._extract_phrases(feedback_samples)
-            insights["success_patterns"] = phrases[:5]  # Top 5 patterns
+            insights["client_values"] = self._extract_client_values(feedback_samples)
+            insights["feedback_sentiment"] = self._analyze_feedback_sentiment(feedback_samples)
 
-        # Deduplicate and rank winning sections
-        section_counts = insights["common_elements"]
-        insights["winning_sections"] = sorted(
-            section_counts.keys(),
-            key=lambda x: section_counts[x],
-            reverse=True
-        )
-
-        # Estimate effectiveness
-        insights["successful_project_count"] = success_count
+        # Calculate success rate
         insights["success_rate"] = success_count / len(similar_projects) if similar_projects else 0
+        insights["successful_project_count"] = success_count
+
+        # Add winning sections template
+        insights["winning_sections"] = self._build_winning_sections_template(new_job)
+
+        logger.debug(f"  Extracted patterns: {len(insights['success_patterns'])} patterns, "
+                    f"{len(insights['client_values'])} client values")
 
         return insights
 
+    def _extract_winning_patterns(self, proposals: List[str], feedbacks: List[str]) -> List[str]:
+        """Extract patterns that made proposals win"""
+        patterns = []
+        
+        if not proposals:
+            logger.debug("  No proposals to analyze for patterns")
+            return patterns
+        
+        logger.debug(f"  Analyzing {len(proposals)} proposals for winning patterns...")
+        
+        # Analyze what made proposals successful
+        pattern_indicators = {
+            "Reference specific past projects": ["completed", "worked on", "delivered", "built", "designed", "developed"],
+            "Show understanding of their problem": ["understand", "see you", "dealing with", "challenge", "realize", "know"],
+            "Include portfolio proof": ["portfolio", "github", "live site", "project link", "attachment", "check"],
+            "Be specific about approach": ["approach", "methodology", "process", "steps", "strategy", "method"],
+            "Include realistic timeline": ["timeline", "phases", "weeks", "months", "days", "schedule"],
+            "Personal and conversational tone": ["i've", "you're", "let's", "excited", "hey", "thanks", "thank"],
+            "Show past results/metrics": ["improved", "increased", "reduced", "%", "faster", "faster", "better"],
+            "Address client's specific tech stack": ["wordpress", "shopify", "react", "python", "nodejs", "aws", "html", "css"]
+        }
+        
+        for pattern, indicators in pattern_indicators.items():
+            # Check if pattern appears in successful proposals
+            matches = 0
+            for proposal in proposals[:10]:  # Check top 10 proposals
+                if any(indicator in proposal.lower() for indicator in indicators):
+                    matches += 1
+            
+            if matches >= 1:  # Pattern appears in at least 1 winning proposal (lowered threshold)
+                patterns.append(pattern)
+                logger.debug(f"    ✓ Pattern: {pattern} (found in {matches} proposals)")
+        
+        logger.debug(f"  Extracted {len(patterns)} patterns total")
+        return patterns[:8]  # Return up to 8 patterns
+
+    def _extract_client_values(self, feedbacks: List[str]) -> List[str]:
+        """Extract what clients valued from feedback"""
+        values = []
+        value_keywords = {
+            "Responsive communication": ["responsive", "communication", "quick reply", "available"],
+            "Professional quality": ["professional", "quality", "polished", "attention to detail"],
+            "Timely delivery": ["on time", "deadline", "fast", "quick turnaround"],
+            "Problem solving": ["challenges", "obstacles", "creative", "solutions"],
+            "Exceeded expectations": ["exceeded", "amazing", "great", "fantastic"],
+            "Technical expertise": ["expertise", "knowledge", "skilled", "experienced"],
+            "Attention to detail": ["detail", "thorough", "precise", "careful"]
+        }
+        
+        for value, keywords in value_keywords.items():
+            for feedback in feedbacks:
+                if any(kw in feedback.lower() for kw in keywords):
+                    if value not in values:
+                        values.append(value)
+                    break
+        
+        return values[:5]
+
+    def _analyze_feedback_sentiment(self, feedbacks: List[str]) -> str:
+        """Simple sentiment analysis of feedback"""
+        if not feedbacks:
+            return "neutral"
+        
+        positive_words = ["great", "excellent", "amazing", "fantastic", "love", "perfect", "best", "wonderful"]
+        negative_words = ["bad", "poor", "terrible", "awful", "hate", "worst", "disappointing"]
+        
+        positive_count = sum(1 for f in feedbacks if any(word in f.lower() for word in positive_words))
+        negative_count = sum(1 for f in feedbacks if any(word in f.lower() for word in negative_words))
+        
+        if positive_count > negative_count:
+            return "positive"
+        elif negative_count > positive_count:
+            return "negative"
+        return "neutral"
+
+    def _build_winning_sections_template(self, new_job: Dict[str, Any]) -> List[str]:
+        """Build template of sections that should be in winning proposal"""
+        return [
+            "HOOK: Acknowledge their specific problem",
+            "PROOF: 2-3 past similar projects with outcomes",
+            "PROOF: Portfolio links for credibility",
+            "APPROACH: Specific solution for their tech stack",
+            "TIMELINE: Realistic phases and duration",
+            "CTA: Clear, friendly call-to-action"
+        ]
+
     def _extract_phrases(self, texts: List[str], num_phrases: int = 5) -> List[str]:
-        """Extract common positive phrases from feedback texts"""
+        """Extract common positive phrases and winning patterns from feedback texts"""
         phrases = []
         
-        # Simple phrase extraction based on positive keywords
-        positive_contexts = {
-            "Great communication": ["communication", "responsive", "quick", "reply"],
-            "Technical excellence": ["excellent code", "well-structured", "professional", "architecture"],
-            "Timely delivery": ["on time", "deadline", "fast", "quick turnaround"],
-            "Problem solving": ["challenges", "obstacles", "solutions", "adapt"],
-            "Attention to detail": ["detail", "quality", "polish", "refinement"],
+        # Winning patterns that appear in successful proposals
+        positive_patterns = {
+            "Reference specific past projects": "Mentioning company names and past work",
+            "Show understanding of their problem": "Acknowledge their specific challenge",
+            "Include portfolio proof": "Add links to live projects and work samples",
+            "Be conversational and human": "Use casual, direct language (not AI tone)",
+            "Include metrics and results": "Show past performance numbers and outcomes",
+            "Specific to their tech stack": "Address their specific technologies",
+            "Clear timeline included": "Provide realistic project phases and duration"
         }
 
-        for context, keywords in positive_contexts.items():
+        for pattern, description in positive_patterns.items():
+            # Check if pattern-related keywords appear in feedback
+            pattern_keywords = pattern.lower().split() + description.lower().split()
+            
             for text in texts:
                 text_lower = text.lower()
-                if any(kw in text_lower for kw in keywords):
-                    if context not in phrases:
-                        phrases.append(context)
+                # If multiple keywords match, consider pattern found
+                if sum(1 for kw in pattern_keywords if kw in text_lower) >= 2:
+                    if pattern not in phrases:
+                        phrases.append(pattern)
                     break
 
         return phrases[:num_phrases]

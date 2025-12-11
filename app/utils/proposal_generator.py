@@ -52,19 +52,21 @@ class ProposalGenerator:
         self,
         new_job_data: Dict[str, Any],
         all_historical_jobs: List[Dict[str, Any]],
-        max_length: int = 2000,
+        max_length: int = 350,
         include_portfolio: bool = True,
         include_feedback: bool = True,
         proposal_style: str = "professional",
         tone: str = "confident"
     ) -> Dict[str, Any]:
         """
-        Generate a complete proposal for a new job using similar past projects.
+        Generate a SHORT, HUMAN, WINNING proposal for a new job using similar past projects.
+        
+        Target: 250-350 words, conversational tone, references to 2-3 past projects with portfolio links.
         
         Args:
             new_job_data: The new job requirements to generate proposal for
             all_historical_jobs: All historical job data for context matching
-            max_length: Maximum proposal length in words
+            max_length: Maximum proposal length in words (default 350 for SHORT impact)
             include_portfolio: Include portfolio links in proposal
             include_feedback: Include feedback URLs as evidence
             proposal_style: Writing style (professional, casual, technical, creative, data_driven)
@@ -74,31 +76,36 @@ class ProposalGenerator:
             Generated proposal with metadata and source references
         """
         job_id = new_job_data.get("contract_id", "unknown")
-        logger.info(f"[ProposalGen] Generating proposal for {job_id} (style={proposal_style}, tone={tone})")
+        logger.info(f"[ProposalGen] Generating SHORT, HUMAN, WINNING proposal for {job_id}")
 
         # Step 1: Retrieve similar projects and insights
-        logger.debug(f"[Step 1] Retrieving context...")
+        logger.debug(f"[Step 1] Retrieving similar past projects...")
         retrieval_result = self.retrieval_pipeline.retrieve_for_proposal(
             new_job_data,
             all_historical_jobs,
             top_k=5
         )
+        
+        similar_count = len(retrieval_result.get("similar_projects", []))
+        logger.info(f"  → Found {similar_count} similar projects")
 
-        # Step 2: Build optimized prompt using PromptEngine
-        logger.debug(f"[Step 2] Building AI prompt with PromptEngine...")
+        # Step 2: Build optimized prompt using PromptEngine with SHORT, HUMAN, WINNING structure
+        logger.debug(f"[Step 2] Building AI prompt with HOOK→PROOF→APPROACH→TIMELINE→CTA structure...")
         prompt = self.prompt_engine.build_proposal_prompt(
             job_data=new_job_data,
             similar_projects=retrieval_result.get("similar_projects", []),
             success_patterns=retrieval_result.get("insights", {}).get("success_patterns", []),
             style=proposal_style,
             tone=tone,
-            max_words=max_length,
+            max_words=max_length,  # Use passed max_length
             include_portfolio=include_portfolio,
             include_feedback=include_feedback
         )
 
-        # Step 3: Generate proposal using OpenAI
-        logger.debug(f"[Step 3] Calling OpenAI to generate proposal...")
+        # Step 3: Generate proposal using OpenAI with optimized system message
+        logger.debug(f"[Step 3] Calling GPT-4o to generate proposal...")
+        system_message = self._get_system_message_for_winning_proposal(proposal_style, tone)
+        
         proposal_result = self.openai_service.generate_proposal(
             job_description=new_job_data.get("job_description", ""),
             context_data=prompt,
@@ -123,28 +130,79 @@ class ProposalGenerator:
             include_feedback
         )
 
+        # Step 5: Score proposal quality against SHORT, HUMAN, WINNING criteria
+        quality_score = self.prompt_engine.score_proposal_quality(
+            proposal_text,
+            new_job_data,
+            references
+        )
+
         result = {
             "contract_id": job_id,
             "job_title": new_job_data.get("job_title"),
             "company_name": new_job_data.get("company_name"),
             "generated_proposal": proposal_text,
             "word_count": len(proposal_text.split()),
+            "quality_score": quality_score,
+            "is_short_human_winning": quality_score.get("is_short_human_winning", False),
             "retrieval_context": {
                 "similar_projects_count": len(retrieval_result.get("similar_projects", [])),
                 "success_patterns": retrieval_result.get("insights", {}).get("success_patterns", []),
-                "winning_sections": retrieval_result.get("insights", {}).get("winning_sections", []),
                 "success_rate": retrieval_result.get("insights", {}).get("success_rate", 0)
             },
             "references": references,
             "metadata": {
                 "estimated_acceptance_rate": retrieval_result.get("proposal_context", {}).get("estimated_success_rate", 0),
-                "similar_projects_used": len(retrieval_result.get("similar_projects", [])),
-                "confidence_score": self._calculate_confidence(retrieval_result)
+                "similar_projects_used": similar_count,
+                "confidence_score": self._calculate_confidence(retrieval_result),
+                "proposal_style": proposal_style,
+                "tone": tone
             }
         }
 
-        logger.info(f"✓ [ProposalGen] Generated {result['word_count']} word proposal for {job_id}")
+        # Log quality assessment
+        if quality_score.get("is_short_human_winning"):
+            logger.info(f"✅ [ProposalGen] HIGH QUALITY - {result['word_count']} words, score {quality_score['overall_score']}")
+        else:
+            logger.warning(f"⚠️  [ProposalGen] Quality issues detected - {quality_score['feedback']}")
+            result["quality_warnings"] = quality_score.get("feedback", [])
+
         return result
+
+    def _get_system_message_for_winning_proposal(self, style: str, tone: str) -> str:
+        """
+        Get the system message that enforces SHORT, HUMAN, WINNING proposal generation.
+        
+        This message explicitly forbids AI language and mandates conversational tone.
+        """
+        return f"""
+You are an expert SHORT, HUMAN, WINNING proposal writer for freelancers.
+
+CRITICAL RULES:
+1. ❌ NEVER say "As an AI", "I'm an AI", "artificial intelligence", etc.
+2. ❌ NO corporate jargon, buzzwords, or formal tone
+3. ❌ NO generic openings like "I'm excited to help"
+4. ✓ Sound like a REAL person who understands their specific problem
+5. ✓ Write conversational, direct, punchy language
+6. ✓ Reference past projects by COMPANY NAME with outcomes
+7. ✓ Include portfolio links and client feedback for social proof
+8. ✓ Target 250-350 words (SHORT = HIGH IMPACT)
+
+STRUCTURE (ALWAYS):
+1. HOOK (2 sentences): "I see you're dealing with [their specific problem]..."
+2. PROOF (2-3 bullets): Past similar projects + portfolio links + outcomes
+3. APPROACH (3-4 sentences): How you'd solve THEIR problem specifically
+4. TIMELINE (1-2 sentences): Realistic phases based on similar work
+5. CTA (1 sentence): Friendly call-to-action
+
+SUCCESS PATTERN:
+- Short proposals (250-350 words) get 3-5x better response rates than long ones
+- Real project names and outcomes build trust
+- Portfolio proof = social proof = conversions
+- Acknowledging THEIR problem = "This person gets it!"
+
+Generate the proposal NOW using this structure. Make it SHORT. Make it HUMAN. Make it WINNING.
+"""
 
     def _build_prompt(
         self,

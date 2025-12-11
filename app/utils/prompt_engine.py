@@ -126,27 +126,37 @@ Your response should be:
         success_patterns: List[str],
         style: str = "professional",
         tone: str = "confident",
-        max_words: int = 500,
+        max_words: int = 150,
         include_portfolio: bool = True,
         include_feedback: bool = True
     ) -> str:
         """
-        Build an optimized prompt for proposal generation.
+        Build an optimized prompt for proposal generation using HOOK→PROOF→APPROACH→TIMELINE→CTA structure.
+        
+        Key Requirements:
+        1. HOOK: 2 sentences acknowledging THEIR specific problem
+        2. PROOF: 2-3 past projects with REAL COMPANY NAMES and ACTUAL portfolio links
+        3. APPROACH: 3-4 sentences with specific solution for THEIR tech stack
+        4. TIMELINE: 1-2 sentences with realistic phases
+        5. CTA: 1 sentence friendly call-to-action
+        
+        CRITICAL: Only mention projects if they have actual portfolio links.
+        Never suggest portfolio URLs - only use real URLs from historical data.
         
         Args:
             job_data: The new job requirements
-            similar_projects: Similar past successful projects
+            similar_projects: Similar past successful projects (MUST have portfolio_urls)
             success_patterns: Patterns that worked
             style: Writing style
             tone: Proposal tone
-            max_words: Target word count
+            max_words: Target word count (default 150 for SHORT, PUNCHY format)
             include_portfolio: Include portfolio links?
             include_feedback: Include feedback/testimonials?
             
         Returns:
             Optimized prompt for OpenAI
         """
-        logger.debug(f"[PromptEngine] Building proposal prompt (style={style}, tone={tone})")
+        logger.debug(f"[PromptEngine] Building proposal prompt (style={style}, tone={tone}, target={max_words} words)")
 
         # Get style and tone instructions
         style_enum = ProposalStyle(style) if isinstance(style, str) else style
@@ -159,11 +169,13 @@ Your response should be:
         job_section = self._build_job_section(job_data)
         projects_section = self._build_projects_section(similar_projects, include_portfolio, include_feedback)
         patterns_section = self._build_patterns_section(success_patterns)
-        requirements_section = self._build_requirements_section(style, tone, max_words)
+        structure_section = self._build_hook_proof_approach_structure(job_data, similar_projects)
 
         # Combine everything
         prompt = f"""
 {self._get_system_role(style)}
+
+{self._get_proposal_system_rules()}
 
 {job_section}
 
@@ -171,14 +183,23 @@ Your response should be:
 
 {patterns_section}
 
+{structure_section}
+
 {style_guide}
 
 {tone_guide}
 
-{requirements_section}
+Generate the proposal NOW. Target: ~{max_words} words (SHORT, HUMAN, WINNING).
 
-Generate the proposal now. Make it compelling, specific, and data-backed.
-Keep it around {max_words} words.
+CRITICAL RULES:
+1. NO "As an AI", "I'm an AI", corporate jargon, or formal language
+2. Sound like a REAL person, not ChatGPT
+3. Start with acknowledgment of THEIR specific problem from the job description
+4. Reference 2-3 past similar projects BY COMPANY NAME with outcomes
+5. Include portfolio links and feedback URLs where available
+6. Be conversational, direct, punchy - every word counts
+7. Include timeline and clear Call-to-Action
+8. Target 250-350 words (SHORT = HIGH IMPACT)
 """
         return prompt
 
@@ -242,6 +263,83 @@ Improved Proposal:
         }
         return roles.get(style, roles["professional"])
 
+    def _get_proposal_system_rules(self) -> str:
+        """Get critical system rules for generating SHORT, HUMAN, WINNING proposals"""
+        return """
+SYSTEM MESSAGE - CRITICAL RULES:
+You are a SHORT, HUMAN, WINNING proposal writer. Your goal: 3-5x better response rates.
+
+WHAT NOT TO DO:
+❌ NEVER say "As an AI" or "I'm an AI"
+❌ NO corporate jargon, buzzwords, formal tone
+❌ NO generic opening or "I'm excited to help"
+❌ NO long introductions - get straight to the point
+❌ NO talking about yourself - focus on THEIR problem
+❌ NO proposals over 350 words - SHORT = HIGH IMPACT
+
+WHAT TO DO:
+✓ Sound like a REAL person who "gets it"
+✓ Start with: "I see you're dealing with [SPECIFIC PROBLEM]"
+✓ Reference 2-3 REAL past projects with company names and outcomes
+✓ Include portfolio proof (links to live work)
+✓ Use conversational, punchy language
+✓ Show specific approach for THEIR tech stack
+✓ Include realistic timeline based on similar work
+✓ End with clear, friendly call-to-action
+✓ Total: 250-350 words (SHORT, direct, human)
+
+SUCCESS PATTERN:
+1. HOOK (2 sentences): Acknowledge THEIR specific problem
+2. PROOF (2-3 bullets): Past similar projects + portfolio links + outcomes
+3. APPROACH (3-4 sentences): How you'd solve THEIR problem specifically
+4. TIMELINE (1-2 sentences): Realistic phases and duration
+5. CTA (1 sentence): "Let's discuss" - friendly, direct
+
+This structure = 3-5x better response rates. Use it.
+"""
+
+    def _build_hook_proof_approach_structure(
+        self,
+        job_data: Dict[str, Any],
+        similar_projects: List[Dict[str, Any]]
+    ) -> str:
+        """Build template showing HOOK→PROOF→APPROACH→TIMELINE→CTA structure"""
+        problem = job_data.get("job_description", "")[:200]  # First 200 chars of job description
+        company = job_data.get("company_name", "this client")
+        
+        projects_proof = ""
+        for i, proj in enumerate(similar_projects[:3], 1):
+            company_name = proj.get("company", proj.get("title", "past project"))
+            portfolio = ""
+            if proj.get("portfolio_urls"):
+                portfolio = f"\n     → Portfolio: {proj['portfolio_urls'][0]}"
+            
+            satisfaction = proj.get("satisfaction", proj.get("effectiveness", 4.5))
+            projects_proof += f"  {i}. {company_name} - {satisfaction}/5 satisfaction{portfolio}\n"
+
+        return f"""
+PROPOSAL STRUCTURE TO USE:
+
+[HOOK - 2 sentences]
+"I see you're dealing with [specific problem from their job description]..."
+
+[PROOF - 2-3 bullets with company names and outcomes]
+Reference these similar past projects:
+{projects_proof}
+
+[APPROACH - 3-4 sentences]
+"For you, I'd [specific approach for their tech stack]..."
+
+[TIMELINE - 1-2 sentences]
+"Timeline: [phases] - [duration]"
+
+[CTA - 1 sentence]
+"Let's hop on a quick call to discuss specifics"
+
+NOW generate the proposal following THIS exact structure. Make it CONVERSATIONAL. Make it SHORT.
+Target: 250-350 words. Sound like a real person.
+"""
+
     def _build_job_section(self, job_data: Dict[str, Any]) -> str:
         """Build job requirements section"""
         return f"""
@@ -267,28 +365,44 @@ JOB DESCRIPTION:
         include_portfolio: bool,
         include_feedback: bool
     ) -> str:
-        """Build similar projects reference section"""
+        """
+        Build similar projects reference section formatted for proposal generation.
+        
+        CRITICAL: Only include projects that have actual portfolio URLs.
+        Format matches user's example: Company name, brief outcome, portfolio link.
+        """
         if not similar_projects:
             return "SIMILAR PAST PROJECTS: None found in database yet."
 
-        section = "SIMILAR PAST PROJECTS THAT SUCCEEDED:\n"
+        section = "SIMILAR PAST PROJECTS (WITH PORTFOLIO PROOF):\n\n"
 
         for i, project in enumerate(similar_projects[:3], 1):
-            effectiveness = project.get('effectiveness') or 0
-            satisfaction = project.get('satisfaction') or 0
-            section += f"""
-Project {i}: {project.get('company')}
-- Role: {project.get('title', 'Similar project')}
-- Skills: {', '.join(project.get('skills', []) or [])}
-- Success: {effectiveness * 100:.0f}% effective
-- Client Satisfaction: {satisfaction}/5
-"""
-            if include_feedback and project.get('feedback_url'):
-                section += f"- Feedback: {project.get('feedback_url')}\n"
-            if include_portfolio and project.get('portfolio_urls'):
-                portfolio_urls = project.get('portfolio_urls') or []
-                if portfolio_urls:
-                    section += f"- Portfolio: {portfolio_urls[0]}\n"
+            company = project.get('company') or project.get('title', 'Past project')
+            portfolio_urls = project.get('portfolio_urls') or []
+            feedback_url = project.get('client_feedback_url')
+            
+            # Only include projects with portfolio links
+            if not portfolio_urls:
+                continue
+                
+            # Format: Company name, specific outcome, link
+            section += f"{i}. **{company}**: "
+            
+            # Add specific outcome/skills for context
+            skills = project.get('skills', [])
+            if skills:
+                section += f"Built with {', '.join(skills[:3])}"
+            else:
+                section += "Delivered successfully"
+            
+            # Add portfolio link
+            if include_portfolio and portfolio_urls:
+                portfolio_url = portfolio_urls[0]  # Use first portfolio URL
+                section += f". Check out the work: {portfolio_url}\n"
+            
+            # Add feedback URL if available
+            if include_feedback and feedback_url:
+                section += f"   Client feedback: {feedback_url}\n"
 
         return section
 
@@ -304,19 +418,32 @@ Project {i}: {project.get('company')}
         return section
 
     def _build_requirements_section(self, style: str, tone: str, max_words: int) -> str:
-        """Build detailed requirements section"""
+        """Build detailed requirements section aligned with SHORT, HUMAN, WINNING goals"""
         return f"""
-PROPOSAL REQUIREMENTS:
-1. Reference 2-3 of the similar past projects mentioned above
-2. Highlight expertise that matches this specific job
-3. Include relevant portfolio work for credibility
-4. Explain your approach and methodology
-5. Set realistic timeline based on similar projects
-6. Address the specific urgency/complexity level
-7. Show understanding of their business needs
-8. Include a clear Call-to-Action
-9. Use {style} style with {tone} tone
-10. Keep it approximately {max_words} words (flexible)
+PROPOSAL REQUIREMENTS (SHORT, HUMAN, WINNING):
+1. Target word count: {max_words} words (NOT longer, be concise)
+2. Structure: HOOK → PROOF → APPROACH → TIMELINE → CTA
+3. HOOK: Start with "I see you're dealing with [their specific problem]"
+4. PROOF: Reference 2-3 past projects by company name with outcomes
+5. PROOF: Include portfolio links and client feedback URLs for credibility
+6. APPROACH: Specific solution for THEIR tech stack and requirements
+7. APPROACH: Reference techniques from past successful projects
+8. TIMELINE: Realistic phases and duration based on similar work
+9. CTA: Friendly, direct call-to-action (e.g., "Let's discuss specifics")
+10. TONE: Sound like a real person. Conversational. Direct. Human. NO AI language.
+
+QUALITY CHECKS:
+✓ Word count 250-350? (SHORT = HIGH IMPACT)
+✓ Conversational tone? (No corporate jargon?)
+✓ References past projects by name?
+✓ Includes portfolio links?
+✓ Shows understanding of THEIR specific problem?
+✓ Specific to THEIR tech stack?
+✓ Includes timeline?
+✓ Has clear CTA?
+✓ No "As an AI" language?
+
+If ANY quality check fails, fix it before submitting.
 """
 
     def score_proposal_quality(
@@ -326,61 +453,91 @@ PROPOSAL REQUIREMENTS:
         references: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Score proposal quality based on various factors.
+        Score proposal quality based on SHORT, HUMAN, WINNING criteria.
+        
+        Target: 250-350 words, conversational tone, references to past projects.
         
         Returns:
             Quality metrics and suggestions
         """
         score = 0.0
         feedback = []
-
-        # Length check
+        
+        # Ideal word count: 250-350 (SHORT = HIGH IMPACT)
         word_count = len(proposal_text.split())
-        if 150 < word_count < 800:
-            score += 0.2
+        if 250 <= word_count <= 350:
+            score += 0.25  # Perfect word count
+        elif 200 < word_count < 400:
+            score += 0.15  # Acceptable word count
+            feedback.append(f"Word count is {word_count} - ideal is 250-350 for maximum impact")
         else:
-            feedback.append(f"Proposal is {word_count} words - consider 200-600 for better impact")
+            score += 0.05
+            feedback.append(f"Proposal is {word_count} words - should be 250-350 for SHORT impact")
 
-        # Structure check
-        has_opening = any(phrase in proposal_text.lower() for phrase in ["understand", "know", "familiar"])
-        has_experience = "experience" in proposal_text.lower() or "built" in proposal_text.lower()
-        has_approach = "approach" in proposal_text.lower() or "methodology" in proposal_text.lower()
-        has_closing = "next" in proposal_text.lower() or "contact" in proposal_text.lower()
+        # Check for AI language (SHOULD NOT have these)
+        ai_phrases = ["as an ai", "i'm an ai", "artificial intelligence", "machine learning", "algorithm", "as a language model"]
+        has_ai_language = any(phrase in proposal_text.lower() for phrase in ai_phrases)
+        if not has_ai_language:
+            score += 0.2  # No AI language detected
+        else:
+            score -= 0.1
+            feedback.append("Remove AI language - sounds like ChatGPT, not a real person")
 
-        structure_score = sum([has_opening, has_experience, has_approach, has_closing]) / 4
-        score += structure_score * 0.3
+        # Check for conversational tone (should have personal pronouns, contractions)
+        has_conversational = (
+            ("i've" in proposal_text.lower() or "i have" in proposal_text.lower()) and
+            ("you're" in proposal_text.lower() or "your" in proposal_text.lower()) and
+            ("." in proposal_text)  # Sentences
+        )
+        if has_conversational:
+            score += 0.15  # Conversational tone
+        else:
+            feedback.append("Add conversational tone - use 'I've', 'you're', contractions")
 
-        # Reference check
+        # Check for problem acknowledgment (HOOK)
+        has_problem_ack = any(
+            phrase in proposal_text.lower() 
+            for phrase in ["i see you", "i understand", "deal with", "challenge", "problem", "looking for"]
+        )
+        if has_problem_ack:
+            score += 0.15  # Acknowledges their problem
+        else:
+            feedback.append("Start by acknowledging THEIR specific problem (HOOK)")
+
+        # Check for past project references (PROOF)
         refs_used = len(references.get("projects_referenced", []))
         if refs_used >= 2:
-            score += 0.2
+            score += 0.15  # Good number of references
         else:
-            feedback.append(f"Only {refs_used} past projects referenced - aim for 2-3")
+            feedback.append(f"Reference 2-3 past projects by company name (currently {refs_used})")
 
-        # Portfolio/feedback check
+        # Check for portfolio/feedback (credibility)
         portfolio_count = len(references.get("portfolio_links_used", []))
         feedback_count = len(references.get("feedback_urls_cited", []))
-
-        if portfolio_count > 0:
-            score += 0.15
+        credibility_refs = portfolio_count + feedback_count
+        
+        if credibility_refs >= 2:
+            score += 0.15  # Strong credibility with links
+        elif credibility_refs >= 1:
+            score += 0.08  # Some credibility
         else:
-            feedback.append("Consider adding portfolio links for credibility")
-
-        if feedback_count > 0:
-            score += 0.15
-        else:
-            feedback.append("Consider adding feedback/testimonial URLs")
+            feedback.append("Add portfolio links and feedback URLs for social proof")
 
         return {
             "overall_score": round(min(score, 1.0), 2),
+            "word_count": word_count,
+            "ideal_word_count": "250-350",
             "components": {
-                "length": 0.2 if 150 < word_count < 800 else 0.1,
-                "structure": round(structure_score, 2),
-                "references": 0.2 if refs_used >= 2 else 0.1,
-                "credibility": round((portfolio_count + feedback_count) / 4, 2)
+                "length": 0.25 if 250 <= word_count <= 350 else 0.15,
+                "human_language": 0.2 if not has_ai_language else 0.0,
+                "conversational_tone": 0.15 if has_conversational else 0.0,
+                "problem_acknowledgment": 0.15 if has_problem_ack else 0.0,
+                "past_project_references": min(refs_used / 3, 1.0) * 0.15,
+                "credibility": min(credibility_refs / 3, 1.0) * 0.15
             },
             "feedback": feedback,
-            "suggestions": self._get_improvement_suggestions(proposal_text, word_count)
+            "suggestions": self._get_improvement_suggestions(proposal_text, word_count),
+            "is_short_human_winning": score >= 0.85 and 250 <= word_count <= 350
         }
 
     def _get_improvement_suggestions(self, proposal_text: str, word_count: int) -> List[str]:

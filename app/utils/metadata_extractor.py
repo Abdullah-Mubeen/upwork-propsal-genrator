@@ -386,14 +386,16 @@ class MetadataExtractor:
         """
         Calculate overall similarity from individual dimension scores.
         
-        Uses weighted average with industry and skills most important.
+        Uses weighted average with task_type most critical, then skills and industry.
+        Task type is heavily weighted because matching by task type is the strongest
+        indicator of project relevance (e.g., WordPress optimization, WooCommerce fixes).
         """
         weights = {
-            "industry": 0.25,
-            "skills": 0.25,
-            "task_type": 0.20,
-            "complexity": 0.15,
-            "duration": 0.15
+            "task_type": 0.40,      # CRITICAL: Task type match = most relevant projects
+            "skills": 0.25,         # Secondary: Skill overlap
+            "industry": 0.15,       # Tertiary: Industry relevance
+            "complexity": 0.10,     # Minor: Complexity match
+            "duration": 0.10        # Minor: Duration reference
         }
 
         total_score = 0.0

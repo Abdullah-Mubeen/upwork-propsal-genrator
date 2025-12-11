@@ -516,7 +516,9 @@ Respond in JSON format."""
         portfolio_url: str = ""
     ) -> Dict[str, str]:
         """
-        Generate a tailored proposal using retrieved context
+        Generate a SHORT, HUMAN, WINNING proposal using retrieved context.
+        
+        Target: 250-350 words, conversational tone, references to past projects.
         
         Args:
             job_description: Description of the job
@@ -531,27 +533,29 @@ Respond in JSON format."""
         Returns:
             Dictionary with proposal_text and metadata
         """
-        system_message = """You are an expert proposal writer.  Generate compelling, professional proposals that:
-1. Address the specific client needs directly
-2. Highlight relevant past projects and proven experience
-3. Include specific metrics, achievements, and outcomes
-4. Show deep understanding of the industry/role
-5. Build confidence through social proof and testimonials
-6. Are concise yet comprehensive (300-500 words)
-7.  Use persuasive but honest, authentic tone
-8. Include clear call-to-action
+        system_message = """You are a SHORT, HUMAN, WINNING proposal writer for freelancers.
 
-Structure:
-- Opening: Show understanding of their needs
-- Experience: 2-3 most relevant past projects
-- Approach: Your methodology
-- Timeline and Deliverables
-- Investment/Pricing (if applicable)
-- Closing: Next steps"""
+CRITICAL RULES:
+1. ❌ NEVER say "As an AI", "I'm an AI", or any AI language
+2. ❌ NO corporate jargon, buzzwords, or formal tone
+3. ✓ Sound like a REAL person who gets their problem
+4. ✓ Write conversational, direct, punchy language
+5. ✓ Reference past projects by COMPANY NAME with outcomes
+6. ✓ Include portfolio links for social proof
+7. ✓ Target 250-350 words (SHORT = HIGH IMPACT)
+
+STRUCTURE (ALWAYS):
+1. HOOK (2 sentences): Acknowledge their specific problem
+2. PROOF (2-3 bullets): Past similar projects + portfolio + outcomes
+3. APPROACH (3-4 sentences): How you'd solve THEIR problem
+4. TIMELINE (1-2 sentences): Realistic phases
+5. CTA (1 sentence): Friendly call-to-action
+
+Remember: Short proposals get 3-5x better response rates. Every word counts. Sound human."""
         
         portfolio_section = f"\n\n**Portfolio:** {portfolio_url}" if include_portfolio and portfolio_url else ""
         
-        prompt = f"""Based on the following job opportunity and your historical context, generate a compelling, personalized proposal:
+        prompt = f"""Generate a SHORT, HUMAN, WINNING proposal based on this job opportunity:
 
 **Job Opportunity:**
 Company: {company_name}
@@ -564,20 +568,21 @@ Job Description: {job_description}
 {context_data}
 {portfolio_section}
 
-**Tone:** {tone}
-
-Generate a professional proposal that:
-- Is 300-500 words
-- Directly addresses their specific needs
-- Highlights your most relevant experience
-- Demonstrates expertise with concrete examples
-- Shows why you're the best fit"""
+**Generate a proposal that:**
+- Is 250-350 words (SHORT = HIGH IMPACT)
+- Starts with acknowledgment of their specific problem
+- References 2-3 past similar projects by company name
+- Includes specific approach for their tech stack
+- Includes realistic timeline
+- Ends with friendly call-to-action
+- Sounds like a REAL person, not AI
+- Uses conversational, direct language"""
         
         proposal_text = self.generate_text(
             prompt=prompt,
             system_message=system_message,
-            temperature=0.7,
-            max_tokens=2000
+            temperature=0.65,  # Slightly lower for consistency
+            max_tokens=1500  # Limit to enforce SHORT format
         )
         
         return {

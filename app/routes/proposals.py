@@ -46,7 +46,7 @@ class GenerateProposalRequest(BaseModel):
     # Proposal customization
     proposal_style: str = Field("professional", description="Style: professional, casual, technical, creative, data_driven")
     tone: str = Field("confident", description="Tone: confident, humble, enthusiastic, analytical, friendly")
-    max_word_count: int = Field(500, ge=200, le=1500, description="Target proposal length in words")
+    max_word_count: int = Field(150, ge=100, le=1500, description="Target proposal length in words")
     
     # Historical data options
     similar_projects_count: int = Field(3, ge=1, le=10, description="Number of similar past projects to reference")
@@ -70,6 +70,9 @@ class ProposalResponse(BaseModel):
     previous_proposals_insights: Optional[Dict[str, Any]] = Field(None, description="Insights from previous proposals")
     portfolio_links_used: List[str] = Field(description="Portfolio links included in proposal")
     feedback_urls_used: List[str] = Field(description="Client feedback URLs included")
+    
+    # Retrieval insights
+    insights: Optional[Dict[str, Any]] = Field(None, description="Success patterns and client values extracted from retrieval")
     
     # Quality metrics
     confidence_score: float = Field(description="Confidence score (0-1) for proposal quality")
@@ -186,6 +189,32 @@ async def generate_proposal(request: GenerateProposalRequest):
         similar_projects = retrieval_result.get("similar_projects", [])
         logger.info(f"[ProposalAPI] Found {len(similar_projects)} similar projects")
         
+        # CRITICAL: Filter to only projects with actual portfolio URLs
+        # Don't mention projects without portfolio proof to avoid suggesting fake credentials
+        projects_with_portfolio = []
+        for project in similar_projects:
+            portfolio_urls = project.get("portfolio_urls", [])
+            # Ensure portfolio_urls is a list
+            if isinstance(portfolio_urls, str):
+                portfolio_urls = [portfolio_urls] if portfolio_urls else []
+            if isinstance(portfolio_urls, list):
+                portfolio_urls = [url for url in portfolio_urls if url]  # Filter empty strings
+            project["portfolio_urls"] = portfolio_urls
+            
+            # Only include projects with actual portfolio links
+            if portfolio_urls:
+                projects_with_portfolio.append(project)
+                logger.debug(f"  ✓ Project {project.get('company')} has {len(portfolio_urls)} portfolio links")
+            else:
+                logger.debug(f"  ✗ Skipping project {project.get('company')} - no portfolio URLs")
+        
+        # Use filtered projects (with portfolio) for proposal generation
+        if projects_with_portfolio:
+            similar_projects = projects_with_portfolio
+            logger.info(f"[ProposalAPI] Filtered to {len(similar_projects)} projects with portfolio links")
+        else:
+            logger.warning(f"[ProposalAPI] No projects with portfolio links found - using all similar projects")
+        
         # Step 3: Analyze previous proposals for similar jobs
         logger.info(f"[ProposalAPI] Step 3: Analyzing previous proposals...")
         previous_proposals_insights = None
@@ -225,10 +254,17 @@ async def generate_proposal(request: GenerateProposalRequest):
             logger.info(f"[ProposalAPI] Step 4: Collecting portfolio and feedback URLs...")
             
             for project in similar_projects[:request.similar_projects_count]:
-                if request.include_portfolio and project.get("portfolio_url"):
-                    portfolio_links_used.append(project.get("portfolio_url"))
-                if request.include_feedback and project.get("feedback_url"):
-                    feedback_urls_used.append(project.get("feedback_url"))
+                # Extract portfolio URLs (plural - can be a list)
+                if request.include_portfolio:
+                    portfolio_urls = project.get("portfolio_urls", [])
+                    if isinstance(portfolio_urls, list):
+                        portfolio_links_used.extend(portfolio_urls)
+                    elif isinstance(portfolio_urls, str):
+                        portfolio_links_used.append(portfolio_urls)
+                
+                # Extract feedback URL (singular)
+                if request.include_feedback and project.get("client_feedback_url"):
+                    feedback_urls_used.append(project.get("client_feedback_url"))
             
             logger.info(f"[ProposalAPI] Collected {len(portfolio_links_used)} portfolio links, {len(feedback_urls_used)} feedback URLs")
         
@@ -249,15 +285,20 @@ async def generate_proposal(request: GenerateProposalRequest):
         # Step 6: Generate proposal
         logger.info(f"[ProposalAPI] Step 6: Generating proposal with AI...")
         
+        # Calculate max_tokens: target ~150 words (SHORT & PUNCHY format)
+        # 150 words ≈ 200 tokens (1.33 tokens per word average)
+        # Use 250 tokens for consistent 150-180 word output
+        max_tokens = 250
+        
         proposal_text = openai_service.generate_text(
             prompt=prompt,
-            max_tokens=int(request.max_word_count * 1.3),
+            max_tokens=max_tokens,
             temperature=0.7
         )
         
         word_count = len(proposal_text.split())
         
-        logger.info(f"[ProposalAPI] Generated {word_count} word proposal")
+        logger.info(f"[ProposalAPI] Generated {word_count} word proposal (target ~150 max)")
         
         # Step 7: Score quality and suggest improvements
         logger.info(f"[ProposalAPI] Step 7: Scoring proposal quality...")
@@ -291,6 +332,7 @@ async def generate_proposal(request: GenerateProposalRequest):
             previous_proposals_insights=previous_proposals_insights,
             portfolio_links_used=portfolio_links_used,
             feedback_urls_used=feedback_urls_used,
+            insights=retrieval_result.get("insights"),
             confidence_score=quality_score.get("overall_score", 0.85),
             improvement_suggestions=improvement_suggestions,
             metadata={
