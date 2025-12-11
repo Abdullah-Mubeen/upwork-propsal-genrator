@@ -353,18 +353,20 @@ class JobDataProcessor:
                         dimensions=settings.PINECONE_DIMENSION
                     )
                     if embedding:
-                        vector = {
-                            "id": f"{contract_id}_feedback",
-                            "values": embedding,
-                            "metadata": {
-                                "contract_id": contract_id,
-                                "type": "feedback",
-                                "feedback_type": feedback_type,
-                                "sentiment": sentiment,
-                                "text": feedback_text[:500],
-                                "url": feedback_url or ""
-                            }
+                        # Create vector tuple for Pinecone (id, embedding, metadata)
+                        metadata = {
+                            "contract_id": contract_id,
+                            "type": "feedback",
+                            "feedback_type": feedback_type,
+                            "sentiment": sentiment,
+                            "text": feedback_text[:500],
+                            "url": feedback_url or ""
                         }
+                        vector = (
+                            f"{contract_id}_feedback",
+                            embedding,
+                            metadata
+                        )
                         self.pinecone_service.upsert_vectors([vector])
                         
                         # Update MongoDB to mark as saved to Pinecone
@@ -794,23 +796,26 @@ class JobDataProcessor:
                 logger.warning(f"Failed to generate embedding for proposal {contract_id}")
                 return False
             
-            # Create vector for Pinecone
-            vector = {
-                "id": f"{contract_id}_proposal",
-                "values": embedding,
-                "metadata": {
-                    "contract_id": contract_id,
-                    "type": "proposal",
-                    "source": "training",
-                    "company_name": job_data.get("company_name", ""),
-                    "job_title": job_data.get("job_title", ""),
-                    "industry": job_data.get("industry", "general"),
-                    "task_type": job_data.get("task_type", "other"),
-                    "skills": str(job_data.get("skills_required", [])),
-                    "text": proposal_text[:500],
-                    "proposal_length": len(proposal_text)
-                }
+            # Create metadata for proposal
+            metadata = {
+                "contract_id": contract_id,
+                "type": "proposal",
+                "source": "training",
+                "company_name": job_data.get("company_name", ""),
+                "job_title": job_data.get("job_title", ""),
+                "industry": job_data.get("industry", "general"),
+                "task_type": job_data.get("task_type", "other"),
+                "skills": job_data.get("skills_required", []),
+                "text": proposal_text[:500],
+                "proposal_length": len(proposal_text)
             }
+            
+            # Create vector tuple for Pinecone (id, embedding, metadata)
+            vector = (
+                f"{contract_id}_proposal",
+                embedding,
+                metadata
+            )
             
             # Upsert to Pinecone
             self.pinecone_service.upsert_vectors([vector])
