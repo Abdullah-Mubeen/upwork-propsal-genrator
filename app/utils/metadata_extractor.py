@@ -356,7 +356,9 @@ class MetadataExtractor:
             similarity["skills"] = 0.0
 
         # Task type similarity
-        if job1.get("task_type") == job2.get("task_type"):
+        job1_task = str(job1.get("task_type", "")).lower() if job1.get("task_type") else ""
+        job2_task = str(job2.get("task_type", "")).lower() if job2.get("task_type") else ""
+        if job1_task and job2_task and job1_task == job2_task:
             similarity["task_type"] = 1.0
         else:
             similarity["task_type"] = 0.0

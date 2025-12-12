@@ -110,6 +110,7 @@ class RetrievalPipeline:
                     "contract_id": p.get("contract_id"),
                     "company": p.get("company_name"),
                     "title": p.get("job_title"),
+                    "task_type": p.get("task_type"),  # Include task type for matching validation
                     "industry": p.get("industry"),
                     "skills": p.get("skills_required", []),
                     "similarity_score": score,
@@ -182,7 +183,10 @@ class RetrievalPipeline:
 
             # Task type filter - SOFT (if specified, try to match but not exclusive)
             if criteria.task_type:
-                if job.get("task_type") == criteria.task_type:
+                # Case-insensitive task type matching
+                job_task_type = str(job.get("task_type", "")).lower().strip()
+                criteria_task_type = str(criteria.task_type).lower().strip()
+                if job_task_type == criteria_task_type:
                     filtered.append(job)
                     continue
                 # If task type doesn't match, might skip but keep looking for other good matches
@@ -196,8 +200,11 @@ class RetrievalPipeline:
                     continue
 
             # If we got here and task_type was specified but didn't match, still add it as fallback
-            if criteria.task_type and job.get("task_type") != criteria.task_type:
-                filtered.append(job)
+            if criteria.task_type:
+                criteria_task_type = str(criteria.task_type).lower().strip()
+                job_task_type = str(job.get("task_type", "")).lower().strip()
+                if job_task_type != criteria_task_type:
+                    filtered.append(job)
             elif not criteria.task_type:
                 filtered.append(job)
 

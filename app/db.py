@@ -301,16 +301,26 @@ class DatabaseManager:
                 
                 chunk_id = f"{contract_id}_{chunk_type}_{idx}"
                 
+                # Extract metadata from chunk (metadata is nested)
+                metadata = chunk.get("metadata", {})
+                
                 chunk_doc = {
                     "chunk_id": chunk_id,
                     "contract_id": contract_id,
                     "content": chunk_text,
                     "chunk_type": chunk_type,
                     "priority": chunk.get("priority", 1.0),
-                    "length": chunk.get("length", len(chunk.get("content", ""))),
-                    "industry": chunk.get("industry", "general"),
-                    "skills_required": chunk.get("skills_required", []),
-                    "company_name": chunk.get("company_name", ""),
+                    "length": chunk.get("length", len(chunk_text)),
+                    # CRITICAL: Extract from metadata for proper filtering
+                    "task_type": metadata.get("task_type", "").lower(),  # Always lowercase for consistency
+                    "industry": metadata.get("industry", "general").lower(),
+                    "skills_required": metadata.get("skills", []),  # Note: in metadata it's "skills"
+                    "company_name": metadata.get("company_name", ""),
+                    "job_title": metadata.get("job_title", ""),
+                    "urgency": metadata.get("urgency", "normal"),
+                    "task_complexity": metadata.get("task_complexity", "medium"),
+                    "is_completed": metadata.get("is_completed", False),
+                    "duration_days": metadata.get("duration_days"),
                     "project_status": chunk.get("project_status", ""),
                     "created_at": datetime.utcnow(),
                     "embedding_status": "pending"
