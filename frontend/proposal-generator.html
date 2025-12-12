@@ -233,6 +233,30 @@
                             <p class="text-xs text-gray-500 mt-1">Include: company, goals, tech stack, requirements</p>
                         </div>
 
+                        <!-- Timeline Options -->
+                        <div class="space-y-3">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    id="include_timeline"
+                                    name="include_timeline" 
+                                    class="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                                    onchange="toggleTimelineInput()"
+                                >
+                                <span class="text-sm font-500 text-black">Include Timeline in Proposal</span>
+                            </label>
+                            <div id="timeline-input-wrapper" class="hidden">
+                                <input 
+                                    type="text" 
+                                    id="timeline_duration"
+                                    name="timeline_duration"
+                                    placeholder="e.g., 2-3 weeks, 1 month, 5 days"
+                                    class="w-full px-4 py-2.5 form-input rounded-6px text-sm"
+                                />
+                                <p class="text-xs text-gray-500 mt-1">Leave empty for AI to estimate based on similar projects</p>
+                            </div>
+                        </div>
+
                         <!-- Generate Button -->
                         <button 
                             type="submit"
@@ -337,6 +361,18 @@
         const API_BASE = 'http://localhost:8000/api/proposals';
         let currentSkills = [];
 
+        // Toggle timeline input visibility
+        function toggleTimelineInput() {
+            const checkbox = document.getElementById('include_timeline');
+            const wrapper = document.getElementById('timeline-input-wrapper');
+            if (checkbox.checked) {
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
+                document.getElementById('timeline_duration').value = '';
+            }
+        }
+
         // Add skills (comma-separated)
         function addSkills() {
             const input = document.getElementById('skill-input');
@@ -426,7 +462,9 @@
                 similar_projects_count: 3,
                 include_portfolio: true,
                 include_feedback: true,
-                include_previous_proposals: true
+                include_previous_proposals: true,
+                include_timeline: document.getElementById('include_timeline').checked,
+                timeline_duration: document.getElementById('timeline_duration').value.trim() || null
             };
 
             // Show loading

@@ -48,6 +48,10 @@ class GenerateProposalRequest(BaseModel):
     tone: str = Field("confident", description="Tone: confident, humble, enthusiastic, analytical, friendly")
     max_word_count: int = Field(150, ge=100, le=1500, description="Target proposal length in words")
     
+    # Timeline options
+    include_timeline: bool = Field(False, description="Include timeline in proposal? If false, no timeline section added")
+    timeline_duration: Optional[str] = Field(None, description="Custom timeline duration (e.g., '2-3 weeks', '1 month'). Only used if include_timeline is True")
+    
     # Historical data options
     similar_projects_count: int = Field(3, ge=1, le=10, description="Number of similar past projects to reference")
     include_previous_proposals: bool = Field(True, description="Include analysis of previous proposals for similar jobs?")
@@ -279,7 +283,9 @@ async def generate_proposal(request: GenerateProposalRequest):
             tone=request.tone,
             max_words=request.max_word_count,
             include_portfolio=request.include_portfolio and bool(portfolio_links_used),
-            include_feedback=request.include_feedback and bool(feedback_urls_used)
+            include_feedback=request.include_feedback and bool(feedback_urls_used),
+            include_timeline=request.include_timeline,
+            timeline_duration=request.timeline_duration
         )
         
         # Step 6: Generate proposal

@@ -128,17 +128,19 @@ Your response should be:
         tone: str = "confident",
         max_words: int = 200,
         include_portfolio: bool = True,
-        include_feedback: bool = True
+        include_feedback: bool = True,
+        include_timeline: bool = False,
+        timeline_duration: str = None
     ) -> str:
         """
-        Build an optimized prompt for proposal generation using HOOK→PROOF→APPROACH→TIMELINE→CTA structure.
+        Build an optimized prompt for proposal generation using HOOK→PROOF→APPROACH→(TIMELINE)→CTA structure.
         
         Key Requirements:
         1. HOOK: 2 sentences acknowledging THEIR specific problem
         2. PROOF: 2-3 past projects with REAL COMPANY NAMES and ACTUAL portfolio links
         3. APPROACH: 3-4 sentences with specific solution for THEIR tech stack
-        4. TIMELINE: 1-2 sentences with realistic phases
-        5. CTA: 1 sentence friendly call-to-action
+        4. TIMELINE (optional): Only if include_timeline=True, add conversational timeline
+        5. CTA: 1 sentence friendly, conversational call-to-action
         
         CRITICAL: Only mention projects if they have actual portfolio links.
         Never suggest portfolio URLs - only use real URLs from historical data.
@@ -152,11 +154,13 @@ Your response should be:
             max_words: Target word count (default 200, ideal range 150-250)
             include_portfolio: Include portfolio links?
             include_feedback: Include feedback/testimonials?
+            include_timeline: Include timeline section? (default False)
+            timeline_duration: Custom timeline (e.g., "2-3 weeks") if include_timeline is True
             
         Returns:
             Optimized prompt for OpenAI
         """
-        logger.debug(f"[PromptEngine] Building proposal prompt (style={style}, tone={tone}, target={max_words} words)")
+        logger.debug(f"[PromptEngine] Building proposal prompt (style={style}, tone={tone}, target={max_words} words, timeline={include_timeline})")
 
         # Get style and tone instructions
         style_enum = ProposalStyle(style) if isinstance(style, str) else style
@@ -169,13 +173,23 @@ Your response should be:
         job_section = self._build_job_section(job_data)
         projects_section = self._build_projects_section(similar_projects, include_portfolio, include_feedback)
         patterns_section = self._build_patterns_section(success_patterns)
-        structure_section = self._build_hook_proof_approach_structure(job_data, similar_projects)
+        structure_section = self._build_hook_proof_approach_structure(job_data, similar_projects, include_timeline, timeline_duration)
+
+        # Build timeline instruction based on include_timeline flag
+        timeline_instruction = ""
+        if include_timeline:
+            if timeline_duration:
+                timeline_instruction = f"7. Include a casual, conversational timeline mention (use: {timeline_duration})"
+            else:
+                timeline_instruction = "7. Include a casual, conversational timeline (e.g., 'Looking at about 2-3 weeks to get this wrapped up')"
+        else:
+            timeline_instruction = "7. DO NOT include any timeline - skip timeline section entirely"
 
         # Combine everything
         prompt = f"""
 {self._get_system_role(style)}
 
-{self._get_proposal_system_rules()}
+{self._get_proposal_system_rules(include_timeline)}
 
 {job_section}
 
@@ -193,15 +207,16 @@ Generate the proposal NOW. Target: {max_words} words (ideal range: 150-250).
 
 CRITICAL RULES:
 1. NO "As an AI", "I'm an AI", corporate jargon, or formal language
-2. Sound like a REAL person, not ChatGPT
+2. Sound like a REAL person having a conversation - casual, natural, human
 3. Start with acknowledgment of THEIR specific problem
 4. Reference 2-3 past similar projects with outcomes
 5. Use PLAIN URLs (not markdown) for portfolio links and feedback URLs
 6. Be conversational, direct, punchy - every word counts
-7. Include timeline and clear Call-to-Action
-8. AIM FOR 150-250 words (short proposals get 3-5x better response rates)
-9. PLATFORM MATCH: WordPress job = WordPress examples ONLY, Shopify job = Shopify examples ONLY
-10. Add more detail about your approach and what makes you different
+{timeline_instruction}
+8. End with a friendly, easygoing CTA (e.g., "Happy to hop on a quick call" or "Let me know if you want to chat")
+9. AIM FOR 150-250 words (short proposals get 3-5x better response rates)
+10. PLATFORM MATCH: WordPress job = WordPress examples ONLY, Shopify job = Shopify examples ONLY
+11. NO robotic phrases like "I am eager to", "I would be delighted" - talk like a real human
 """
         return prompt
 
@@ -265,30 +280,50 @@ Improved Proposal:
         }
         return roles.get(style, roles["professional"])
 
-    def _get_proposal_system_rules(self) -> str:
+    def _get_proposal_system_rules(self, include_timeline: bool = False) -> str:
         """Get critical system rules for generating SHORT, HUMAN, WINNING proposals"""
-        return """
+        
+        timeline_rule = ""
+        timeline_pattern = ""
+        if include_timeline:
+            timeline_rule = "✓ Include casual timeline mention (conversational, not formal)"
+            timeline_pattern = "4. TIMELINE (1 casual sentence): e.g., 'Looking at about 2-3 weeks to wrap this up'"
+        else:
+            timeline_rule = "✗ NO timeline section - skip it entirely"
+            timeline_pattern = "4. SKIP TIMELINE - do not mention duration or timeline"
+        
+        return f"""
 SYSTEM MESSAGE - CRITICAL RULES:
 You are a SHORT, HUMAN, WINNING proposal writer. Your goal: 3-5x better response rates.
 
 WHAT NOT TO DO:
 ❌ NEVER say "As an AI" or "I'm an AI"
 ❌ NO corporate jargon, buzzwords, formal tone
-❌ NO generic opening or "I'm excited to help"
+❌ NO generic opening or "I'm excited to help" or "I'm thrilled"
 ❌ NO long introductions - get straight to the point
 ❌ NO talking about yourself - focus on THEIR problem
 ❌ NO proposals over 250 words - SHORT = HIGH IMPACT
+❌ NO robotic phrases like "I would be delighted", "I am eager to", "I look forward to"
+❌ NO formal sign-offs like "Best regards", "Sincerely", "Warm regards" - keep it casual
 
 WHAT TO DO:
-✓ Sound like a REAL person who "gets it"
+✓ Sound like a REAL person having a coffee chat - natural, casual, human
 ✓ Start with: "I see you're dealing with [SPECIFIC PROBLEM]"
 ✓ Reference 2-3 REAL past projects with company names and outcomes
 ✓ Include portfolio proof (links to live work) and feedback URLs
-✓ Use conversational, punchy language
+✓ Use conversational, punchy language - contractions are good (I've, you're, that's)!
 ✓ Show specific approach for THEIR tech stack
-✓ Include realistic timeline based on similar work
-✓ End with clear, friendly call-to-action
+{timeline_rule}
+✓ End with friendly, easygoing CTA (e.g., "Happy to chat more" or "Let me know what you think")
 ✓ Total: 150-250 words (SHORT, direct, human)
+
+CONVERSATIONAL TONE EXAMPLES:
+✓ "Saw your job post and this is right up my alley"
+✓ "I've tackled this exact issue before"
+✓ "Here's what worked for a similar client"
+✓ "Happy to hop on a quick call if you want to discuss"
+✓ "Let me know if you have any questions"
+✓ "Cheers!" or just end naturally without formal sign-off
 
 CRITICAL - PLATFORM-SPECIFIC EXAMPLES:
 ⚠️ If the job is for WORDPRESS → ONLY show WordPress project examples
@@ -301,8 +336,8 @@ SUCCESS PATTERN:
    Example: "I see you're dealing with slow WooCommerce load times. Check out my recent work: https://ggov.no/"
 2. PROOF (2 bullets): Past similar projects + portfolio links + feedback URLs
 3. APPROACH (2-3 sentences): How you'd solve THEIR problem specifically
-4. TIMELINE (1 sentence): Realistic duration
-5. CTA (1 sentence): "Let's discuss" - friendly, direct
+{timeline_pattern}
+5. CTA (1 casual sentence): "Happy to chat" or "Let me know what you think" - friendly, easygoing
 
 KEY WINNING STRATEGY:
 - Put a portfolio link IN THE HOOK - clients see this in preview!
@@ -320,9 +355,11 @@ TARGET: 150-250 words MAXIMUM. Every word must count.
     def _build_hook_proof_approach_structure(
         self,
         job_data: Dict[str, Any],
-        similar_projects: List[Dict[str, Any]]
+        similar_projects: List[Dict[str, Any]],
+        include_timeline: bool = False,
+        timeline_duration: str = None
     ) -> str:
-        """Build template showing HOOK→PROOF→APPROACH→TIMELINE→CTA structure with portfolio link in hook"""
+        """Build template showing HOOK→PROOF→APPROACH→(TIMELINE)→CTA structure with portfolio link in hook"""
         problem = job_data.get("job_description", "")[:200]  # First 200 chars of job description
         company = job_data.get("company_name", "this client")
         
@@ -367,6 +404,27 @@ TARGET: 150-250 words MAXIMUM. Every word must count.
         if hook_project and hook_portfolio_url:
             hook_example = f'"I see you\'re dealing with [specific problem]. I just solved this exact issue - check it out: {hook_portfolio_url}"'
 
+        # Build timeline section based on include_timeline flag
+        timeline_section = ""
+        if include_timeline:
+            if timeline_duration:
+                timeline_section = f"""
+[TIMELINE - 1 casual sentence]
+Something like: "Looking at about {timeline_duration} to get this wrapped up" or "Should take around {timeline_duration}"
+Keep it conversational, not formal!
+"""
+            else:
+                timeline_section = """
+[TIMELINE - 1 casual sentence]
+Something like: "Looking at about 2-3 weeks to wrap this up" or "Should take around a week"
+Keep it conversational and easygoing, not robotic!
+"""
+        else:
+            timeline_section = """
+[NO TIMELINE - SKIP THIS SECTION]
+Do NOT include any timeline or duration in this proposal.
+"""
+
         return f"""
 PROPOSAL STRUCTURE TO USE:
 
@@ -386,18 +444,21 @@ Format each proof point like:
 
 [APPROACH - 2-3 sentences]
 "For you, I'd [specific approach for their tech stack]..."
-
-[TIMELINE - 1 sentence]
-"Timeline: [duration]"
-
-[CTA - 1 sentence]
-"Let's discuss specifics"
+{timeline_section}
+[CTA - 1 casual sentence]
+End with something friendly and easygoing like:
+- "Happy to hop on a quick call to discuss"
+- "Let me know what you think!"
+- "Drop me a message if you have questions"
+- "Cheers!"
+NO formal sign-offs like "Best regards" or "Sincerely"!
 
 CRITICAL FORMAT RULES:
 1. Use PLAIN URLs (https://example.com) - NOT markdown [text](url) format
 2. Include feedback URLs alongside portfolio links
 3. Target: 150-250 words MAXIMUM. PUT A PORTFOLIO LINK IN THE HOOK!
 4. PLATFORM MATCH: WordPress job = WordPress examples, Shopify job = Shopify examples
+5. Sound like a human having a conversation, NOT a robot or AI
 """
 
     def _build_job_section(self, job_data: Dict[str, Any]) -> str:
