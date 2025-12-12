@@ -126,7 +126,7 @@ Your response should be:
         success_patterns: List[str],
         style: str = "professional",
         tone: str = "confident",
-        max_words: int = 150,
+        max_words: int = 200,
         include_portfolio: bool = True,
         include_feedback: bool = True
     ) -> str:
@@ -149,7 +149,7 @@ Your response should be:
             success_patterns: Patterns that worked
             style: Writing style
             tone: Proposal tone
-            max_words: Target word count (default 150 for SHORT, PUNCHY format)
+            max_words: Target word count (default 200, ideal range 150-250)
             include_portfolio: Include portfolio links?
             include_feedback: Include feedback/testimonials?
             
@@ -189,17 +189,19 @@ Your response should be:
 
 {tone_guide}
 
-Generate the proposal NOW. Target: ~{max_words} words (SHORT, HUMAN, WINNING).
+Generate the proposal NOW. Target: {max_words} words (ideal range: 150-250).
 
 CRITICAL RULES:
 1. NO "As an AI", "I'm an AI", corporate jargon, or formal language
 2. Sound like a REAL person, not ChatGPT
-3. Start with acknowledgment of THEIR specific problem from the job description
-4. Reference 2-3 past similar projects BY COMPANY NAME with outcomes
-5. Include portfolio links and feedback URLs where available
+3. Start with acknowledgment of THEIR specific problem
+4. Reference 2-3 past similar projects with outcomes
+5. Use PLAIN URLs (not markdown) for portfolio links and feedback URLs
 6. Be conversational, direct, punchy - every word counts
 7. Include timeline and clear Call-to-Action
-8. Target 250-350 words (SHORT = HIGH IMPACT)
+8. AIM FOR 150-250 words (short proposals get 3-5x better response rates)
+9. PLATFORM MATCH: WordPress job = WordPress examples ONLY, Shopify job = Shopify examples ONLY
+10. Add more detail about your approach and what makes you different
 """
         return prompt
 
@@ -275,27 +277,44 @@ WHAT NOT TO DO:
 ❌ NO generic opening or "I'm excited to help"
 ❌ NO long introductions - get straight to the point
 ❌ NO talking about yourself - focus on THEIR problem
-❌ NO proposals over 350 words - SHORT = HIGH IMPACT
+❌ NO proposals over 250 words - SHORT = HIGH IMPACT
 
 WHAT TO DO:
 ✓ Sound like a REAL person who "gets it"
 ✓ Start with: "I see you're dealing with [SPECIFIC PROBLEM]"
 ✓ Reference 2-3 REAL past projects with company names and outcomes
-✓ Include portfolio proof (links to live work)
+✓ Include portfolio proof (links to live work) and feedback URLs
 ✓ Use conversational, punchy language
 ✓ Show specific approach for THEIR tech stack
 ✓ Include realistic timeline based on similar work
 ✓ End with clear, friendly call-to-action
-✓ Total: 250-350 words (SHORT, direct, human)
+✓ Total: 150-250 words (SHORT, direct, human)
+
+CRITICAL - PLATFORM-SPECIFIC EXAMPLES:
+⚠️ If the job is for WORDPRESS → ONLY show WordPress project examples
+⚠️ If the job is for SHOPIFY → ONLY show Shopify project examples
+⚠️ NEVER mix platforms - WordPress job = WordPress proof, Shopify job = Shopify proof
+⚠️ This builds credibility - show you've done EXACTLY this type of work before
 
 SUCCESS PATTERN:
-1. HOOK (2 sentences): Acknowledge THEIR specific problem
-2. PROOF (2-3 bullets): Past similar projects + portfolio links + outcomes
-3. APPROACH (3-4 sentences): How you'd solve THEIR problem specifically
-4. TIMELINE (1-2 sentences): Realistic phases and duration
+1. HOOK (1-2 sentences): Acknowledge THEIR specific problem + include ONE portfolio link to similar work
+   Example: "I see you're dealing with slow WooCommerce load times. Check out my recent work: https://ggov.no/"
+2. PROOF (2 bullets): Past similar projects + portfolio links + feedback URLs
+3. APPROACH (2-3 sentences): How you'd solve THEIR problem specifically
+4. TIMELINE (1 sentence): Realistic duration
 5. CTA (1 sentence): "Let's discuss" - friendly, direct
 
-This structure = 3-5x better response rates. Use it.
+KEY WINNING STRATEGY:
+- Put a portfolio link IN THE HOOK - clients see this in preview!
+- ONLY use platform-specific examples (WordPress→WordPress, Shopify→Shopify)
+- Include feedback URLs to show what past clients said
+
+CRITICAL LINK FORMAT:
+- Use PLAIN URLs only (e.g., https://ggov.no/)
+- DO NOT use markdown format like [Company](url)
+- Include both: portfolio URL (live work) + feedback URL (client review)
+
+TARGET: 150-250 words MAXIMUM. Every word must count.
 """
 
     def _build_hook_proof_approach_structure(
@@ -303,41 +322,82 @@ This structure = 3-5x better response rates. Use it.
         job_data: Dict[str, Any],
         similar_projects: List[Dict[str, Any]]
     ) -> str:
-        """Build template showing HOOK→PROOF→APPROACH→TIMELINE→CTA structure"""
+        """Build template showing HOOK→PROOF→APPROACH→TIMELINE→CTA structure with portfolio link in hook"""
         problem = job_data.get("job_description", "")[:200]  # First 200 chars of job description
         company = job_data.get("company_name", "this client")
+        
+        # Get the BEST matching project for the HOOK (first one with ACTUAL project URL, not Upwork)
+        hook_project = None
+        hook_portfolio_url = None
+        for proj in similar_projects[:3]:
+            portfolio_urls = proj.get("portfolio_urls", [])
+            if portfolio_urls:
+                hook_project = proj.get("company", proj.get("title", "past project"))
+                # PRIORITIZE actual project URLs over Upwork profile links
+                for url in portfolio_urls:
+                    if 'upwork.com' not in url.lower():
+                        hook_portfolio_url = url
+                        break
+                # Fallback to Upwork if no actual project URL
+                if not hook_portfolio_url:
+                    hook_portfolio_url = portfolio_urls[0]
+                break
         
         projects_proof = ""
         for i, proj in enumerate(similar_projects[:3], 1):
             company_name = proj.get("company", proj.get("title", "past project"))
-            portfolio = ""
-            if proj.get("portfolio_urls"):
-                portfolio = f"\n     → Portfolio: {proj['portfolio_urls'][0]}"
+            portfolio_urls = proj.get("portfolio_urls", [])
+            
+            # Prioritize actual project URL
+            best_url = None
+            for url in portfolio_urls:
+                if 'upwork.com' not in url.lower():
+                    best_url = url
+                    break
+            if not best_url and portfolio_urls:
+                best_url = portfolio_urls[0]
+            
+            portfolio = f"\n     → Live site: {best_url}" if best_url else ""
             
             satisfaction = proj.get("satisfaction", proj.get("effectiveness", 4.5))
             projects_proof += f"  {i}. {company_name} - {satisfaction}/5 satisfaction{portfolio}\n"
 
+        # Build hook example with portfolio link (actual project URL preferred) - PLAIN URL, no markdown
+        hook_example = '"I see you\'re dealing with [specific problem from their job description]..."'
+        if hook_project and hook_portfolio_url:
+            hook_example = f'"I see you\'re dealing with [specific problem]. I just solved this exact issue - check it out: {hook_portfolio_url}"'
+
         return f"""
 PROPOSAL STRUCTURE TO USE:
 
-[HOOK - 2 sentences]
-"I see you're dealing with [specific problem from their job description]..."
+[HOOK - 2-3 sentences WITH PORTFOLIO LINK]
+{hook_example}
+⚠️ IMPORTANT: Include a portfolio link IN THE HOOK! Clients see this in the preview - it triggers curiosity!
+⚠️ USE PLAIN URLs only (e.g., https://example.com) - NOT markdown format like [text](url)
 
-[PROOF - 2-3 bullets with company names and outcomes]
+[PROOF - 2-3 bullets with portfolio + feedback URLs]
 Reference these similar past projects:
 {projects_proof}
 
-[APPROACH - 3-4 sentences]
+Format each proof point like:
+- **Company Name**: Brief outcome
+  Live work: https://portfolio-url.com
+  Client feedback: https://feedback-url.com
+
+[APPROACH - 2-3 sentences]
 "For you, I'd [specific approach for their tech stack]..."
 
-[TIMELINE - 1-2 sentences]
-"Timeline: [phases] - [duration]"
+[TIMELINE - 1 sentence]
+"Timeline: [duration]"
 
 [CTA - 1 sentence]
-"Let's hop on a quick call to discuss specifics"
+"Let's discuss specifics"
 
-NOW generate the proposal following THIS exact structure. Make it CONVERSATIONAL. Make it SHORT.
-Target: 250-350 words. Sound like a real person.
+CRITICAL FORMAT RULES:
+1. Use PLAIN URLs (https://example.com) - NOT markdown [text](url) format
+2. Include feedback URLs alongside portfolio links
+3. Target: 150-250 words MAXIMUM. PUT A PORTFOLIO LINK IN THE HOOK!
+4. PLATFORM MATCH: WordPress job = WordPress examples, Shopify job = Shopify examples
 """
 
     def _build_job_section(self, job_data: Dict[str, Any]) -> str:
@@ -368,8 +428,10 @@ JOB DESCRIPTION:
         """
         Build similar projects reference section formatted for proposal generation.
         
-        CRITICAL: Only include projects that have actual portfolio URLs.
-        Format matches user's example: Company name, brief outcome, portfolio link.
+        CRITICAL: 
+        1. Only include projects that have actual portfolio URLs
+        2. PREFER actual project URLs (https://ggov.no/) over Upwork profile links
+        3. Format: Company name, brief outcome, portfolio link
         """
         if not similar_projects:
             return "SIMILAR PAST PROJECTS: None found in database yet."
@@ -384,6 +446,21 @@ JOB DESCRIPTION:
             # Only include projects with portfolio links
             if not portfolio_urls:
                 continue
+            
+            # PRIORITIZE actual project URLs over Upwork profile links
+            # Actual project URL = more impressive (client can see live work)
+            actual_project_url = None
+            upwork_profile_url = None
+            
+            for url in portfolio_urls:
+                if 'upwork.com' in url.lower():
+                    upwork_profile_url = url
+                else:
+                    actual_project_url = url
+                    break  # Prefer first non-Upwork URL
+            
+            # Use actual project URL first, fallback to Upwork profile
+            best_portfolio_url = actual_project_url or upwork_profile_url
                 
             # Format: Company name, specific outcome, link
             section += f"{i}. **{company}**: "
@@ -395,14 +472,21 @@ JOB DESCRIPTION:
             else:
                 section += "Delivered successfully"
             
-            # Add portfolio link
-            if include_portfolio and portfolio_urls:
-                portfolio_url = portfolio_urls[0]  # Use first portfolio URL
-                section += f". Check out the work: {portfolio_url}\n"
+            # Add portfolio link (prioritize actual project URL) - PLAIN URLs
+            if include_portfolio and best_portfolio_url:
+                section += f"\n   → Live project: {best_portfolio_url}"
             
-            # Add feedback URL if available
+            # Add feedback URL if available - this shows what client said about this work
             if include_feedback and feedback_url:
-                section += f"   Client feedback: {feedback_url}\n"
+                section += f"\n   → Client feedback: {feedback_url}"
+                # Get feedback text preview if available
+                feedback_text = project.get('client_feedback_text', '')
+                if feedback_text:
+                    # Show first 100 chars of feedback as preview
+                    preview = feedback_text[:100] + '...' if len(feedback_text) > 100 else feedback_text
+                    section += f"\n     \"{preview}\""
+            
+            section += "\n\n"
 
         return section
 
@@ -455,7 +539,7 @@ If ANY quality check fails, fix it before submitting.
         """
         Score proposal quality based on SHORT, HUMAN, WINNING criteria.
         
-        Target: 250-350 words, conversational tone, references to past projects.
+        Target: 150-250 words, conversational tone, references to past projects.
         
         Returns:
             Quality metrics and suggestions
@@ -463,16 +547,16 @@ If ANY quality check fails, fix it before submitting.
         score = 0.0
         feedback = []
         
-        # Ideal word count: 250-350 (SHORT = HIGH IMPACT)
+        # Ideal word count: 150-250 (SHORT = HIGH IMPACT)
         word_count = len(proposal_text.split())
-        if 250 <= word_count <= 350:
+        if 150 <= word_count <= 250:
             score += 0.25  # Perfect word count
-        elif 200 < word_count < 400:
+        elif 120 < word_count < 300:
             score += 0.15  # Acceptable word count
-            feedback.append(f"Word count is {word_count} - ideal is 250-350 for maximum impact")
+            feedback.append(f"Word count is {word_count} - ideal is 150-250 for maximum impact")
         else:
             score += 0.05
-            feedback.append(f"Proposal is {word_count} words - should be 250-350 for SHORT impact")
+            feedback.append(f"Proposal is {word_count} words - should be 150-250 for SHORT impact")
 
         # Check for AI language (SHOULD NOT have these)
         ai_phrases = ["as an ai", "i'm an ai", "artificial intelligence", "machine learning", "algorithm", "as a language model"]

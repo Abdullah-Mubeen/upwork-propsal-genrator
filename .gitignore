@@ -186,3 +186,5 @@ awsconfig
 *.generated
 *.auto-generated
 
+
+/scripts/
