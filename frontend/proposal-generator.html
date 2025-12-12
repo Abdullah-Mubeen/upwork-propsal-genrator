@@ -7,452 +7,535 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        body { background: #ffffff; color: #1a1a1a; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
-        .form-input { 
-            background: #f5f5f5; 
-            border: 1px solid #e0e0e0; 
-            transition: all 0.2s ease; 
-        }
-        .form-input:focus { 
-            background: #ffffff; 
-            border-color: #1a1a1a; 
-            box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+        * { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
         }
         
-        .proposal-card {
-            background: #f9f9f9;
-            border: 1px solid #e0e0e0;
+        body { 
+            background: #fafafa;
+            min-height: 100vh;
+        }
+
+        /* Input styling */
+        .input-field {
+            background: #fff;
+            border: 1px solid #e5e5e5;
             border-radius: 8px;
-            padding: 24px;
+            padding: 12px 14px;
+            font-size: 14px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            width: 100%;
         }
         
-        .copy-btn {
-            position: relative;
+        .input-field:hover {
+            border-color: #d4d4d4;
         }
         
-        .copy-feedback {
-            position: absolute;
-            right: 0;
-            top: -30px;
-            background: #1a1a1a;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            opacity: 0;
-            transition: opacity 0.2s;
-            white-space: nowrap;
+        .input-field:focus {
+            outline: none;
+            border-color: #171717;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
         }
-        
-        .copy-feedback.show {
-            opacity: 1;
+
+        .input-field::placeholder {
+            color: #a3a3a3;
         }
-        
+
+        /* Select */
+        select.input-field {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        /* Skill tags */
         .skill-tag {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: #e8e8e8;
+            background: #171717;
+            color: #fff;
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 13px;
             font-weight: 500;
         }
-        
+
         .skill-tag button {
             background: none;
             border: none;
             cursor: pointer;
-            font-size: 16px;
+            color: #a3a3a3;
+            font-size: 14px;
+            line-height: 1;
             padding: 0;
-            color: #666;
+            margin-left: 2px;
         }
-        
+
         .skill-tag button:hover {
-            color: #1a1a1a;
+            color: #fff;
         }
-        
-        .loading-spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #e0e0e0;
-            border-top-color: #1a1a1a;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+
+        /* Primary button */
+        .btn-primary {
+            background: #171717;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
         }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+
+        .btn-primary:hover {
+            background: #262626;
         }
-        
-        .insight-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #f0f0f0;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary:disabled {
+            background: #a3a3a3;
+            cursor: not-allowed;
+        }
+
+        /* Secondary button */
+        .btn-secondary {
+            background: #fff;
+            color: #171717;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 10px 16px;
             font-weight: 500;
-            margin-right: 8px;
-            margin-bottom: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
         }
-        
-        .quality-metric {
+
+        .btn-secondary:hover {
+            background: #fafafa;
+            border-color: #d4d4d4;
+        }
+
+        /* Toggle */
+        .toggle-container {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
+            padding: 14px 16px;
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.15s;
         }
-        
-        .quality-metric:last-child {
-            border-bottom: none;
+
+        .toggle-container:hover {
+            border-color: #d4d4d4;
         }
-        
-        .quality-bar {
-            width: 100px;
-            height: 6px;
-            background: #e0e0e0;
-            border-radius: 3px;
+
+        .toggle-switch {
+            width: 40px;
+            height: 22px;
+            background: #e5e5e5;
+            border-radius: 11px;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: #171717;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(18px);
+        }
+
+        /* Loading */
+        .loader {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e5e5;
+            border-top-color: #171717;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Proposal card */
+        .proposal-card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
             overflow: hidden;
         }
-        
-        .quality-fill {
-            height: 100%;
-            background: #1a1a1a;
-            transition: width 0.3s;
+
+        .proposal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        
-        .nav-link {
-            color: #666;
+
+        .proposal-body {
+            padding: 24px;
+            font-size: 15px;
+            line-height: 1.75;
+            color: #404040;
+            white-space: pre-wrap;
+        }
+
+        /* Stats */
+        .stat-item {
+            text-align: center;
+            padding: 0 16px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #171717;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #737373;
+            margin-top: 2px;
+        }
+
+        /* Copy feedback */
+        .copy-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #171717;
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+        }
+
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+
+        /* Info section */
+        .info-section {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .info-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #525252;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Project card */
+        .project-item {
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .project-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Link item */
+        .link-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #fafafa;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #525252;
             text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: color 0.2s;
+            transition: background 0.15s;
+            margin-right: 8px;
+            margin-bottom: 8px;
         }
-        
-        .nav-link:hover {
-            color: #1a1a1a;
-        }
-        
-        .nav-link.active {
-            color: #1a1a1a;
-            border-bottom: 2px solid #1a1a1a;
-            padding-bottom: 12px;
+
+        .link-item:hover {
+            background: #f0f0f0;
+            color: #171717;
         }
     </style>
 </head>
 <body>
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div class="max-w-6xl mx-auto px-8 py-5">
-            <div class="flex justify-between items-center mb-4">
-                <div>
-                    <h1 class="text-2xl font-700 tracking-tight text-black">Proposal Generator</h1>
-                    <p class="text-xs text-gray-500 mt-1 font-500 tracking-wide">AI-POWERED SHORT & WINNING</p>
-                </div>
-                <div class="flex gap-6">
-                    <a href="index.html" class="nav-link">← Back to Dashboard</a>
-                </div>
+    <header class="border-b border-neutral-200 bg-white">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-semibold text-neutral-900">Proposal Generator</h1>
             </div>
+            <a href="index.html" class="btn-secondary">
+                ← Back
+            </a>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Content -->
-    <div class="max-w-6xl mx-auto px-8 py-12">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Main -->
+    <main class="max-w-7xl mx-auto px-6 py-10">
+        <div class="grid lg:grid-cols-5 gap-8">
             
-            <!-- LEFT: Input Form -->
-            <div class="lg:col-span-1">
-                <div class="bg-white border border-gray-200 rounded-lg p-8 sticky top-24">
-                    <h2 class="text-lg font-700 text-black mb-6">New Proposal</h2>
+            <!-- Left: Form (narrower) -->
+            <div class="lg:col-span-2">
+                <div class="bg-white border border-neutral-200 rounded-xl p-6">
+                    <h2 class="text-base font-semibold text-neutral-900 mb-6">Job Details</h2>
                     
                     <form id="proposal-form" class="space-y-5">
-
                         <!-- Task Type -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-2">Task Type *</label>
-                            <select 
-                                id="task_type"
-                                name="task_type"
-                                class="w-full px-4 py-2.5 form-input rounded-6px text-sm"
-                                required
-                            >
-                            <option value="">Select type</option>
-                            <option value="complete website">Complete Website</option>
-                            <option value="enhance functionality">Enhance Functionality</option>
-                            <option value="redesign website">Redesign Website</option>
-                            <option value="bug fixes">Bug Fixes</option>
-                            <option value="speed optimization">Speed Optimization</option>
-                            <option value="layout fixing">Layout Fixing</option>
-                            <option value="seo">SEO</option>
-                            <option value="consultation">Consultation</option>
-                            <option value="other">Other</option>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Task Type</label>
+                            <select id="task_type" class="input-field" required>
+                                <option value="">Select...</option>
+                                <option value="complete website">Complete Website</option>
+                                <option value="enhance functionality">Enhance Functionality</option>
+                                <option value="redesign website">Redesign Website</option>
+                                <option value="bug fixes">Bug Fixes</option>
+                                <option value="speed optimization">Speed Optimization</option>
+                                <option value="layout fixing">Layout Fixing</option>
+                                <option value="seo">SEO</option>
+                                <option value="consultation">Consultation</option>
+                                <option value="other">Other</option>
                             </select>
                         </div>
 
                         <!-- Skills -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-2">Skills Required * (comma-separated)</label>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Skills</label>
                             <div class="flex gap-2 mb-3">
                                 <input 
                                     type="text" 
                                     id="skill-input"
-                                    placeholder="e.g., Python, FastAPI, PostgreSQL"
-                                    class="flex-1 px-3 py-2 form-input rounded-6px text-sm"
+                                    placeholder="Add skills (comma separated)"
+                                    class="input-field flex-1"
                                 />
-                                <button 
-                                    type="button" 
-                                    onclick="addSkills()"
-                                    class="px-4 py-2 bg-black text-white rounded-6px font-600 text-sm hover:bg-gray-800 whitespace-nowrap"
-                                >
-                                    Add All
-                                </button>
+                                <button type="button" onclick="addSkills()" class="btn-secondary">Add</button>
                             </div>
-                            <div id="skills-container" class="flex flex-wrap gap-2 mb-2"></div>
-                            <input type="hidden" id="skills-hidden" value="[]" />
-                            <p class="text-xs text-gray-500 mt-1">Separate multiple skills with commas</p>
+                            <div id="skills-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
                         <!-- Job Description -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-2">Job Description *</label>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Job Description</label>
                             <textarea 
                                 id="job_description"
-                                name="job_description"
-                                placeholder="Paste the full job description..."
+                                placeholder="Paste the job description..."
                                 rows="8"
-                                class="w-full px-4 py-2.5 form-input rounded-6px text-sm resize-none"
+                                class="input-field resize-none"
                                 required
                             ></textarea>
-                            <p class="text-xs text-gray-500 mt-1">Include: company, goals, tech stack, requirements</p>
                         </div>
 
-                        <!-- Timeline Options -->
-                        <div class="space-y-3">
-                            <label class="flex items-center gap-3 cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    id="include_timeline"
-                                    name="include_timeline" 
-                                    class="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                                    onchange="toggleTimelineInput()"
-                                >
-                                <span class="text-sm font-500 text-black">Include Timeline in Proposal</span>
-                            </label>
-                            <div id="timeline-input-wrapper" class="hidden">
+                        <!-- Timeline Toggle -->
+                        <div>
+                            <div class="toggle-container" onclick="toggleTimeline()">
+                                <div>
+                                    <p class="text-sm font-medium text-neutral-700">Include Timeline</p>
+                                    <p class="text-xs text-neutral-500 mt-0.5">Add delivery duration to proposal</p>
+                                </div>
+                                <div id="timeline-toggle" class="toggle-switch"></div>
+                            </div>
+                            <div id="timeline-input" class="hidden mt-3">
                                 <input 
                                     type="text" 
                                     id="timeline_duration"
-                                    name="timeline_duration"
-                                    placeholder="e.g., 2-3 weeks, 1 month, 5 days"
-                                    class="w-full px-4 py-2.5 form-input rounded-6px text-sm"
+                                    placeholder="e.g., 2-3 weeks"
+                                    class="input-field"
                                 />
-                                <p class="text-xs text-gray-500 mt-1">Leave empty for AI to estimate based on similar projects</p>
                             </div>
                         </div>
 
-                        <!-- Generate Button -->
-                        <button 
-                            type="submit"
-                            id="generate-btn"
-                            class="w-full px-6 py-3 bg-black text-white rounded-6px font-700 text-sm hover:bg-gray-800 transition-all disabled:opacity-50"
-                        >
+                        <!-- Submit -->
+                        <button type="submit" id="generate-btn" class="btn-primary w-full">
                             Generate Proposal
                         </button>
                     </form>
                 </div>
             </div>
 
-            <!-- RIGHT: Output & Insights -->
-            <div class="lg:col-span-2">
+            <!-- Right: Output (wider) -->
+            <div class="lg:col-span-3">
+                <!-- Empty State -->
+                <div id="empty-state" class="bg-white border border-neutral-200 rounded-xl p-12 text-center">
+                    <p class="text-neutral-400 text-sm">Fill in the job details to generate a proposal</p>
+                </div>
+
                 <!-- Loading State -->
-                <div id="loading-state" class="hidden">
-                    <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
-                        <div class="inline-block mb-4">
-                            <div class="loading-spinner"></div>
-                        </div>
-                        <h3 class="font-600 text-black mb-2">Generating Proposal...</h3>
-                        <p class="text-sm text-gray-600">Analyzing past projects & extracting insights</p>
+                <div id="loading-state" class="hidden bg-white border border-neutral-200 rounded-xl p-12">
+                    <div class="flex flex-col items-center">
+                        <div class="loader mb-4"></div>
+                        <p class="text-sm text-neutral-600">Generating proposal...</p>
                     </div>
                 </div>
 
                 <!-- Result State -->
                 <div id="result-state" class="hidden space-y-6">
-                    
                     <!-- Proposal -->
                     <div class="proposal-card">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="font-700 text-black mb-1">Generated Proposal</h3>
-                                <p class="text-xs text-gray-600">
-                                    <span id="word-count">0</span> words · 
-                                    Quality: <span id="quality-score">0</span>%
-                                </p>
+                        <div class="proposal-header">
+                            <div class="flex items-center gap-6">
+                                <div class="stat-item border-r border-neutral-200">
+                                    <div class="stat-value" id="word-count">0</div>
+                                    <div class="stat-label">words</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="quality-score">0%</div>
+                                    <div class="stat-label">quality</div>
+                                </div>
                             </div>
-                            <button 
-                                type="button" 
-                                onclick="copyToClipboard()"
-                                class="copy-btn px-4 py-2 bg-black text-white rounded-6px font-600 text-sm hover:bg-gray-800 transition-all relative"
-                            >
-                                📋 Copy
-                                <span class="copy-feedback" id="copy-feedback">Copied!</span>
+                            <button onclick="copyToClipboard()" class="btn-secondary relative">
+                                Copy
+                                <span class="copy-tooltip" id="copy-feedback">Copied!</span>
                             </button>
                         </div>
-                        
-                        <div id="proposal-text" class="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap mb-4 font-400"></div>
-                        
-                        <!-- Quality Metrics -->
-                        <div class="border-t border-gray-200 pt-4 mt-4">
-                            <p class="text-xs font-600 text-gray-600 mb-3 uppercase">Quality Breakdown</p>
-                            <div id="quality-metrics" class="space-y-2 text-xs"></div>
-                        </div>
+                        <div id="proposal-text" class="proposal-body"></div>
                     </div>
 
-                    <!-- References & Insights -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
-                        <!-- Similar Projects -->
-                        <div class="bg-white border border-gray-200 rounded-lg p-6">
-                            <h4 class="font-700 text-black mb-4">Past Similar Projects</h4>
-                            <div id="similar-projects" class="space-y-3 text-sm">
-                                <p class="text-gray-600">None found</p>
-                            </div>
-                        </div>
-
-                        <!-- Success Patterns -->
-                        <div class="bg-white border border-gray-200 rounded-lg p-6">
-                            <h4 class="font-700 text-black mb-4">Success Patterns</h4>
-                            <div id="success-patterns" class="space-y-2">
-                                <p class="text-gray-600 text-sm">None extracted</p>
-                            </div>
+                    <!-- Similar Projects -->
+                    <div class="info-section">
+                        <div class="info-title">Similar Projects</div>
+                        <div id="similar-projects">
+                            <p class="text-sm text-neutral-500">None found</p>
                         </div>
                     </div>
 
                     <!-- Portfolio Links -->
-                    <div class="bg-white border border-gray-200 rounded-lg p-6">
-                        <h4 class="font-700 text-black mb-4">Portfolio References</h4>
-                        <div id="portfolio-links" class="space-y-2 text-sm">
-                            <p class="text-gray-600">None included</p>
+                    <div class="info-section">
+                        <div class="info-title">Portfolio References</div>
+                        <div id="portfolio-links">
+                            <p class="text-sm text-neutral-500">None included</p>
                         </div>
                     </div>
-                </div>
 
-                <!-- Empty State -->
-                <div id="empty-state">
-                    <div class="bg-white border border-gray-200 rounded-lg p-12 text-center">
-                        <div class="text-4xl mb-4">📝</div>
-                        <h3 class="font-700 text-black mb-2">Fill in the details</h3>
-                        <p class="text-sm text-gray-600 max-w-sm mx-auto">
-                            Add company name, job details, and required skills. The AI will find similar past projects and generate a SHORT, WINNING proposal (max 150 words).
-                        </p>
-                    </div>
+                    <!-- Reset -->
+                    <button onclick="resetForm()" class="w-full py-3 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">
+                        Generate another proposal
+                    </button>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <script>
         const API_BASE = 'http://localhost:8000/api/proposals';
         let currentSkills = [];
+        let includeTimeline = false;
 
-        // Toggle timeline input visibility
-        function toggleTimelineInput() {
-            const checkbox = document.getElementById('include_timeline');
-            const wrapper = document.getElementById('timeline-input-wrapper');
-            if (checkbox.checked) {
-                wrapper.classList.remove('hidden');
-            } else {
-                wrapper.classList.add('hidden');
+        function toggleTimeline() {
+            includeTimeline = !includeTimeline;
+            document.getElementById('timeline-toggle').classList.toggle('active', includeTimeline);
+            document.getElementById('timeline-input').classList.toggle('hidden', !includeTimeline);
+            if (!includeTimeline) {
                 document.getElementById('timeline_duration').value = '';
             }
         }
 
-        // Add skills (comma-separated)
         function addSkills() {
             const input = document.getElementById('skill-input');
             const text = input.value.trim();
-            
             if (!text) return;
             
-            // Split by comma and add each skill
             const skills = text.split(',').map(s => s.trim()).filter(s => s && !currentSkills.includes(s));
-            
-            if (skills.length > 0) {
+            if (skills.length) {
                 currentSkills.push(...skills);
-                updateSkillsDisplay();
+                renderSkills();
                 input.value = '';
                 input.focus();
             }
         }
 
-        // Remove skill
         function removeSkill(skill) {
             currentSkills = currentSkills.filter(s => s !== skill);
-            updateSkillsDisplay();
+            renderSkills();
         }
 
-        // Update skills display
-        function updateSkillsDisplay() {
-            const container = document.getElementById('skills-container');
-            const hidden = document.getElementById('skills-hidden');
-            
-            container.innerHTML = currentSkills.map(skill => `
+        function renderSkills() {
+            document.getElementById('skills-container').innerHTML = currentSkills.map(skill => `
                 <div class="skill-tag">
                     ${skill}
-                    <button type="button" onclick="removeSkill('${skill}')" class="text-gray-600 hover:text-black">×</button>
+                    <button type="button" onclick="removeSkill('${skill}')">×</button>
                 </div>
             `).join('');
-            
-            hidden.value = JSON.stringify(currentSkills);
         }
 
-        // Copy to clipboard
         function copyToClipboard() {
-            const text = document.getElementById('proposal-text').innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                const feedback = document.getElementById('copy-feedback');
-                feedback.classList.add('show');
-                setTimeout(() => feedback.classList.remove('show'), 2000);
+            navigator.clipboard.writeText(document.getElementById('proposal-text').innerText).then(() => {
+                const el = document.getElementById('copy-feedback');
+                el.classList.add('show');
+                setTimeout(() => el.classList.remove('show'), 1500);
             });
         }
 
-        // Format links
         function formatLink(url) {
-            try {
-                const u = new URL(url);
-                return u.hostname.replace('www.', '');
-            } catch {
-                return url;
-            }
+            try { return new URL(url).hostname.replace('www.', ''); } 
+            catch { return url; }
         }
 
-        // Handle form submission
+        function resetForm() {
+            document.getElementById('result-state').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         document.getElementById('proposal-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            if (currentSkills.length === 0) {
+            if (!currentSkills.length) {
                 alert('Please add at least one skill');
                 return;
             }
 
-            // Extract company name and job title from job description
-            const jobDescription = document.getElementById('job_description').value;
-            const companyMatch = jobDescription.match(/(?:company|client|organization)[\s:]+([^\n]+)/i);
-            const company_name = companyMatch ? companyMatch[1].trim().substring(0, 50) : 'Client Company';
+            const jobDesc = document.getElementById('job_description').value;
+            const companyMatch = jobDesc.match(/(?:company|client|organization)[\s:]+([^\n]+)/i);
+            const company = companyMatch ? companyMatch[1].trim().substring(0, 50) : 'Client';
             
-            const jobTitleMatch = jobDescription.match(/^(.+?)(?:\s*[-–]\s*|$)/);
-            const job_title = jobTitleMatch ? jobTitleMatch[1].trim().substring(0, 50) : 'Project';
+            const titleMatch = jobDesc.match(/^(.+?)(?:\s*[-–]\s*|$)/);
+            const title = titleMatch ? titleMatch[1].trim().substring(0, 50) : 'Project';
 
-            const formData = {
-                company_name: company_name,
-                job_title: job_title,
-                job_description: jobDescription,
+            const data = {
+                company_name: company,
+                job_title: title,
+                job_description: jobDesc,
                 skills_required: currentSkills,
                 industry: 'general',
                 task_type: document.getElementById('task_type').value || 'other',
@@ -463,83 +546,57 @@
                 include_portfolio: true,
                 include_feedback: true,
                 include_previous_proposals: true,
-                include_timeline: document.getElementById('include_timeline').checked,
+                include_timeline: includeTimeline,
                 timeline_duration: document.getElementById('timeline_duration').value.trim() || null
             };
 
-            // Show loading
+            // UI: Loading
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('result-state').classList.add('hidden');
             document.getElementById('loading-state').classList.remove('hidden');
-            document.getElementById('generate-btn').disabled = true;
+            
+            const btn = document.getElementById('generate-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loader mx-auto"></div>';
 
             try {
-                const response = await axios.post(`${API_BASE}/generate`, formData);
-                const data = response.data;
+                const res = await axios.post(`${API_BASE}/generate`, data);
+                const result = res.data;
 
-                // Populate results
-                document.getElementById('proposal-text').innerText = data.generated_proposal;
-                document.getElementById('word-count').innerText = data.word_count;
-                document.getElementById('quality-score').innerText = Math.round((data.confidence_score || 0.85) * 100);
-
-                // Quality metrics
-                const metrics = data.metadata?.quality_score_details || {};
-                const metricsHtml = Object.entries(metrics)
-                    .filter(([k]) => k !== 'overall_score' && k !== 'is_short_human_winning')
-                    .map(([key, value]) => {
-                        const percent = typeof value === 'number' ? Math.round(value * 100) : 0;
-                        return `
-                            <div class="quality-metric">
-                                <span class="capitalize">${key.replace(/_/g, ' ')}</span>
-                                <div class="quality-bar">
-                                    <div class="quality-fill" style="width: ${percent}%"></div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                document.getElementById('quality-metrics').innerHTML = metricsHtml || '<p class="text-gray-600 text-xs">Scoring...</p>';
+                document.getElementById('proposal-text').innerText = result.generated_proposal;
+                document.getElementById('word-count').innerText = result.word_count;
+                document.getElementById('quality-score').innerText = Math.round((result.confidence_score || 0.85) * 100) + '%';
 
                 // Similar projects
-                const projects = data.similar_projects || [];
-                document.getElementById('similar-projects').innerHTML = projects.length > 0
+                const projects = result.similar_projects || [];
+                document.getElementById('similar-projects').innerHTML = projects.length
                     ? projects.map(p => `
-                        <div class="p-3 bg-gray-50 rounded-6px">
-                            <p class="font-600 text-black">${p.company}</p>
-                            <p class="text-gray-600 text-xs mt-1">${p.title}</p>
-                            <p class="text-gray-500 text-xs mt-1">${p.skills.slice(0, 3).join(', ')}</p>
+                        <div class="project-item">
+                            <p class="font-medium text-neutral-800 text-sm">${p.company}</p>
+                            <p class="text-xs text-neutral-500 mt-1">${(p.skills || []).slice(0, 4).join(' · ')}</p>
                         </div>
                     `).join('')
-                    : '<p class="text-gray-600 text-sm">No similar past projects found</p>';
+                    : '<p class="text-sm text-neutral-500">None found</p>';
 
-                // Success patterns
-                const insights = data.insights || {};
-                const patterns = insights.success_patterns || [];
-                document.getElementById('success-patterns').innerHTML = patterns.length > 0
-                    ? patterns.map(p => `<div class="insight-badge">✓ ${p}</div>`).join('')
-                    : '<p class="text-gray-600 text-sm">None extracted</p>';
+                // Portfolio
+                const links = result.portfolio_links_used || [];
+                document.getElementById('portfolio-links').innerHTML = links.length
+                    ? links.map(url => `<a href="${url}" target="_blank" class="link-item">${formatLink(url)}</a>`).join('')
+                    : '<p class="text-sm text-neutral-500">None included</p>';
 
-                // Portfolio links
-                const portfolio = data.portfolio_links_used || [];
-                document.getElementById('portfolio-links').innerHTML = portfolio.length > 0
-                    ? portfolio.map(link => `
-                        <a href="${link}" target="_blank" class="text-blue-600 hover:underline text-sm">
-                            🔗 ${formatLink(link)}
-                        </a>
-                    `).join('')
-                    : '<p class="text-gray-600 text-sm">None included</p>';
-
-                // Show result
                 document.getElementById('loading-state').classList.add('hidden');
                 document.getElementById('result-state').classList.remove('hidden');
 
-            } catch (error) {
-                alert('Error: ' + (error.response?.data?.detail || error.message));
+            } catch (err) {
+                alert('Error: ' + (err.response?.data?.detail || err.message));
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
             } finally {
-                document.getElementById('generate-btn').disabled = false;
+                btn.disabled = false;
+                btn.innerHTML = 'Generate Proposal';
             }
         });
 
-        // Allow Enter key in skill input
         document.getElementById('skill-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();

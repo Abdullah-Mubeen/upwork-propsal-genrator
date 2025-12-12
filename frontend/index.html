@@ -3,321 +3,473 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proposal Training Hub</title>
+    <title>Training Platform | Proposal Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        body { background: #ffffff; color: #1a1a1a; }
-        input, textarea, select { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
-        /* Enterprise minimalist theme */
-        .form-input { 
-            background: #f5f5f5; 
-            border: 1px solid #e0e0e0; 
-            transition: all 0.2s ease; 
-        }
-        .form-input:focus { 
-            background: #ffffff; 
-            border-color: #1a1a1a; 
-            box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+        * { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            box-sizing: border-box;
         }
         
-        /* Auto-save subtle indicator */
-        .save-indicator { 
-            position: fixed; 
-            bottom: 24px; 
-            right: 24px; 
-            background: #1a1a1a; 
-            color: #ffffff; 
-            padding: 10px 16px; 
-            border-radius: 6px; 
-            font-size: 13px; 
-            font-weight: 500; 
-            letter-spacing: 0.3px; 
-            opacity: 0; 
-            transform: translateY(10px); 
-            transition: all 0.3s ease; 
-            pointer-events: none; 
-            z-index: 40; 
-        }
-        .save-indicator.show { 
-            opacity: 1; 
-            transform: translateY(0); 
+        html {
+            scroll-behavior: smooth;
         }
         
-        /* Skill tags - black & white minimalist */
-        .skill-tag { 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            background: #f0f0f0; 
-            border: 1px solid #d0d0d0; 
-            padding: 7px 14px; 
-            border-radius: 6px; 
-            font-size: 13px; 
-            font-weight: 500; 
-            letter-spacing: 0.2px; 
-            transition: all 0.2s ease; 
+        body { 
+            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+            min-height: 100vh;
+            color: #171717;
         }
-        .skill-tag:hover { 
-            background: #e5e5e5; 
-            border-color: #1a1a1a; 
-        }
-        .skill-tag button { 
-            background: none; 
-            border: none; 
-            cursor: pointer; 
-            color: #666; 
-            font-size: 16px; 
-            padding: 0; 
-            display: flex; 
-            align-items: center; 
-            line-height: 1; 
-            transition: color 0.2s ease; 
-        }
-        .skill-tag button:hover { 
-            color: #1a1a1a; 
+
+        /* Input styling */
+        .input-field {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            width: 100%;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
         }
         
-        /* Progress bar */
-        .progress-container { 
-            position: fixed; 
-            bottom: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 3px; 
-            background: #f0f0f0; 
-            z-index: 50; 
-        }
-        .progress-bar { 
-            height: 100%; 
-            background: #1a1a1a; 
-            width: 0%; 
-            transition: width 0.3s ease; 
+        .input-field:hover {
+            border-color: #d4d4d4;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
         }
         
-        /* Progress modal */
-        .progress-modal { 
-            position: fixed; 
-            inset: 0; 
-            background: rgba(0,0,0,0.5); 
-            display: none; 
-            align-items: center; 
-            justify-content: center; 
-            z-index: 60; 
+        .input-field:focus {
+            outline: none;
+            border-color: #171717;
+            box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
         }
-        .progress-modal.show { 
-            display: flex; 
+
+        .input-field::placeholder {
+            color: #a3a3a3;
         }
-        .progress-content { 
-            background: white; 
-            padding: 32px; 
-            border-radius: 8px; 
-            text-align: center; 
-            max-width: 400px; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15); 
+
+        /* Select */
+        select.input-field {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
         }
-        .progress-content h3 { 
-            font-size: 18px; 
-            font-weight: 600; 
-            margin-bottom: 16px; 
-            letter-spacing: 0.3px; 
+
+        /* Skill tags */
+        .skill-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #171717;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
         }
-        .progress-steps { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-            margin: 24px 0; 
+
+        .skill-tag button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #a3a3a3;
+            font-size: 14px;
+            line-height: 1;
+            padding: 0;
+            margin-left: 2px;
         }
-        .progress-step { 
-            display: flex; 
-            align-items: center; 
-            gap: 12px; 
-            font-size: 14px; 
-            color: #666; 
+
+        .skill-tag button:hover {
+            color: #fff;
         }
-        .progress-step .step-icon { 
-            width: 20px; 
-            height: 20px; 
-            border-radius: 50%; 
-            background: #f0f0f0; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 12px; 
-            font-weight: 600; 
-            flex-shrink: 0; 
+
+        /* Primary button */
+        .btn-primary {
+            background: #171717;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(23, 23, 23, 0.12);
+            letter-spacing: 0.3px;
         }
-        .progress-step.active .step-icon { 
-            background: #1a1a1a; 
-            color: white; 
+
+        .btn-primary:hover {
+            background: #262626;
+            box-shadow: 0 4px 12px rgba(23, 23, 23, 0.18);
+            transform: translateY(-1px);
         }
-        .progress-step.done .step-icon { 
-            background: #1a1a1a; 
-            color: white; 
+
+        .btn-primary:active {
+            transform: scale(0.98);
         }
-        .spinner { 
-            display: inline-block; 
-            width: 16px; 
-            height: 16px; 
-            border: 2px solid #e0e0e0; 
-            border-top-color: #1a1a1a; 
-            border-radius: 50%; 
-            animation: spin 0.8s linear infinite; 
+
+        .btn-primary:disabled {
+            background: #a3a3a3;
+            cursor: not-allowed;
+            box-shadow: none;
         }
-        @keyframes spin { 
-            to { transform: rotate(360deg); } 
+
+        /* Secondary button */
+        .btn-secondary {
+            background: #fff;
+            color: #171717;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
         }
-        
-        /* Counter badge */
-        .counter-badge { 
-            display: inline-flex; 
-            align-items: center; 
-            justify-content: center; 
-            width: 48px; 
-            height: 48px; 
-            background: #1a1a1a; 
-            color: white; 
-            border-radius: 6px; 
-            font-size: 20px; 
-            font-weight: 700; 
-            letter-spacing: -0.5px; 
+
+        .btn-secondary:hover {
+            background: #fafafa;
+            border-color: #d4d4d4;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
         }
-        
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+        }
+
+        /* Danger button */
+        .btn-danger {
+            background: #fff;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-weight: 500;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-danger:hover {
+            background: #fef2f2;
+        }
+
+        /* Navigation tabs */
+        .nav-tab {
+            padding: 12px 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: #737373;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: none;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+        }
+
+        .nav-tab:hover {
+            color: #171717;
+            border-bottom-color: #d4d4d4;
+        }
+
+        .nav-tab.active {
+            color: #171717;
+            border-bottom-color: #171717;
+            font-weight: 600;
+        }
+
+        /* Cards */
+        .card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #d4d4d4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Stat card */
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: #d4d4d4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #171717;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #737373;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
+        /* Status badges */
+        .badge {
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-muted {
+            background: #f5f5f5;
+            color: #525252;
+        }
+
+        /* Progress */
+        .progress-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(250, 250, 250, 0.98);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .progress-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .progress-modal {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            max-width: 360px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e5e5;
+            border-top-color: #171717;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #171717;
+            color: #fff;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transform: translateY(120px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 200;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Image upload */
+        .upload-zone {
+            border: 2px dashed #e5e5e5;
+            border-radius: 10px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fafafa;
+        }
+
+        .upload-zone:hover {
+            border-color: #d4d4d4;
+            background: #f5f5f5;
+        }
+
+        .upload-zone.dragover {
+            border-color: #171717;
+            background: #f0f0f0;
+            border-width: 2px;
+        }
+
         /* Image preview */
-        .image-preview { 
-            position: relative; 
-            width: 100%; 
-            max-width: 200px; 
-            border-radius: 6px; 
-            overflow: hidden; 
-            background: #f5f5f5; 
+        .image-preview {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e5e5e5;
         }
-        .image-preview img { 
-            width: 100%; 
-            height: auto; 
-            display: block; 
+
+        .image-preview img {
+            max-width: 100%;
+            height: auto;
+            display: block;
         }
-        .image-preview .remove-btn { 
-            position: absolute; 
-            top: 8px; 
-            right: 8px; 
-            background: rgba(0,0,0,0.7); 
-            color: white; 
-            border: none; 
-            width: 28px; 
-            height: 28px; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-size: 16px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            transition: background 0.2s; 
+
+        .image-preview .remove-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
         }
-        .image-preview .remove-btn:hover { 
-            background: rgba(0,0,0,0.9); 
+
+        .image-preview .remove-btn:hover {
+            background: rgba(0,0,0,0.9);
+        }
+
+        /* Tab content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Table */
+        .table-row:hover {
+            background: #fafafa;
         }
     </style>
 </head>
 <body>
-    <!-- Progress bar -->
-    <div class="progress-container">
-        <div class="progress-bar" id="progress-bar"></div>
-    </div>
-
-    <!-- Progress modal -->
-    <div class="progress-modal" id="progress-modal">
-        <div class="progress-content">
-            <h3>Uploading Data</h3>
-            <div class="progress-steps">
-                <div class="progress-step active" id="step-store">
-                    <div class="step-icon"><span class="spinner"></span></div>
-                    <span>Storing data</span>
-                </div>
-                <div class="progress-step" id="step-chunks">
-                    <div class="step-icon">2</div>
-                    <span>Creating chunks</span>
-                </div>
-                <div class="progress-step" id="step-embeddings">
-                    <div class="step-icon">3</div>
-                    <span>Generating embeddings</span>
-                </div>
-                <div class="progress-step" id="step-pinecone">
-                    <div class="step-icon">4</div>
-                    <span>Saving vectors</span>
-                </div>
-            </div>
+    <!-- Progress Overlay -->
+    <div class="progress-overlay" id="progress-overlay">
+        <div class="progress-modal">
+            <div class="loader"></div>
+            <p class="text-sm text-neutral-700 font-medium" id="progress-text">Uploading data...</p>
+            <p class="text-xs text-neutral-500 mt-2" id="progress-step">Storing in database</p>
         </div>
     </div>
 
-    <!-- Save indicator -->
-    <div class="save-indicator" id="save-indicator">✓ Saved</div>
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
 
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-8 py-5">
-            <div class="flex justify-between items-center mb-6">
+    <header class="border-b border-neutral-200 bg-white sticky top-0 z-50 backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98);">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="flex items-center justify-between py-4">
                 <div>
-                    <h1 class="text-2xl font-700 tracking-tight text-black">Proposal Generator</h1>
-                    <p class="text-xs text-gray-500 mt-1 font-500 tracking-wide">TRAINING PLATFORM</p>
+                    <h1 class="text-lg font-semibold text-neutral-900">Training Platform</h1>
+                    <p class="text-xs text-neutral-500 font-400">Add winning proposals to improve AI</p>
                 </div>
-                <div class="flex gap-8 items-center">
-                    <div class="text-right border-r border-gray-200 pr-8">
-                        <div class="text-3xl font-700 tracking-tight text-black" id="total-trained">0</div>
-                        <div class="text-xs text-gray-500 uppercase font-600 tracking-wide">Entries Trained</div>
+                <div class="flex items-center gap-8">
+                    <div class="text-right border-r border-neutral-200 pr-8">
+                        <div class="text-2xl font-bold text-neutral-900" id="total-count">0</div>
+                        <div class="text-xs text-neutral-500 font-500">Entries Trained</div>
                     </div>
-                    <div class="w-12 h-12 bg-black text-white rounded-lg flex items-center justify-center font-700 text-lg" id="counter-badge">0</div>
+                    <a href="proposal-generator.html" class="btn-primary">
+                        Generate Proposal
+                    </a>
                 </div>
             </div>
-            
-            <!-- Navigation Tabs -->
-            <div class="flex gap-8 border-t border-gray-200 pt-4">
-                <button class="nav-tab active px-0 py-2 text-sm font-600 border-b-2 border-black text-black transition-all" data-tab="upload">Data Entry</button>
-                <button class="nav-tab px-0 py-2 text-sm font-600 border-b-2 border-transparent text-gray-500 hover:text-black transition-all" data-tab="dashboard">Overview</button>
-                <button class="nav-tab px-0 py-2 text-sm font-600 border-b-2 border-transparent text-gray-500 hover:text-black transition-all" data-tab="jobs">Entries</button>
-                <a href="proposal-generator.html" class="px-0 py-2 text-sm font-600 text-gray-500 hover:text-black transition-all">→ Generate Proposal</a>
+
+            <!-- Navigation -->
+            <div class="flex gap-8 border-t border-neutral-200 pt-3">
+                <button class="nav-tab active" data-tab="upload">Add Entry</button>
+                <button class="nav-tab" data-tab="dashboard">Dashboard</button>
+                <button class="nav-tab" data-tab="entries">All Entries</button>
             </div>
         </div>
-    </div>
+    </header>
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-8 py-12">
+    <!-- Main -->
+    <main class="max-w-5xl mx-auto px-6 py-8">
         
-        <!-- UPLOAD TAB -->
+        <!-- Upload Tab -->
         <div id="tab-upload" class="tab-content active">
-            <div class="max-w-3xl">
-                <div class="bg-white rounded-lg border border-gray-200 p-8 space-y-8">
-                    <div>
-                        <h2 class="text-xl font-700 tracking-tight text-black mb-1">Add Training Entry</h2>
-                        <p class="text-sm text-gray-500 font-400">Fill in the proposal details below. Auto-saved to local storage.</p>
-                    </div>
-
-                    <form id="proposal-form" class="space-y-7">
-                        <!-- Basic Info -->
-                        <div class="grid grid-cols-2 gap-5">
+            <div class="max-w-2xl">
+                <div class="card p-6">
+                    <h2 class="text-base font-semibold text-neutral-900 mb-6">New Training Entry</h2>
+                    
+                    <form id="proposal-form" class="space-y-5">
+                        <!-- Row: Company & Industry -->
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-600 text-black mb-3">Company Name *</label>
-                                <input type="text" name="company_name" placeholder="TechCorp Inc" class="w-full px-4 py-3 form-input rounded-6px" required>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Company *</label>
+                                <input type="text" name="company_name" placeholder="TechCorp Inc" class="input-field" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-600 text-black mb-3">Industry *</label>
-                                <input type="text" name="industry" placeholder="SaaS, Finance, etc" class="w-full px-4 py-3 form-input rounded-6px" required>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Industry *</label>
+                                <input type="text" name="industry" placeholder="SaaS, Finance, etc" class="input-field" required>
                             </div>
                         </div>
 
-                        <!-- Job Details -->
-                        <div class="grid grid-cols-2 gap-5">
+                        <!-- Row: Job Title & Task Type -->
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-600 text-black mb-3">Job Title *</label>
-                                <input type="text" name="job_title" placeholder="Senior Backend Developer" class="w-full px-4 py-3 form-input rounded-6px" required>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Job Title *</label>
+                                <input type="text" name="job_title" placeholder="Senior Backend Developer" class="input-field" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-600 text-black mb-3">Task Type *</label>
-                                <select name="task_type" class="w-full px-4 py-3 form-input rounded-6px" required onchange="handleTaskTypeChange()">
-                                    <option value="">Select task type</option>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Task Type *</label>
+                                <select name="task_type" class="input-field" required>
+                                    <option value="">Select...</option>
                                     <option value="development">Development</option>
                                     <option value="design">Design</option>
                                     <option value="writing">Writing</option>
@@ -329,26 +481,26 @@
                             </div>
                         </div>
 
-                        <!-- Custom Task Type (hidden) -->
+                        <!-- Custom Task Type -->
                         <div id="custom-task-group" class="hidden">
-                            <label class="block text-sm font-600 text-black mb-3">Specify Task Type</label>
-                            <input type="text" name="other_task_type" placeholder="e.g., Video Editing" class="w-full px-4 py-3 form-input rounded-6px">
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Custom Task Type</label>
+                            <input type="text" name="other_task_type" placeholder="e.g., Video Editing" class="input-field">
                         </div>
 
-                        <!-- Dates and Status -->
-                        <div class="grid grid-cols-3 gap-5">
+                        <!-- Row: Dates & Status -->
+                        <div class="grid grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-sm font-600 text-black mb-3">Start Date</label>
-                                <input type="date" name="start_date" class="w-full px-4 py-3 form-input rounded-6px">
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Start Date</label>
+                                <input type="date" name="start_date" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-sm font-600 text-black mb-3">End Date</label>
-                                <input type="date" name="end_date" class="w-full px-4 py-3 form-input rounded-6px">
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">End Date</label>
+                                <input type="date" name="end_date" class="input-field">
                             </div>
                             <div>
-                                <label class="block text-sm font-600 text-black mb-3">Status *</label>
-                                <select name="project_status" class="w-full px-4 py-3 form-input rounded-6px" required>
-                                    <option value="">Select status</option>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Status *</label>
+                                <select name="project_status" class="input-field" required>
+                                    <option value="">Select...</option>
                                     <option value="completed">Completed</option>
                                     <option value="ongoing">Ongoing</option>
                                     <option value="cancelled">Cancelled</option>
@@ -356,372 +508,352 @@
                             </div>
                         </div>
 
-                        <!-- Urgent Flag -->
+                        <!-- Urgent checkbox -->
                         <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="urgent_adhoc" class="w-4 h-4 rounded border-gray-300 cursor-pointer">
-                            <span class="text-sm font-500 text-black">Urgent / Adhoc Project</span>
+                            <input type="checkbox" name="urgent_adhoc" class="w-4 h-4 rounded border-neutral-300">
+                            <span class="text-sm text-neutral-700">Urgent / Adhoc Project</span>
                         </label>
 
                         <!-- Skills -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-3">Skills Required * (comma-separate)</label>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Skills * (comma separated)</label>
                             <div class="flex gap-2 mb-3">
-                                <input type="text" id="skill-input" placeholder="e.g. Python, JavaScript" class="flex-1 px-4 py-2.5 form-input rounded-lg">
-                                <button type="button" id="add-skill-btn" onclick="addSkill()" class="px-4 py-2.5 bg-black text-white rounded-lg font-500 text-sm hover:bg-gray-900 transition-colors">Add</button>
+                                <input type="text" id="skill-input" placeholder="Python, React, etc" class="input-field flex-1">
+                                <button type="button" onclick="addSkill()" class="btn-secondary">Add</button>
                             </div>
-                            <div id="skills-container" class="flex flex-wrap gap-2">
-                            </div>
-                            <input type="hidden" name="skills_required" id="skills-hidden" value="[]">
+                            <div id="skills-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
                         <!-- Portfolio URLs -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-3">Portfolio Links (click Add)</label>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Portfolio Links</label>
                             <div class="flex gap-2 mb-3">
-                                <input type="url" id="portfolio-input" placeholder="https://example.com" class="flex-1 px-4 py-2.5 form-input rounded-lg">
-                                <button type="button" onclick="addPortfolio()" class="px-4 py-2.5 bg-black text-white rounded-lg font-500 text-sm hover:bg-gray-900 transition-colors">Add</button>
+                                <input type="url" id="portfolio-input" placeholder="https://example.com" class="input-field flex-1">
+                                <button type="button" onclick="addPortfolio()" class="btn-secondary">Add</button>
                             </div>
-                            <div id="portfolio-container" class="flex flex-wrap gap-2">
-                            </div>
-                            <input type="hidden" name="portfolio_urls" id="portfolio-hidden" value="[]">
+                            <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
                         <!-- Job Description -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-3">Job Description *</label>
-                            <textarea name="job_description" placeholder="Describe the job requirements..." class="w-full px-4 py-3 form-input rounded-6px" rows="4" required></textarea>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Job Description *</label>
+                            <textarea name="job_description" placeholder="Describe the job requirements..." rows="4" class="input-field resize-none" required></textarea>
                         </div>
 
-                        <!-- Your Proposal -->
+                        <!-- Proposal -->
                         <div>
-                            <label class="block text-sm font-600 text-black mb-3">Your Proposal *</label>
-                            <textarea name="your_proposal_text" placeholder="Your proposal response..." class="w-full px-4 py-3 form-input rounded-6px" rows="4" required></textarea>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Your Proposal *</label>
+                            <textarea name="your_proposal_text" placeholder="Your proposal response..." rows="4" class="input-field resize-none" required></textarea>
                         </div>
 
-                        <!-- Feedback Section -->
-                        <div class="border-t border-gray-200 pt-7">
-                            <h3 class="text-sm font-600 text-black mb-4">Client Feedback (Optional)</h3>
+                        <!-- Client Feedback -->
+                        <div class="border-t border-neutral-200 pt-5">
+                            <label class="block text-sm font-600 text-neutral-700 mb-3">Client Feedback (Optional)</label>
                             
-                            <!-- Feedback type toggle -->
-                            <div class="flex gap-3 mb-5">
-                                <button type="button" class="feedback-tab active px-4 py-2 text-sm font-600 border-b-2 border-black text-black" data-type="text">Text</button>
-                                <button type="button" class="feedback-tab px-4 py-2 text-sm font-600 border-b-2 border-transparent text-gray-500 hover:text-black transition-colors" data-type="image">Image</button>
+                            <!-- Feedback tabs -->
+                            <div class="flex gap-4 mb-4">
+                                <button type="button" class="feedback-tab text-sm font-600 text-neutral-900 border-b-2 border-neutral-900 pb-1" data-type="text">Text</button>
+                                <button type="button" class="feedback-tab text-sm font-500 text-neutral-500 border-b-2 border-transparent pb-1 hover:text-neutral-700" data-type="image">Image (OCR)</button>
                             </div>
 
                             <!-- Text feedback -->
                             <div id="feedback-text-group">
-                                <textarea name="client_feedback" id="feedback-text" placeholder="Paste or type feedback from client..." class="w-full px-4 py-3 form-input rounded-6px" rows="3"></textarea>
+                                <textarea name="client_feedback" id="feedback-text" placeholder="Paste feedback from client..." rows="3" class="input-field resize-none"></textarea>
                             </div>
 
                             <!-- Image feedback -->
                             <div id="feedback-image-group" class="hidden space-y-4">
-                                <!-- Image upload area -->
-                                <div class="border-2 border-dashed border-gray-300 rounded-6px p-6 text-center cursor-pointer hover:border-black transition-colors" id="feedback-drop-zone">
-                                    <svg class="w-8 h-8 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                                <div class="upload-zone" id="feedback-drop-zone">
+                                    <svg class="w-8 h-8 mx-auto mb-2 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                     </svg>
-                                    <p class="text-sm font-500 text-gray-700">Drop image here or click to select</p>
-                                    <p class="text-xs text-gray-500 mt-1">PNG, JPG, GIF, WebP up to 5MB</p>
+                                    <p class="text-sm text-neutral-600">Drop image or click to upload</p>
+                                    <p class="text-xs text-neutral-500 mt-1">PNG, JPG up to 5MB</p>
                                     <input type="file" id="feedback-image-input" accept="image/*" class="hidden">
                                 </div>
                                 
-                                <!-- Image preview -->
-                                <div id="image-preview-container" class="mt-4"></div>
+                                <div id="image-preview-container"></div>
                                 
-                                <!-- OCR Extract button -->
-                                <div id="ocr-button-container" class="hidden">
-                                    <button type="button" id="extract-ocr-btn" class="w-full px-4 py-3 bg-black text-white rounded-6px font-600 text-sm hover:bg-gray-800 transition-all flex items-center justify-center gap-2">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                        <span id="extract-ocr-text">Extract Text with OCR</span>
-                                    </button>
+                                <button type="button" id="extract-ocr-btn" class="hidden btn-primary w-full">
+                                    Extract Text with OCR
+                                </button>
+                                
+                                <div id="ocr-result" class="hidden">
+                                    <p class="text-xs text-neutral-600 mb-2">Extracted text:</p>
+                                    <div id="extracted-text-preview" class="p-3 bg-neutral-50 border border-neutral-200 rounded-lg text-sm text-neutral-700 max-h-32 overflow-y-auto"></div>
+                                    <button type="button" id="use-extracted-btn" class="btn-primary w-full mt-3">Use This Text</button>
                                 </div>
-                                
-                                <!-- OCR status message -->
-                                <div id="ocr-status" class="hidden p-4 rounded-6px text-sm"></div>
-                                
-                                <!-- Extracted text area (shown after extraction) -->
-                                <div id="extracted-text-container" class="hidden">
-                                    <p class="text-xs text-gray-600 mb-2 font-500">Extracted Text - Review and Submit Below:</p>
-                                    <div id="extracted-text-preview" class="p-4 bg-gray-50 rounded-6px border border-gray-200 max-h-32 overflow-y-auto text-sm text-gray-700"></div>
-                                    <button type="button" id="use-extracted-text-btn" class="w-full mt-3 px-4 py-2 bg-green-600 text-white rounded-6px font-600 text-sm hover:bg-green-700 transition-all">Use This Text</button>
-                                </div>
-                                
-                                <input type="hidden" name="feedback_image_path" id="feedback-image-hidden">
                             </div>
                         </div>
 
-                        <!-- Action Buttons -->
-                        <div class="flex gap-4 pt-6 border-t border-gray-200">
-                            <button type="submit" class="flex-1 px-6 py-3 bg-black text-white rounded-6px font-700 text-sm hover:bg-gray-800 transition-all tracking-tight">Submit Entry</button>
-                            <button type="reset" onclick="handleClearForm()" class="px-6 py-3 bg-gray-100 text-black rounded-6px font-600 text-sm hover:bg-gray-200 transition-all">Clear All</button>
+                        <!-- Submit -->
+                        <div class="flex gap-3 pt-4 border-t border-neutral-200">
+                            <button type="submit" class="btn-primary flex-1">Submit Entry</button>
+                            <button type="button" onclick="clearForm()" class="btn-secondary">Clear</button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
-        <!-- END UPLOAD TAB -->
-        
-        <!-- DASHBOARD TAB -->
-        <div id="tab-dashboard" class="tab-content hidden">
-            <!-- Metrics Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <div class="bg-white border border-gray-200 rounded-lg p-6">
-                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Total Entries</p>
-                    <p class="text-3xl font-700 text-black" id="dash-total-jobs">0</p>
+
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="grid grid-cols-4 gap-4 mb-8">
+                <div class="stat-card">
+                    <div class="stat-value" id="dash-total">0</div>
+                    <div class="stat-label">Total Entries</div>
                 </div>
-                
-                <div class="bg-white border border-gray-200 rounded-lg p-6">
-                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Total Chunks</p>
-                    <p class="text-3xl font-700 text-black" id="dash-total-chunks">0</p>
+                <div class="stat-card">
+                    <div class="stat-value" id="dash-chunks">0</div>
+                    <div class="stat-label">Chunks Created</div>
                 </div>
-                
-                <div class="bg-white border border-gray-200 rounded-lg p-6">
-                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Embeddings</p>
-                    <p class="text-3xl font-700 text-black" id="dash-embeddings">0</p>
+                <div class="stat-card">
+                    <div class="stat-value" id="dash-embeddings">0</div>
+                    <div class="stat-label">Embeddings</div>
                 </div>
-                
-                <div class="bg-white border border-gray-200 rounded-lg p-6">
-                    <p class="text-xs font-600 text-gray-500 uppercase tracking-wider mb-3">Storage</p>
-                    <p class="text-3xl font-700 text-black" id="dash-storage">0 KB</p>
+                <div class="stat-card">
+                    <div class="stat-value" id="dash-storage">0 KB</div>
+                    <div class="stat-label">Storage Used</div>
                 </div>
             </div>
-            
-            <!-- Breakdown Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div class="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 class="text-sm font-700 text-black mb-4 uppercase tracking-wider">Distribution by Status</h3>
-                    <div id="status-breakdown" class="space-y-3">
-                        <p class="text-sm text-gray-500">Loading...</p>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="card p-5">
+                    <h3 class="text-sm font-600 text-neutral-900 mb-4">Status Breakdown</h3>
+                    <div id="status-breakdown" class="space-y-2">
+                        <p class="text-sm text-neutral-500">Loading...</p>
                     </div>
                 </div>
-                
-                <div class="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 class="text-sm font-700 text-black mb-4 uppercase tracking-wider">Distribution by Industry</h3>
-                    <div id="industry-breakdown" class="space-y-3">
-                        <p class="text-sm text-gray-500">Loading...</p>
+                <div class="card p-5">
+                    <h3 class="text-sm font-600 text-neutral-900 mb-4">Industry Breakdown</h3>
+                    <div id="industry-breakdown" class="space-y-2">
+                        <p class="text-sm text-neutral-500">Loading...</p>
                     </div>
                 </div>
             </div>
         </div>
-        <!-- END DASHBOARD TAB -->
-        
-        <!-- JOBS LIST TAB -->
-        <div id="tab-jobs" class="tab-content hidden">
-            <div class="bg-white border border-gray-200 rounded-lg">
-                <!-- Search and Filter -->
-                <div class="p-6 border-b border-gray-200 flex gap-3">
-                    <input type="text" id="jobs-search" placeholder="Search entries..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg form-input text-sm">
-                    <select id="jobs-filter-status" class="px-4 py-2 border border-gray-300 rounded-lg form-input text-sm">
+
+        <!-- Entries Tab -->
+        <div id="tab-entries" class="tab-content">
+            <div class="card">
+                <!-- Search -->
+                <div class="p-4 border-b border-neutral-200 flex gap-3">
+                    <input type="text" id="search-input" placeholder="Search entries..." class="input-field flex-1">
+                    <select id="status-filter" class="input-field w-40">
                         <option value="">All Status</option>
                         <option value="completed">Completed</option>
                         <option value="ongoing">Ongoing</option>
                         <option value="cancelled">Cancelled</option>
                     </select>
                 </div>
-                
-                <!-- Jobs Table -->
+
+                <!-- Table -->
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="border-b border-gray-200 bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Company</th>
-                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Title</th>
-                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Industry</th>
-                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Chunks</th>
-                                <th class="px-6 py-3 text-left text-xs font-600 text-gray-700 uppercase tracking-wide">Actions</th>
+                            <tr class="border-b border-neutral-200 bg-neutral-50">
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Company</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Title</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Industry</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Chunks</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="jobs-table-body">
+                        <tbody id="entries-table">
                             <tr>
-                                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                    <p class="text-sm">Loading entries...</p>
-                                </td>
+                                <td colspan="6" class="px-4 py-8 text-center text-neutral-500">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                
+
                 <!-- Pagination -->
-                <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                    <p class="text-sm text-gray-600">Showing <span id="jobs-showing">0</span> of <span id="jobs-total">0</span> jobs</p>
+                <div class="px-4 py-3 border-t border-neutral-200 flex items-center justify-between">
+                    <p class="text-sm text-neutral-600">Showing <span id="showing-count">0</span> of <span id="total-entries">0</span></p>
                     <div class="flex gap-2">
-                        <button id="jobs-prev" class="px-3 py-2 border border-gray-300 rounded-6px font-600 text-sm hover:bg-gray-50 disabled:opacity-50">← Previous</button>
-                        <button id="jobs-next" class="px-3 py-2 border border-gray-300 rounded-6px font-600 text-sm hover:bg-gray-50 disabled:opacity-50">Next →</button>
+                        <button id="prev-btn" class="btn-secondary" disabled>Previous</button>
+                        <button id="next-btn" class="btn-secondary" disabled>Next</button>
                     </div>
                 </div>
             </div>
         </div>
-        <!-- END JOBS LIST TAB -->
-        
-    </div>
+    </main>
 
     <script>
         const API_BASE = 'http://localhost:8000/api/job-data';
         let currentSkills = [];
         let currentPortfolios = [];
-        let allHistory = [];
         let feedbackMode = 'text';
         let selectedImage = null;
-        let autoSaveTimer = null;
-        let hasUnsavedChanges = false;
+        let extractedOCRText = '';
+        
+        // Entries pagination
+        let entriesData = [];
+        let currentPage = 0;
+        const perPage = 10;
 
         // Initialize
-        window.addEventListener('DOMContentLoaded', () => {
-            setupTabSwitching();
-            loadFormData();
-            loadStats();
-            loadHistory();
-            loadDashboard();
-            setupAutoSave();
+        document.addEventListener('DOMContentLoaded', () => {
+            setupTabs();
+            setupForm();
             setupSkillInput();
             setupPortfolioInput();
-            setupTaskTypeToggle();
             setupFeedbackTabs();
             setupImageUpload();
-            setupOCRExtraction();
-            setupJobsView();
+            setupOCR();
+            setupEntriesView();
+            loadStats();
+            loadFormFromStorage();
         });
 
-        // === TAB SWITCHING ===
-        function setupTabSwitching() {
-            const tabs = document.querySelectorAll('.nav-tab');
-            tabs.forEach(tab => {
+        // === TABS ===
+        function setupTabs() {
+            document.querySelectorAll('.nav-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
                     const tabName = tab.dataset.tab;
                     
-                    // Update active tab
-                    tabs.forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
                     
-                    // Update tab styling
-                    tabs.forEach(t => {
-                        t.classList.remove('border-black', 'text-black');
-                        t.classList.add('border-transparent', 'text-gray-600');
-                    });
-                    tab.classList.add('border-black', 'text-black');
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(`tab-${tabName}`).classList.add('active');
                     
-                    // Hide all tab contents
-                    document.querySelectorAll('.tab-content').forEach(content => {
-                        content.classList.add('hidden');
-                        content.classList.remove('active');
-                    });
-                    
-                    // Show selected tab
-                    const selectedTab = document.getElementById(`tab-${tabName}`);
-                    if (selectedTab) {
-                        selectedTab.classList.remove('hidden');
-                        selectedTab.classList.add('active');
-                        
-                        // Load data when switching to tab
-                        if (tabName === 'dashboard') {
-                            loadDashboard();
-                        } else if (tabName === 'jobs') {
-                            loadJobsTable();
-                        }
-                    }
+                    if (tabName === 'dashboard') loadDashboard();
+                    if (tabName === 'entries') loadEntries();
                 });
             });
         }
 
-        // === AUTO-SAVE SYSTEM ===
-        function setupAutoSave() {
+        // === FORM ===
+        function setupForm() {
             const form = document.getElementById('proposal-form');
-            form.addEventListener('change', () => {
-                hasUnsavedChanges = true;
-                clearAutoSaveTimer();
-                autoSaveTimer = setTimeout(saveFormData, 1500);
-            });
-            form.addEventListener('input', () => {
-                hasUnsavedChanges = true;
-                clearAutoSaveTimer();
-                autoSaveTimer = setTimeout(saveFormData, 1500);
-            });
-        }
-
-        function clearAutoSaveTimer() {
-            if (autoSaveTimer) {
-                clearTimeout(autoSaveTimer);
-                autoSaveTimer = null;
-            }
-        }
-
-        function saveFormData() {
-            if (!hasUnsavedChanges) return;
+            const taskSelect = form.querySelector('select[name="task_type"]');
             
+            taskSelect.addEventListener('change', () => {
+                document.getElementById('custom-task-group').classList.toggle('hidden', taskSelect.value !== 'other');
+            });
+
+            // Auto-save on change
+            form.addEventListener('input', debounce(saveFormToStorage, 1000));
+
+            form.addEventListener('submit', handleSubmit);
+        }
+
+        function saveFormToStorage() {
             const form = document.getElementById('proposal-form');
             const formData = new FormData(form);
-            const data = {};
-            formData.forEach((value, key) => {
-                data[key] = value;
-            });
-            data.skills_required = currentSkills;
-            data.portfolio_urls = currentPortfolios;
-            if (selectedImage) {
-                data.feedback_image_path = selectedImage.name;
-            }
-            
-            localStorage.setItem('proposal_form_draft', JSON.stringify(data));
-            hasUnsavedChanges = false;
-            showSaveIndicator();
+            const data = Object.fromEntries(formData);
+            data.skills = currentSkills;
+            data.portfolios = currentPortfolios;
+            localStorage.setItem('training_form_draft', JSON.stringify(data));
+            showToast('Draft saved');
         }
 
-        function loadFormData() {
-            const saved = localStorage.getItem('proposal_form_draft');
-            if (saved) {
+        function loadFormFromStorage() {
+            const saved = localStorage.getItem('training_form_draft');
+            if (!saved) return;
+            
+            try {
                 const data = JSON.parse(saved);
                 const form = document.getElementById('proposal-form');
                 
                 Object.keys(data).forEach(key => {
-                    if (key !== 'skills_required' && key !== 'portfolio_urls' && key !== 'feedback_image_path') {
+                    if (key === 'skills') {
+                        currentSkills = data.skills || [];
+                        renderSkills();
+                    } else if (key === 'portfolios') {
+                        currentPortfolios = data.portfolios || [];
+                        renderPortfolios();
+                    } else {
                         const field = form.elements[key];
                         if (field) {
                             if (field.type === 'checkbox') {
-                                field.checked = data[key] === 'on' || data[key] === true;
+                                field.checked = data[key] === 'on';
                             } else {
                                 field.value = data[key] || '';
                             }
                         }
                     }
                 });
-
-                if (data.skills_required && Array.isArray(data.skills_required)) {
-                    currentSkills = data.skills_required;
-                    updateSkillsDisplay();
-                }
-
-                if (data.portfolio_urls && Array.isArray(data.portfolio_urls)) {
-                    currentPortfolios = data.portfolio_urls;
-                    updatePortfolioDisplay();
-                }
+            } catch (e) {
+                console.error('Error loading draft:', e);
             }
         }
 
-        function showSaveIndicator() {
-            const indicator = document.getElementById('save-indicator');
-            indicator.classList.add('show');
-            setTimeout(() => {
-                indicator.classList.remove('show');
-            }, 2000);
+        async function handleSubmit(e) {
+            e.preventDefault();
+            
+            if (!currentSkills.length) {
+                alert('Please add at least one skill');
+                return;
+            }
+
+            const form = e.target;
+            const formData = new FormData(form);
+            
+            const data = {
+                company_name: formData.get('company_name'),
+                industry: formData.get('industry'),
+                job_title: formData.get('job_title'),
+                task_type: formData.get('task_type') === 'other' ? formData.get('other_task_type') : formData.get('task_type'),
+                start_date: formData.get('start_date') || null,
+                end_date: formData.get('end_date') || null,
+                project_status: formData.get('project_status'),
+                urgent_adhoc: formData.get('urgent_adhoc') === 'on',
+                job_description: formData.get('job_description'),
+                your_proposal_text: formData.get('your_proposal_text'),
+                client_feedback: formData.get('client_feedback') || null,
+                skills_required: currentSkills,
+                portfolio_urls: currentPortfolios,
+                feedback_type: feedbackMode === 'image' && selectedImage ? 'image' : (formData.get('client_feedback') ? 'text' : null)
+            };
+
+            showProgress('Uploading data...', 'Storing in database');
+
+            try {
+                const response = await axios.post(`${API_BASE}/upload`, data);
+                
+                if (response.status === 201) {
+                    hideProgress();
+                    showToast('Entry added successfully!');
+                    
+                    form.reset();
+                    currentSkills = [];
+                    currentPortfolios = [];
+                    selectedImage = null;
+                    renderSkills();
+                    renderPortfolios();
+                    document.getElementById('image-preview-container').innerHTML = '';
+                    localStorage.removeItem('training_form_draft');
+                    
+                    loadStats();
+                }
+            } catch (error) {
+                hideProgress();
+                alert('Error: ' + (error.response?.data?.detail || error.message));
+            }
         }
 
-        // === SKILLS MANAGEMENT ===
-        function setupSkillInput() {
-            const input = document.getElementById('skill-input');
-            if (!input) return;
+        function clearForm() {
+            if (!confirm('Clear all form data?')) return;
             
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ',') {
+            document.getElementById('proposal-form').reset();
+            currentSkills = [];
+            currentPortfolios = [];
+            selectedImage = null;
+            renderSkills();
+            renderPortfolios();
+            document.getElementById('image-preview-container').innerHTML = '';
+            localStorage.removeItem('training_form_draft');
+        }
+
+        // === SKILLS ===
+        function setupSkillInput() {
+            document.getElementById('skill-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
                     e.preventDefault();
-                    const text = input.value.replace(/,/g, '').trim();
-                    if (text) {
-                        currentSkills.push(text);
-                        updateSkillsDisplay();
-                        input.value = '';
-                        saveFormData();
-                    }
+                    addSkill();
                 }
             });
         }
@@ -729,54 +861,32 @@
         function addSkill() {
             const input = document.getElementById('skill-input');
             const text = input.value.trim();
+            if (!text) return;
             
-            // Handle comma-separated values
-            if (text.includes(',')) {
-                text.split(',').forEach(skill => {
-                    const trimmed = skill.trim();
-                    if (trimmed && !currentSkills.includes(trimmed)) {
-                        currentSkills.push(trimmed);
-                    }
-                });
-            } else if (text && !currentSkills.includes(text)) {
-                currentSkills.push(text);
-            }
-            
-            updateSkillsDisplay();
+            const skills = text.split(',').map(s => s.trim()).filter(s => s && !currentSkills.includes(s));
+            currentSkills.push(...skills);
+            renderSkills();
             input.value = '';
             input.focus();
-            saveFormData();
         }
 
         function removeSkill(skill) {
             currentSkills = currentSkills.filter(s => s !== skill);
-            updateSkillsDisplay();
-            saveFormData();
+            renderSkills();
         }
 
-        function updateSkillsDisplay() {
-            const container = document.getElementById('skills-container');
-            if (container) {
-                container.innerHTML = currentSkills.map(skill => `
-                    <div class="skill-tag">
-                        ${skill}
-                        <button type="button" onclick="removeSkill('${skill}')">×</button>
-                    </div>
-                `).join('');
-            }
-
-            const hiddenInput = document.getElementById('skills-hidden');
-            if (hiddenInput) {
-                hiddenInput.value = JSON.stringify(currentSkills);
-            }
+        function renderSkills() {
+            document.getElementById('skills-container').innerHTML = currentSkills.map(skill => `
+                <div class="skill-tag">
+                    ${skill}
+                    <button type="button" onclick="removeSkill('${skill}')">×</button>
+                </div>
+            `).join('');
         }
 
-        // === PORTFOLIO MANAGEMENT ===
+        // === PORTFOLIOS ===
         function setupPortfolioInput() {
-            const input = document.getElementById('portfolio-input');
-            if (!input) return;
-            
-            input.addEventListener('keydown', (e) => {
+            document.getElementById('portfolio-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     addPortfolio();
@@ -787,98 +897,60 @@
         function addPortfolio() {
             const input = document.getElementById('portfolio-input');
             const text = input.value.trim();
+            if (!text) return;
             
-            // Handle comma-separated URLs
-            if (text.includes(',')) {
-                text.split(',').forEach(url => {
-                    const trimmed = url.trim();
-                    if (trimmed && !currentPortfolios.includes(trimmed)) {
-                        try {
-                            new URL(trimmed);
-                            currentPortfolios.push(trimmed);
-                        } catch {
-                            console.warn('Invalid URL skipped:', trimmed);
-                        }
-                    }
-                });
-            } else if (text && !currentPortfolios.includes(text)) {
-                try {
-                    new URL(text);
+            try {
+                new URL(text);
+                if (!currentPortfolios.includes(text)) {
                     currentPortfolios.push(text);
-                } catch {
-                    alert('Invalid URL format');
-                    return;
+                    renderPortfolios();
                 }
+                input.value = '';
+                input.focus();
+            } catch {
+                alert('Please enter a valid URL');
             }
-            
-            updatePortfolioDisplay();
-            input.value = '';
-            input.focus();
-            saveFormData();
         }
 
         function removePortfolio(url) {
             currentPortfolios = currentPortfolios.filter(p => p !== url);
-            updatePortfolioDisplay();
-            saveFormData();
+            renderPortfolios();
         }
 
-        function updatePortfolioDisplay() {
-            const container = document.getElementById('portfolio-container');
-            if (container) {
-                container.innerHTML = currentPortfolios.map(url => `
+        function renderPortfolios() {
+            document.getElementById('portfolio-container').innerHTML = currentPortfolios.map(url => {
+                let hostname;
+                try { hostname = new URL(url).hostname; } catch { hostname = url; }
+                return `
                     <div class="skill-tag">
-                        <a href="${url}" target="_blank" class="text-black hover:underline">${new URL(url).hostname}</a>
+                        ${hostname}
                         <button type="button" onclick="removePortfolio('${url}')">×</button>
                     </div>
-                `).join('');
-            }
-
-            const hiddenInput = document.getElementById('portfolio-hidden');
-            if (hiddenInput) {
-                hiddenInput.value = JSON.stringify(currentPortfolios);
-            }
+                `;
+            }).join('');
         }
 
-        // === TASK TYPE TOGGLE ===
-        function setupTaskTypeToggle() {
-            const select = document.querySelector('select[name="task_type"]');
-            if (select) {
-                select.addEventListener('change', handleTaskTypeChange);
-            }
-        }
-
-        function handleTaskTypeChange() {
-            const select = document.querySelector('select[name="task_type"]');
-            const group = document.getElementById('custom-task-group');
-            if (select.value === 'other') {
-                group.classList.remove('hidden');
-            } else {
-                group.classList.add('hidden');
-                document.querySelector('input[name="other_task_type"]').value = '';
-            }
-        }
-
-        // === FEEDBACK SYSTEM ===
+        // === FEEDBACK ===
         function setupFeedbackTabs() {
-            const tabs = document.querySelectorAll('.feedback-tab');
-            tabs.forEach(tab => {
-                tab.addEventListener('click', (e) => {
-                    e.preventDefault();
+            document.querySelectorAll('.feedback-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
                     const type = tab.dataset.type;
                     feedbackMode = type;
                     
-                    // Update tabs
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
+                    document.querySelectorAll('.feedback-tab').forEach(t => {
+                        t.classList.toggle('text-neutral-900', t === tab);
+                        t.classList.toggle('border-neutral-900', t === tab);
+                        t.classList.toggle('text-neutral-500', t !== tab);
+                        t.classList.toggle('border-transparent', t !== tab);
+                    });
                     
-                    // Update panels
                     document.getElementById('feedback-text-group').classList.toggle('hidden', type !== 'text');
                     document.getElementById('feedback-image-group').classList.toggle('hidden', type !== 'image');
                 });
             });
         }
 
+        // === IMAGE UPLOAD ===
         function setupImageUpload() {
             const dropZone = document.getElementById('feedback-drop-zone');
             const input = document.getElementById('feedback-image-input');
@@ -887,56 +959,41 @@
             
             dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                dropZone.style.borderColor = '#1a1a1a';
-                dropZone.style.background = '#f5f5f5';
+                dropZone.classList.add('dragover');
             });
             
             dropZone.addEventListener('dragleave', () => {
-                dropZone.style.borderColor = '#d0d0d0';
-                dropZone.style.background = '';
+                dropZone.classList.remove('dragover');
             });
             
             dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
-                dropZone.style.borderColor = '#d0d0d0';
-                dropZone.style.background = '';
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handleImageSelect(files[0]);
-                }
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) handleImageSelect(e.dataTransfer.files[0]);
             });
             
             input.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    handleImageSelect(e.target.files[0]);
-                }
+                if (e.target.files.length) handleImageSelect(e.target.files[0]);
             });
         }
 
         function handleImageSelect(file) {
             if (file.size > 5 * 1024 * 1024) {
-                alert('File size must be less than 5MB');
+                alert('File must be under 5MB');
                 return;
             }
             
             selectedImage = file;
             const reader = new FileReader();
             reader.onload = (e) => {
-                const preview = document.getElementById('image-preview-container');
-                preview.innerHTML = `
+                document.getElementById('image-preview-container').innerHTML = `
                     <div class="image-preview">
-                        <img src="${e.target.result}" alt="Feedback image">
+                        <img src="${e.target.result}" alt="Preview">
                         <button type="button" class="remove-btn" onclick="removeImage()">×</button>
                     </div>
                 `;
-                document.getElementById('feedback-image-hidden').value = file.name;
-                
-                // Show OCR button after image is selected
-                document.getElementById('ocr-button-container').classList.remove('hidden');
-                document.getElementById('extracted-text-container').classList.add('hidden');
-                document.getElementById('ocr-status').classList.add('hidden');
-                
-                saveFormData();
+                document.getElementById('extract-ocr-btn').classList.remove('hidden');
+                document.getElementById('ocr-result').classList.add('hidden');
             };
             reader.readAsDataURL(file);
         }
@@ -945,541 +1002,212 @@
             selectedImage = null;
             document.getElementById('feedback-image-input').value = '';
             document.getElementById('image-preview-container').innerHTML = '';
-            document.getElementById('feedback-image-hidden').value = '';
-            document.getElementById('ocr-button-container').classList.add('hidden');
-            document.getElementById('extracted-text-container').classList.add('hidden');
-            document.getElementById('ocr-status').classList.add('hidden');
-            saveFormData();
+            document.getElementById('extract-ocr-btn').classList.add('hidden');
+            document.getElementById('ocr-result').classList.add('hidden');
         }
 
-        // === OCR EXTRACTION ===
-        let extractedOCRText = '';
-        
-        async function setupOCRExtraction() {
-            const extractBtn = document.getElementById('extract-ocr-btn');
-            const useTextBtn = document.getElementById('use-extracted-text-btn');
-            
-            extractBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await extractTextFromImage();
-            });
-            
-            useTextBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (extractedOCRText) {
-                    document.getElementById('feedback-text').value = extractedOCRText;
-                    // Switch back to text mode
-                    const textTab = document.querySelector('.feedback-tab[data-type="text"]');
-                    textTab.click();
-                    saveFormData();
-                }
+        // === OCR ===
+        function setupOCR() {
+            document.getElementById('extract-ocr-btn').addEventListener('click', extractOCR);
+            document.getElementById('use-extracted-btn').addEventListener('click', () => {
+                document.getElementById('feedback-text').value = extractedOCRText;
+                document.querySelector('.feedback-tab[data-type="text"]').click();
             });
         }
 
-        async function extractTextFromImage() {
-            if (!selectedImage) {
-                alert('Please select an image first');
-                return;
-            }
+        async function extractOCR() {
+            if (!selectedImage) return;
             
-            const extractBtn = document.getElementById('extract-ocr-btn');
-            const statusDiv = document.getElementById('ocr-status');
-            const originalText = document.getElementById('extract-ocr-text').textContent;
+            const btn = document.getElementById('extract-ocr-btn');
+            btn.disabled = true;
+            btn.textContent = 'Extracting...';
             
             try {
-                // Show loading state
-                extractBtn.disabled = true;
-                document.getElementById('extract-ocr-text').textContent = 'Extracting text...';
-                statusDiv.classList.remove('hidden');
-                statusDiv.classList.remove('bg-red-50', 'text-red-700', 'bg-green-50', 'text-green-700');
-                statusDiv.classList.add('bg-blue-50', 'text-blue-700');
-                statusDiv.textContent = '⏳ Processing image with OCR...';
-                
-                // Prepare form data
                 const formData = new FormData();
                 formData.append('file', selectedImage);
                 
-                // Send to backend
-                const response = await axios.post(`${API_BASE}/extract-ocr`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data'
-                    }
-                });
+                const response = await axios.post(`${API_BASE}/extract-ocr`, formData);
                 
                 if (response.data.success) {
                     extractedOCRText = response.data.extracted_text;
-                    
-                    // Show success message
-                    statusDiv.classList.remove('bg-blue-50', 'text-blue-700');
-                    statusDiv.classList.add('bg-green-50', 'text-green-700');
-                    statusDiv.innerHTML = `✅ Successfully extracted ${response.data.character_count} characters`;
-                    
-                    // Show extracted text preview
-                    const extractedContainer = document.getElementById('extracted-text-container');
-                    const preview = document.getElementById('extracted-text-preview');
-                    preview.textContent = extractedOCRText.substring(0, 500) + (extractedOCRText.length > 500 ? '...' : '');
-                    extractedContainer.classList.remove('hidden');
-                    
-                    // Update button
-                    document.getElementById('extract-ocr-text').textContent = 'Text Extracted! ✓';
-                } else {
-                    throw new Error(response.data.message || 'Extraction failed');
+                    document.getElementById('extracted-text-preview').textContent = extractedOCRText.substring(0, 500) + (extractedOCRText.length > 500 ? '...' : '');
+                    document.getElementById('ocr-result').classList.remove('hidden');
                 }
             } catch (error) {
-                statusDiv.classList.remove('bg-blue-50', 'text-blue-700', 'bg-green-50', 'text-green-700');
-                statusDiv.classList.add('bg-red-50', 'text-red-700');
-                statusDiv.textContent = `❌ Error: ${error.response?.data?.detail || error.message}`;
-                document.getElementById('extracted-text-container').classList.add('hidden');
+                alert('OCR Error: ' + (error.response?.data?.detail || error.message));
             } finally {
-                extractBtn.disabled = false;
-                document.getElementById('extract-ocr-text').textContent = originalText;
+                btn.disabled = false;
+                btn.textContent = 'Extract Text with OCR';
             }
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            setupFeedbackTabs();
-            setupImageUpload();
-            setupOCRExtraction();
-        });
-
-
-        // === CLEAR FORM ===
-        function handleClearForm() {
-            if (!confirm('Clear all form data?')) return;
-            
-            document.getElementById('proposal-form').reset();
-            currentSkills = [];
-            currentPortfolios = [];
-            selectedImage = null;
-            updateSkillsDisplay();
-            updatePortfolioDisplay();
-            document.getElementById('image-preview-container').innerHTML = '';
-            document.getElementById('feedback-text').value = '';
-            document.getElementById('skill-input').value = '';
-            document.getElementById('portfolio-input').value = '';
-            localStorage.removeItem('proposal_form_draft');
-            saveFormData();
-        }
-
-        // === PROGRESS SYSTEM ===
-        function showProgress() {
-            document.getElementById('progress-modal').classList.add('show');
-            document.getElementById('progress-bar').style.width = '20%';
-        }
-
-        function hideProgress() {
-            document.getElementById('progress-modal').classList.remove('show');
-            document.getElementById('progress-bar').style.width = '0%';
-        }
-
-        function updateProgress(step) {
-            const steps = ['step-store', 'step-chunks', 'step-embeddings', 'step-pinecone'];
-            const percentages = [20, 40, 70, 100];
-            
-            steps.forEach((s, idx) => {
-                const el = document.getElementById(s);
-                if (idx < step) {
-                    el.classList.add('done');
-                    el.classList.remove('active');
-                    el.querySelector('.step-icon').innerHTML = '✓';
-                } else if (idx === step) {
-                    el.classList.add('active');
-                    el.classList.remove('done');
-                    el.querySelector('.step-icon').innerHTML = '<span class="spinner"></span>';
-                } else {
-                    el.classList.remove('active', 'done');
-                    el.querySelector('.step-icon').innerHTML = (idx + 1);
-                }
-            });
-            
-            document.getElementById('progress-bar').style.width = percentages[step] + '%';
-        }
-
-        // === FORM SUBMISSION ===
-        document.getElementById('proposal-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            if (currentSkills.length === 0) {
-                alert('Please add at least one skill');
-                return;
-            }
-
-            const form = e.target;
-            const formData = new FormData(form);
-            
-            // Build JSON object with proper type conversions
-            const data = {
-                company_name: formData.get('company_name'),
-                industry: formData.get('industry'),
-                job_title: formData.get('job_title'),
-                task_type: formData.get('task_type'),
-                start_date: formData.get('start_date') || null,
-                end_date: formData.get('end_date') || null,
-                project_status: formData.get('project_status'),
-                urgent_adhoc: formData.get('urgent_adhoc') === 'on',
-                job_description: formData.get('job_description'),
-                your_proposal_text: formData.get('your_proposal_text'),
-                client_feedback: formData.get('client_feedback') || null,
-                skills_required: currentSkills,
-                portfolio_urls: currentPortfolios
-            };
-            
-            // Handle custom task type
-            if (data.task_type === 'other') {
-                const customType = formData.get('other_task_type');
-                if (customType) {
-                    data.task_type = customType;
-                }
-            }
-            
-            // Handle feedback type and image
-            if (feedbackMode === 'image' && selectedImage) {
-                data.feedback_type = 'image';
-                data.feedback_image_path = selectedImage.name;
-            } else if (data.client_feedback) {
-                data.feedback_type = 'text';
-            } else {
-                data.feedback_type = null;
-            }
-
-            showProgress();
-
+        // === STATS ===
+        async function loadStats() {
             try {
-                updateProgress(0);
-                
-                // Send request as JSON
-                const response = await axios.post(API_BASE + '/upload', data, {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.status === 201) {
-                    updateProgress(3);
-                    const result = response.data;
-                    
-                    // Add to history
-                    allHistory.unshift({
-                        contractId: result.contract_id,
-                        company: data.company_name,
-                        jobTitle: data.job_title,
-                        chunks: result.data.chunks_created || 5,
-                        timestamp: new Date().toLocaleString()
-                    });
-
-                    localStorage.setItem('proposal_history', JSON.stringify(allHistory));
-                    updateStats();
-                    loadHistory();
-
-                    setTimeout(() => {
-                        hideProgress();
-                        alert(`✓ Success!\n\nContract: ${result.contract_id}\nChunks: ${result.data.chunks_created}\nEmbeddings: ${result.data.embeddings_created}`);
-                        
-                        form.reset();
-                        currentSkills = [];
-                        currentPortfolios = [];
-                        selectedImage = null;
-                        updateSkillsDisplay();
-                        updatePortfolioDisplay();
-                        document.getElementById('image-preview-container').innerHTML = '';
-                        localStorage.removeItem('proposal_form_draft');
-                    }, 500);
-                }
-            } catch (error) {
-                hideProgress();
-                const msg = error.response?.data?.detail || error.message;
-                alert(`Error: ${msg}`);
+                const response = await axios.get(`${API_BASE}/stats/overview`);
+                document.getElementById('total-count').textContent = response.data.total_jobs || 0;
+            } catch (e) {
+                console.error('Error loading stats:', e);
             }
-        });
-
-        // === STATS AND HISTORY ===
-        function loadHistory() {
-            const saved = localStorage.getItem('proposal_history');
-            allHistory = saved ? JSON.parse(saved) : [];
-
-            const list = document.getElementById('history-list');
-            if (allHistory.length === 0) {
-                list.innerHTML = '<p class="text-xs text-gray-500 text-center py-8">No entries yet</p>';
-                return;
-            }
-
-            list.innerHTML = allHistory.slice(0, 10).map(entry => `
-                <div class="text-xs border-l-4 border-black pl-3 py-2.5 hover:bg-gray-50 transition-colors">
-                    <div class="font-600 text-black">${entry.company}</div>
-                    <div class="text-gray-600">${entry.jobTitle}</div>
-                    <div class="text-gray-400 mt-1">${entry.timestamp}</div>
-                </div>
-            `).join('');
         }
 
-        function loadStats() {
-            // Fetch from API instead of localStorage
-            axios.get(`${API_BASE}/stats/overview`)
-                .then(response => {
-                    const stats = response.data;
-                    document.getElementById('total-trained').textContent = stats.total_jobs || 0;
-                    document.getElementById('counter-badge').textContent = stats.total_jobs || 0;
-                })
-                .catch(error => {
-                    console.error('Error loading stats:', error);
-                    // Fallback to localStorage
-                    const saved = localStorage.getItem('proposal_stats');
-                    const stats = saved ? JSON.parse(saved) : { total: 0, chunks: 0 };
-                    document.getElementById('total-trained').textContent = stats.total || 0;
-                    document.getElementById('counter-badge').textContent = stats.total || 0;
-                });
-        }
-
-        function updateStats() {
-            // Stats will be updated when new job is added via API
-            // Reload the stats after a short delay
-            setTimeout(() => {
-                loadStats();
-            }, 500);
-        }
-
-        // === DASHBOARD FUNCTIONS ===
+        // === DASHBOARD ===
         async function loadDashboard() {
             try {
                 const response = await axios.get(`${API_BASE}/stats/overview`);
                 const stats = response.data;
                 
-                // Update dashboard cards
-                document.getElementById('dash-total-jobs').textContent = stats.total_jobs || 0;
-                document.getElementById('dash-total-chunks').textContent = stats.total_chunks || 0;
+                document.getElementById('dash-total').textContent = stats.total_jobs || 0;
+                document.getElementById('dash-chunks').textContent = stats.total_chunks || 0;
                 document.getElementById('dash-embeddings').textContent = stats.embedded_chunks || 0;
-                
-                // Calculate storage (rough estimate: ~500 bytes per chunk)
-                const storageKB = Math.round((stats.total_chunks || 0) * 0.5);
-                document.getElementById('dash-storage').textContent = storageKB + ' KB';
+                document.getElementById('dash-storage').textContent = Math.round((stats.total_chunks || 0) * 0.5) + ' KB';
                 
                 // Status breakdown
-                const statusBreakdown = document.getElementById('status-breakdown');
-                if (stats.by_status && Object.keys(stats.by_status).length > 0) {
-                    statusBreakdown.innerHTML = Object.entries(stats.by_status).map(([status, count]) => `
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-6px">
-                            <span class="text-sm font-600 capitalize">${status}</span>
-                            <span class="px-3 py-1 bg-black text-white rounded-4px text-xs font-700">${count}</span>
+                const statusEl = document.getElementById('status-breakdown');
+                if (stats.by_status && Object.keys(stats.by_status).length) {
+                    statusEl.innerHTML = Object.entries(stats.by_status).map(([status, count]) => `
+                        <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                            <span class="text-sm capitalize">${status}</span>
+                            <span class="badge badge-muted">${count}</span>
                         </div>
                     `).join('');
+                } else {
+                    statusEl.innerHTML = '<p class="text-sm text-neutral-500">No data</p>';
                 }
                 
                 // Industry breakdown
-                const industryBreakdown = document.getElementById('industry-breakdown');
-                if (stats.by_industry && Object.keys(stats.by_industry).length > 0) {
-                    industryBreakdown.innerHTML = Object.entries(stats.by_industry)
+                const industryEl = document.getElementById('industry-breakdown');
+                if (stats.by_industry && Object.keys(stats.by_industry).length) {
+                    industryEl.innerHTML = Object.entries(stats.by_industry)
                         .sort((a, b) => b[1] - a[1])
                         .slice(0, 5)
                         .map(([industry, count]) => `
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-6px">
-                                <span class="text-sm font-600">${industry || 'Unknown'}</span>
-                                <span class="px-3 py-1 bg-black text-white rounded-4px text-xs font-700">${count}</span>
+                            <div class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
+                                <span class="text-sm">${industry || 'Unknown'}</span>
+                                <span class="badge badge-muted">${count}</span>
                             </div>
                         `).join('');
-                }
-                
-                // Load recent entries
-                loadRecentEntries();
-            } catch (error) {
-                console.error('Error loading dashboard:', error);
-                document.getElementById('status-breakdown').innerHTML = '<p class="text-sm text-red-600">Error loading data</p>';
-            }
-        }
-
-        async function loadRecentEntries() {
-            try {
-                const response = await axios.get(`${API_BASE}/list?limit=50`);
-                let jobs = response.data.items || [];
-                
-                // Sort by creation date (newest first)
-                jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                
-                // Show only last 5
-                const recentJobs = jobs.slice(0, 5);
-                
-                const tbody = document.getElementById('recent-entries-body');
-                
-                if (recentJobs.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                <p class="text-sm">No entries yet</p>
-                            </td>
-                        </tr>
-                    `;
                 } else {
-                    tbody.innerHTML = recentJobs.map(job => {
-                        const date = new Date(job.created_at);
-                        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        
-                        return `
-                            <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                                <td class="px-6 py-4">
-                                    <p class="font-600 text-black">${job.company_name}</p>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-700">${job.job_title}</td>
-                                <td class="px-6 py-4 text-sm text-gray-600">${job.industry || '-'}</td>
-                                <td class="px-6 py-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-600 ${
-                                        job.project_status === 'completed' ? 'bg-green-100 text-green-700' :
-                                        job.project_status === 'ongoing' ? 'bg-blue-100 text-blue-700' :
-                                        'bg-gray-100 text-gray-700'
-                                    }">
-                                        ${job.project_status}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-600">${formattedDate}</td>
-                                <td class="px-6 py-4 flex gap-2">
-                                    <button onclick="deleteJob('${job.contract_id}', '${job.company_name}')" class="px-3 py-1 text-xs font-600 bg-red-100 text-red-700 rounded-4px hover:bg-red-200 transition-colors">Delete</button>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
+                    industryEl.innerHTML = '<p class="text-sm text-neutral-500">No data</p>';
                 }
-            } catch (error) {
-                console.error('Error loading recent entries:', error);
-                document.getElementById('recent-entries-body').innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-red-600">
-                            <p class="text-sm">Error loading entries</p>
-                        </td>
-                    </tr>
-                `;
+            } catch (e) {
+                console.error('Error loading dashboard:', e);
             }
         }
 
-        // === JOBS LIST FUNCTIONS ===
-        let jobsCurrentPage = 0;
-        const jobsPerPage = 10;
-        let jobsData = [];
-
-        function setupJobsView() {
-            document.getElementById('jobs-search').addEventListener('input', loadJobsTable);
-            document.getElementById('jobs-filter-status').addEventListener('change', loadJobsTable);
-            document.getElementById('jobs-prev').addEventListener('click', () => {
-                if (jobsCurrentPage > 0) {
-                    jobsCurrentPage--;
-                    loadJobsTable();
-                }
+        // === ENTRIES ===
+        function setupEntriesView() {
+            document.getElementById('search-input').addEventListener('input', debounce(loadEntries, 300));
+            document.getElementById('status-filter').addEventListener('change', loadEntries);
+            document.getElementById('prev-btn').addEventListener('click', () => {
+                if (currentPage > 0) { currentPage--; renderEntries(); }
             });
-            document.getElementById('jobs-next').addEventListener('click', () => {
-                if ((jobsCurrentPage + 1) * jobsPerPage < jobsData.length) {
-                    jobsCurrentPage++;
-                    loadJobsTable();
-                }
+            document.getElementById('next-btn').addEventListener('click', () => {
+                if ((currentPage + 1) * perPage < entriesData.length) { currentPage++; renderEntries(); }
             });
         }
 
-        async function loadJobsTable() {
+        async function loadEntries() {
             try {
                 const response = await axios.get(`${API_BASE}/list?limit=100`);
-                let jobs = response.data.items || [];
+                let entries = response.data.items || [];
                 
-                // Filter
-                const searchTerm = document.getElementById('jobs-search').value.toLowerCase();
-                const statusFilter = document.getElementById('jobs-filter-status').value;
+                const search = document.getElementById('search-input').value.toLowerCase();
+                const status = document.getElementById('status-filter').value;
                 
-                jobs = jobs.filter(job => {
-                    const matchesSearch = !searchTerm || 
-                        (job.company_name || '').toLowerCase().includes(searchTerm) ||
-                        (job.job_title || '').toLowerCase().includes(searchTerm);
-                    const matchesStatus = !statusFilter || job.project_status === statusFilter;
-                    return matchesSearch && matchesStatus;
+                entries = entries.filter(e => {
+                    const matchSearch = !search || 
+                        (e.company_name || '').toLowerCase().includes(search) ||
+                        (e.job_title || '').toLowerCase().includes(search);
+                    const matchStatus = !status || e.project_status === status;
+                    return matchSearch && matchStatus;
                 });
                 
-                jobsData = jobs;
-                jobsCurrentPage = 0;
-                renderJobsTable();
-            } catch (error) {
-                console.error('Error loading jobs:', error);
-                document.getElementById('jobs-table-body').innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-red-600">
-                            <p class="text-sm">Error loading jobs</p>
-                        </td>
-                    </tr>
+                entriesData = entries;
+                currentPage = 0;
+                renderEntries();
+            } catch (e) {
+                document.getElementById('entries-table').innerHTML = `
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-red-600">Error loading entries</td></tr>
                 `;
             }
         }
 
-        function renderJobsTable() {
-            const start = jobsCurrentPage * jobsPerPage;
-            const end = start + jobsPerPage;
-            const paginatedJobs = jobsData.slice(start, end);
+        function renderEntries() {
+            const start = currentPage * perPage;
+            const end = start + perPage;
+            const page = entriesData.slice(start, end);
             
-            const tbody = document.getElementById('jobs-table-body');
+            const tbody = document.getElementById('entries-table');
             
-            if (paginatedJobs.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                            <p class="text-sm">No jobs found</p>
-                        </td>
-                    </tr>
-                `;
+            if (!page.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-neutral-500">No entries found</td></tr>`;
             } else {
-                tbody.innerHTML = paginatedJobs.map(job => `
-                    <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                        <td class="px-6 py-4">
-                            <p class="font-600 text-black">${job.company_name}</p>
-                            <p class="text-xs text-gray-600">${job.contract_id}</p>
+                tbody.innerHTML = page.map(e => `
+                    <tr class="border-b border-neutral-200 table-row">
+                        <td class="px-4 py-3">
+                            <p class="font-medium text-neutral-900">${e.company_name}</p>
+                            <p class="text-xs text-neutral-500">${e.contract_id}</p>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-700">${job.job_title}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600">${job.industry || '-'}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-3 py-1 rounded-full text-xs font-600 ${
-                                job.project_status === 'completed' ? 'bg-green-100 text-green-700' :
-                                job.project_status === 'ongoing' ? 'bg-blue-100 text-blue-700' :
-                                'bg-gray-100 text-gray-700'
-                            }">
-                                ${job.project_status}
-                            </span>
+                        <td class="px-4 py-3 text-neutral-700">${e.job_title}</td>
+                        <td class="px-4 py-3 text-neutral-600">${e.industry || '-'}</td>
+                        <td class="px-4 py-3">
+                            <span class="badge ${
+                                e.project_status === 'completed' ? 'badge-success' :
+                                e.project_status === 'ongoing' ? 'badge-info' : 'badge-muted'
+                            }">${e.project_status}</span>
                         </td>
-                        <td class="px-6 py-4 text-sm font-600">${job.chunks_count || 0}</td>
-                        <td class="px-6 py-4 flex gap-2">
-                            <button onclick="viewJobDetails('${job.contract_id}')" class="px-3 py-1 text-xs font-600 bg-black text-white rounded-4px hover:bg-gray-800 transition-colors">View</button>
-                            <button onclick="deleteJob('${job.contract_id}', '${job.company_name}')" class="px-3 py-1 text-xs font-600 bg-red-100 text-red-700 rounded-4px hover:bg-red-200 transition-colors">Delete</button>
+                        <td class="px-4 py-3 font-medium">${e.chunks_count || 0}</td>
+                        <td class="px-4 py-3">
+                            <button onclick="deleteEntry('${e.contract_id}', '${e.company_name}')" class="btn-danger">Delete</button>
                         </td>
                     </tr>
                 `).join('');
             }
             
-            // Update pagination info
-            const total = jobsData.length;
-            const showing = Math.min(end, total);
-            document.getElementById('jobs-showing').textContent = showing;
-            document.getElementById('jobs-total').textContent = total;
-            
-            // Update button states
-            document.getElementById('jobs-prev').disabled = jobsCurrentPage === 0;
-            document.getElementById('jobs-next').disabled = end >= total;
+            document.getElementById('showing-count').textContent = Math.min(end, entriesData.length);
+            document.getElementById('total-entries').textContent = entriesData.length;
+            document.getElementById('prev-btn').disabled = currentPage === 0;
+            document.getElementById('next-btn').disabled = end >= entriesData.length;
         }
 
-        async function viewJobDetails(contractId) {
-            try {
-                const response = await axios.get(`${API_BASE}/${contractId}`);
-                const job = response.data;
-                
-                alert(`Job: ${job.company_name}\nTitle: ${job.job_title}\nChunks: ${job.chunks_count || 0}\nEmbedded: ${job.embedded_chunks_count || 0}`);
-            } catch (error) {
-                alert('Error loading job details');
-            }
-        }
-
-        async function deleteJob(contractId, companyName) {
-            if (!confirm(`Are you sure you want to delete "${companyName}" and all its associated data?`)) {
-                return;
-            }
+        async function deleteEntry(id, name) {
+            if (!confirm(`Delete "${name}" and all its data?`)) return;
             
             try {
-                await axios.delete(`${API_BASE}/delete/${contractId}`);
-                alert('Job deleted successfully');
-                loadJobsTable();
-                loadDashboard();
+                await axios.delete(`${API_BASE}/delete/${id}`);
+                showToast('Entry deleted');
+                loadEntries();
                 loadStats();
-            } catch (error) {
-                alert('Error deleting job: ' + (error.response?.data?.detail || error.message));
+            } catch (e) {
+                alert('Error: ' + (e.response?.data?.detail || e.message));
             }
+        }
+
+        // === UTILS ===
+        function showProgress(text, step) {
+            document.getElementById('progress-text').textContent = text;
+            document.getElementById('progress-step').textContent = step;
+            document.getElementById('progress-overlay').classList.add('show');
+        }
+
+        function hideProgress() {
+            document.getElementById('progress-overlay').classList.remove('show');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function debounce(fn, delay) {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn(...args), delay);
+            };
         }
     </script>
 </body>
