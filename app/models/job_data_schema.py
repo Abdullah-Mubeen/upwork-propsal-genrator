@@ -93,9 +93,9 @@ class JobDataUploadRequest(BaseModel):
         description="List of required skills"
     )
     industry: Optional[str] = Field(
-        "general",
+        None,
         max_length=100,
-        description="Industry of the job"
+        description="Industry of the job (optional)"
     )
     start_date: Optional[str] = Field(
         None,
@@ -449,11 +449,19 @@ class ErrorResponse(BaseModel):
 # ===================== STATISTICS SCHEMAS =====================
 
 class JobStatisticsResponse(BaseModel):
-    """Statistics about job data"""
+    """Statistics about job data - optimized for proposal generation"""
     
     total_jobs: int = Field(..., description="Total job records")
-    total_chunks: int = Field(..., description="Total chunks created")
-    chunks_embedded: int = Field(..., description="Chunks with embeddings")
-    chunks_pending: int = Field(..., description="Chunks pending embedding")
-    by_industry: Dict[str, int] = Field(..., description="Jobs by industry")
-    by_status: Dict[str, int] = Field(..., description="Jobs by project status")
+    total_chunks: int = Field(0, description="Total chunks created")
+    chunks_embedded: int = Field(0, description="Chunks with embeddings")
+    chunks_pending: int = Field(0, description="Chunks pending embedding")
+    by_industry: Dict[str, int] = Field(default_factory=dict, description="Jobs by industry")
+    by_status: Dict[str, int] = Field(default_factory=dict, description="Jobs by project status")
+    
+    # New proposal-focused metrics
+    avg_proposal_length: int = Field(0, description="Average proposal length in characters")
+    completion_rate: float = Field(0.0, description="Percentage of completed projects")
+    success_rate: float = Field(0.0, description="Percentage of successful proposals")
+    avg_satisfaction_score: float = Field(0.0, description="Average client satisfaction score")
+    top_skills: List[str] = Field(default_factory=list, description="Top used skills")
+    by_task_type: Dict[str, int] = Field(default_factory=dict, description="Jobs by task type")

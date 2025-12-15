@@ -564,29 +564,125 @@ class JobDataProcessor:
             raise
     
     def get_statistics(self) -> Dict[str, Any]:
-        """Get statistics about stored jobs and chunks"""
+        """Get statistics about stored jobs and chunks optimized for proposal generation"""
         try:
-            stats = self.db.get_database_statistics()
-            industry_stats = self.db.get_industry_statistics()
+            # Safe get from database statistics
+            try:
+                stats = self.db.get_database_statistics()
+            except Exception as db_error:
+                logger.warning(f"Error getting DB stats: {db_error}")
+                stats = {}
             
-            # Add status breakdown
+            # Get all jobs for detailed analysis
+            all_jobs = list(self.db.db["training_data"].find({}))
+            total_jobs = len(all_jobs)
+            
+            if total_jobs == 0:
+                return {
+                    "total_jobs": 0,
+                    "total_chunks": 0,
+                    "chunks_embedded": 0,
+                    "chunks_pending": 0,
+                    "avg_proposal_length": 0,
+                    "completion_rate": 0.0,
+                    "success_rate": 0.0,
+                    "avg_satisfaction_score": 0.0,
+                    "by_status": {},
+                    "by_industry": {},
+                    "top_skills": [],
+                    "by_task_type": {}
+                }
+            
+            # Proposal metrics
+            avg_proposal_length = sum(len(j.get("your_proposal_text", "")) for j in all_jobs) // max(total_jobs, 1)
+            
+            # Completion rate
+            completed = len([j for j in all_jobs if j.get("project_status") == "completed"])
+            completion_rate = round((completed / total_jobs * 100) if total_jobs > 0 else 0, 1)
+            
+            # Status breakdown
             status_stats = {}
-            for status in ["completed", "ongoing", "pending"]:
-                count = self.db.db["training_data"].count_documents({"project_status": status})
-                status_stats[status] = count
+            for status in ["completed", "ongoing", "cancelled"]:
+                count = len([j for j in all_jobs if j.get("project_status") == status])
+                if count > 0:
+                    status_stats[status] = count
+            
+            # Industry breakdown (only non-null)
+            industry_stats = {}
+            for job in all_jobs:
+                industry = job.get("industry") or "Unspecified"
+                industry_stats[industry] = industry_stats.get(industry, 0) + 1
+            
+            # Top skills (flatten and count)
+            all_skills = []
+            for job in all_jobs:
+                all_skills.extend(job.get("skills_required", []))
+            
+            skill_counts = {}
+            for skill in all_skills:
+                skill_counts[skill] = skill_counts.get(skill, 0) + 1
+            
+            top_skills = sorted(skill_counts.items(), key=lambda x: x[1], reverse=True)
+            top_skills = [skill for skill, count in top_skills[:15]]
+            
+            # Task type breakdown
+            task_stats = {}
+            for job in all_jobs:
+                task = job.get("task_type", "other")
+                task_stats[task] = task_stats.get(task, 0) + 1
+            
+            # Average satisfaction score - safely handle None
+            satisfaction_scores = [
+                float(j.get("client_satisfaction", 0)) 
+                for j in all_jobs 
+                if j.get("client_satisfaction") is not None and isinstance(j.get("client_satisfaction"), (int, float))
+            ]
+            avg_satisfaction = round(sum(satisfaction_scores) / len(satisfaction_scores) if satisfaction_scores else 0, 1)
+            
+            # Success rate (completed with positive feedback)
+            successful_jobs = len([
+                j for j in all_jobs 
+                if j.get("project_status") == "completed" and (j.get("client_satisfaction") or 0) >= 4
+            ])
+            success_rate = round((successful_jobs / total_jobs * 100) if total_jobs > 0 else 0, 1)
+            
+            # Get chunk stats safely
+            total_chunks = stats.get("total_chunks") if isinstance(stats.get("total_chunks"), int) else 0
+            chunks_embedded = stats.get("chunks_embedded") if isinstance(stats.get("chunks_embedded"), int) else 0
+            chunks_pending = (total_chunks - chunks_embedded) if total_chunks >= chunks_embedded else 0
             
             return {
-                "total_jobs": stats["training_data_count"],
-                "total_chunks": stats["total_chunks"],
-                "chunks_embedded": stats["chunks_embedded"],
-                "chunks_pending": stats["chunks_pending"],
+                "total_jobs": total_jobs,
+                "total_chunks": total_chunks,
+                "chunks_embedded": chunks_embedded,
+                "chunks_pending": chunks_pending,
+                "avg_proposal_length": avg_proposal_length,
+                "completion_rate": completion_rate,
+                "success_rate": success_rate,
+                "avg_satisfaction_score": avg_satisfaction,
+                "by_status": status_stats,
                 "by_industry": industry_stats,
-                "by_status": status_stats
+                "top_skills": top_skills,
+                "by_task_type": task_stats
             }
         
         except Exception as e:
             logger.error(f"Error getting statistics: {str(e)}")
-            return {}
+            # Return safe default on any error
+            return {
+                "total_jobs": 0,
+                "total_chunks": 0,
+                "chunks_embedded": 0,
+                "chunks_pending": 0,
+                "avg_proposal_length": 0,
+                "completion_rate": 0.0,
+                "success_rate": 0.0,
+                "avg_satisfaction_score": 0.0,
+                "by_status": {},
+                "by_industry": {},
+                "top_skills": [],
+                "by_task_type": {}
+            }
     
     def save_embeddings_to_pinecone(
         self,
