@@ -679,29 +679,20 @@
                         <!-- Client Feedback -->
                         <div class="border-t border-neutral-200 pt-5">
                             <label class="block text-sm font-600 text-neutral-700 mb-4">Client Feedback (Optional)</label>
+                            <p class="text-xs text-neutral-500 mb-4">Add one or both - text feedback and/or review link</p>
                             
-                            <!-- Feedback tabs with enhanced styling -->
-                            <div class="flex gap-1 mb-5 bg-neutral-100 p-1 rounded-lg w-fit">
-                                <button type="button" class="feedback-tab feedback-tab-text px-4 py-2 rounded-md text-sm font-600 text-neutral-900 bg-white shadow-sm transition-all duration-200" data-type="text">
-                                    Text
-                                </button>
-                                <button type="button" class="feedback-tab px-4 py-2 rounded-md text-sm font-500 text-neutral-600 hover:text-neutral-900 transition-all duration-200" data-type="url">
-                                    URL
-                                </button>
-                            </div>
-
                             <!-- Text feedback -->
-                            <div id="feedback-text-group" class="feedback-content transition-all duration-300">
-                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Client's Text Feedback</label>
+                            <div class="mb-5">
+                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Feedback Text</label>
                                 <textarea name="client_feedback_text" id="feedback-text" placeholder="e.g., Excellent communication and quality work. Delivered ahead of schedule!" rows="3" class="input-field resize-none placeholder-neutral-400"></textarea>
-                                <p class="text-xs text-neutral-500 mt-2">Paste direct quotes from client messages</p>
+                                <p class="text-xs text-neutral-500 mt-1.5">Paste direct quotes from client messages or reviews</p>
                             </div>
 
                             <!-- URL feedback -->
-                            <div id="feedback-url-group" class="feedback-content hidden transition-all duration-300">
-                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Upwork Review/Feedback Link</label>
+                            <div>
+                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Review/Feedback Link</label>
                                 <input type="url" name="client_feedback_url" id="feedback-url" placeholder="https://upwork.com/o/profiles/users/..." class="input-field placeholder-neutral-400">
-                                <p class="text-xs text-neutral-500 mt-2">Paste the direct link to your Upwork review</p>
+                                <p class="text-xs text-neutral-500 mt-1.5">Link to your Upwork profile review or feedback page</p>
                             </div>
                         </div>
 
@@ -818,7 +809,6 @@
         const API_BASE = 'http://localhost:8000/api/job-data';
         let currentSkills = [];
         let currentPortfolios = [];
-        let feedbackMode = 'text';
         let selectedImage = null;
         let extractedOCRText = '';
         
@@ -833,7 +823,6 @@
             setupForm();
             setupSkillInput();
             setupPortfolioInput();
-            setupFeedbackTabs();
             setupEntriesView();
             loadStats();
             loadFormFromStorage();
@@ -878,7 +867,6 @@
             const data = Object.fromEntries(formData);
             data.skills = currentSkills;
             data.portfolios = currentPortfolios;
-            data.feedbackMode = feedbackMode;
             localStorage.setItem('training_form_draft', JSON.stringify(data));
         }
 
@@ -898,10 +886,7 @@
                         currentPortfolios = data.portfolios || [];
                         renderPortfolios();
                     } else if (key === 'feedbackMode') {
-                        feedbackMode = data.feedbackMode || 'text';
-                        // Trigger feedback tab click to restore state
-                        const tab = document.querySelector(`[data-type="${feedbackMode}"]`);
-                        if (tab) setTimeout(() => tab.click(), 100);
+                        // Skip feedbackMode as it's no longer used
                     } else {
                         const field = form.elements[key];
                         if (field) {
@@ -943,8 +928,8 @@
                 end_date: formData.get('end_date') || null,
                 urgent_adhoc: formData.get('urgent_adhoc') === 'on',
                 portfolio_urls: currentPortfolios,
-                client_feedback_text: feedbackMode === 'text' ? (formData.get('client_feedback_text')?.trim() || null) : null,
-                client_feedback_url: feedbackMode === 'url' ? (formData.get('client_feedback_url')?.trim() || null) : null
+                client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
+                client_feedback_url: formData.get('client_feedback_url')?.trim() || null
             };
 
             showProgress('Uploading data...', 'Storing in database');
@@ -960,14 +945,9 @@
                     form.reset();
                     currentSkills = [];
                     currentPortfolios = [];
-                    feedbackMode = 'text';
                     renderSkills();
                     renderPortfolios();
                     localStorage.removeItem('training_form_draft');
-                    
-                    // Reset feedback tab to text
-                    const textTab = document.querySelector('[data-type="text"]');
-                    if (textTab) textTab.click();
                     
                     loadStats();
                 }
@@ -984,14 +964,9 @@
             form.reset();
             currentSkills = [];
             currentPortfolios = [];
-            feedbackMode = 'text';
             renderSkills();
             renderPortfolios();
             localStorage.removeItem('training_form_draft');
-            
-            // Reset feedback tab to text
-            const textTab = document.querySelector('[data-type="text"]');
-            if (textTab) textTab.click();
         }
 
         // === SKILLS ===
@@ -1077,34 +1052,6 @@
         }
 
         // === FEEDBACK ===
-        function setupFeedbackTabs() {
-            document.querySelectorAll('.feedback-tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const type = tab.dataset.type;
-                    feedbackMode = type;
-                    
-                    // Update active tab styling
-                    document.querySelectorAll('.feedback-tab').forEach(t => {
-                        t.classList.remove('bg-white', 'shadow-sm', 'text-neutral-900', 'font-600');
-                        t.classList.add('text-neutral-600', 'font-500');
-                    });
-                    tab.classList.add('bg-white', 'shadow-sm', 'text-neutral-900', 'font-600');
-                    tab.classList.remove('text-neutral-600', 'font-500');
-                    
-                    // Hide all content sections
-                    document.getElementById('feedback-text-group').classList.add('hidden');
-                    document.getElementById('feedback-url-group').classList.add('hidden');
-                    
-                    // Show selected content
-                    if (type === 'text') {
-                        document.getElementById('feedback-text-group').classList.remove('hidden');
-                    } else if (type === 'url') {
-                        document.getElementById('feedback-url-group').classList.remove('hidden');
-                    }
-                });
-            });
-        }
-
         // === STATS ===
         async function loadStats() {
             try {
