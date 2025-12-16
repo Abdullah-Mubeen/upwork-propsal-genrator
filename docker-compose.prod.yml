@@ -1,3 +1,7 @@
+# NOTE: This file is for reference only and NOT used by ECS.
+# For AWS ECS Fargate deployment, use ecs-task-def.json instead.
+# This file documents the production configuration for local testing.
+
 version: '3.8'
 
 services:
