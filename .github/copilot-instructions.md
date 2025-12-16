@@ -30,6 +30,8 @@
 ## Essential Workflows
 
 ### Running the Application
+
+#### Local Development
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -41,6 +43,39 @@ python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 curl -X POST http://localhost:8000/api/proposals/generate \
   -H "Content-Type: application/json" \
   -d '{"job_title":"Senior Backend Dev","company_name":"TechCorp","job_description":"...","skills_required":["Python"]}'
+```
+
+#### Docker Deployment (Local)
+```bash
+# Build image
+docker build -t proposal-generator:latest .
+
+# Run with docker-compose (includes MongoDB)
+docker-compose up -d
+docker-compose logs -f api
+
+# Test API
+curl http://localhost:8000
+
+# Shutdown
+docker-compose down
+```
+
+#### AWS Deployment
+See `AWS_DEPLOYMENT.md` for:
+- **ECS Fargate**: Serverless container orchestration
+- **EC2 + Docker Compose**: Traditional VM deployment
+- **Elastic Beanstalk**: Managed platform
+- **CI/CD Pipeline**: Automated builds via GitHub Actions → ECR
+
+Quick start:
+```bash
+# Push to ECR
+docker tag proposal-generator:latest <account>.dkr.ecr.us-east-1.amazonaws.com/proposal-generator:latest
+docker push <account>.dkr.ecr.us-east-1.amazonaws.com/proposal-generator:latest
+
+# Update ECS service with new image
+aws ecs update-service --cluster proposal-generator-cluster --service proposal-generator-service --force-new-deployment
 ```
 
 ### Development & Testing
@@ -66,28 +101,33 @@ source env/bin/activate  # Already set up in workspace
 ### Proposal Generation Flow
 1. **POST** `/api/proposals/generate` with `GenerateProposalRequest`
    - Required: `job_title`, `company_name`, `job_description`, `skills_required`
-   - Optional: `industry`, `task_type`, `proposal_style`, `tone` (see `ProposalStyle` and `ProposalTone` enums in `prompt_engine.py`)
-2. **System retrieves** top-K similar past projects via `RetrievalPipeline.retrieve_for_proposal()`
-3. **System builds prompt** using `PromptEngine` with matched projects + portfolio URLs + feedback
-4. **GPT-4o generates** SHORT, HUMAN proposal (250-350 words default)
-5. **Response** includes generated text + source references (matched projects + portfolio URLs)
+   - Optional: `industry`, `task_type`, `proposal_style`, `tone`, `max_word_count` (default 150-1500), `timeline_duration`, `similar_projects_count` (default 3), `include_portfolio`, `include_feedback`
+   - Returns: `ProposalResponse` with generated text, word count, confidence score, source project references, portfolio links used, and improvement suggestions
+   - See `app/routes/proposals.py` lines 41-115 for full schema with Field descriptions
 
 ## Code Patterns & Conventions
 
-### Error Handling
+### MongoDB Collections & Storage
+- **8 collections** auto-created in `_init_collections()`: `training_data`, `chunks`, `embeddings`, `proposals`, `feedback_data`, `embedding_cache`, `skills`, `skill_embeddings`
+- **Contract IDs** auto-generated as `job_<8-char-hex>` if not provided; stored in all related documents for cross-referencing
+- **Metadata extraction**: Chunks store flattened metadata fields (lowercase): `task_type`, `industry`, `skills_required`, `company_name`, `job_title`—extracted from chunk nested `metadata` dict in `insert_chunks()` at line 304
+- **Embedding cache**: MD5 hash of text → embedding mapping for avoiding redundant API calls
+- **Indexes**: Created for `contract_id`, `chunk_type`, `priority`, `embedding_status`, `skill_name_lower`, `text_hash` for fast filtering and sorting
+
+### Error Handling & Initialization
 - Use `HTTPException` with status codes in routes
 - All services log errors to `logger.error()` before raising
 - Tenacity retry decorator for API calls: `@retry(wait=wait_exponential(...), stop=stop_after_attempt(3))`
-
-### Service Initialization
-- All services accept optional dependencies (e.g., `ProposalGenerator(openai_service=None, retrieval_pipeline=None)`)
-- Lazy initialization in routes (see `_processor`, `_pinecone_service` in `job_data_ingestion.py`)
-- Settings from `app/config.py` using environment variables with defaults
+- **Lazy initialization pattern** in routes: Use module-level globals (`_processor`, `_pinecone_service`) with getter functions—see `app/routes/job_data_ingestion.py` lines 43-78. Each getter checks `if variable is None` then initializes once
+- **Singleton pattern for database**: `get_db()` returns singleton `DatabaseManager` instance via global `_db_manager`—connection established in `__init__`, auto-creates collections and indexes
 
 ### Pydantic Models
 - All API inputs use `BaseModel` with `Field()` for validation and documentation (see `job_data_schema.py`)
 - Response models mirror request structure but add fields like `success`, `message`, `timestamp`
 - Enums for constrained fields: `ProjectStatus`, `TaskType`, `ChunkType`, `ProposalStyle`, `ProposalTone`
+- Use `HTTPException` with status codes in routes (e.g., `HTTPException(status_code=400, detail="Invalid job data")`)
+- All services log errors to `logger.error()` before raising exceptions
+- Tenacity retry decorator for API calls: `@retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))`
 
 ### Embeddings & Vectors
 - **Model**: text-embedding-3-large (3072 dimensions)
