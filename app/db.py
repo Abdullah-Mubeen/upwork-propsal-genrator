@@ -28,16 +28,19 @@ class DatabaseManager:
         self._connect()
     
     def _connect(self):
-        """Establish MongoDB connection"""
+        """Establish MongoDB connection with SSL configuration"""
         try:
             self.client = MongoClient(
                 self.connection_string,
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=10000,
-                socketTimeoutMS=10000,
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=15000,
+                socketTimeoutMS=15000,
                 retryWrites=True,
                 maxPoolSize=50,
-                minPoolSize=10
+                minPoolSize=10,
+                ssl=True,
+                tlsAllowInvalidCertificates=True,
+                tlsCAFile=None
             )
             
             # Test connection
