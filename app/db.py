@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from bson.objectid import ObjectId
 import uuid
+import certifi
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -38,9 +39,8 @@ class DatabaseManager:
                 retryWrites=True,
                 maxPoolSize=50,
                 minPoolSize=10,
-                ssl=True,
-                tlsAllowInvalidCertificates=True,
-                tlsCAFile=None
+                tls=True,
+                tlsCAFile=certifi.where()
             )
             
             # Test connection
