@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proposal Generator</title>
+    <!-- Disable caching for development -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Proposal Generator - LOCAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
@@ -457,7 +461,11 @@
     </main>
 
     <script>
+        // CHANGE THIS TO TEST LOCALLY vs PRODUCTION
+        // Local: 'http://127.0.0.1:8000/api/proposals'
+        // Production: 'https://ml.genproposals.com/api/proposals'
         const API_BASE = 'https://ml.genproposals.com/api/proposals';
+        
         let currentSkills = [];
         let includeTimeline = false;
 

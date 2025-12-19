@@ -31,12 +31,30 @@ class FilterCriteria:
     min_satisfaction: Optional[float] = None  # 1-5
     completed_only: bool = False
     with_feedback: bool = False
+    platform: Optional[str] = None  # wordpress, shopify, woocommerce, etc.
 
 
 class RetrievalPipeline:
     """Multi-stage retrieval for proposal generation"""
 
     COMPLEXITY_LEVELS = {"low": 1, "medium": 2, "high": 3}
+    
+    # Platform keywords for smart detection
+    # CRITICAL: More specific keywords should come first in each list
+    PLATFORM_KEYWORDS = {
+        "wordpress": ["wordpress", "wp-admin", "elementor", "divi", "theme", "plugin", "gutenberg", "acf", "wp theme", "wp plugin"],
+        "shopify": ["shopify", "shopify theme", "shopify app", "shopify store", "liquid", "shopify plus"],
+        "woocommerce": ["woocommerce", "woo commerce", "woo membership", "woomembership", "woo subscription", "woo-"],
+        "webflow": ["webflow"],
+        "squarespace": ["squarespace"],
+        "magento": ["magento", "adobe commerce"],
+        "drupal": ["drupal"],
+        "joomla": ["joomla"],
+        "react": ["react", "reactjs", "react.js", "next.js", "nextjs", "react native"],
+        "vue": ["vue", "vuejs", "vue.js", "nuxt"],
+        "angular": ["angular", "angularjs"],
+        "html_css": ["static site", "landing page"],  # Removed html/css as they're too generic
+    }
 
     def __init__(self, db=None, pinecone_service=None):
         """
@@ -138,25 +156,77 @@ class RetrievalPipeline:
         Prioritizes projects with feedback and proven effectiveness while
         keeping filters flexible to find relevant matches.
         
-        NOTE: Training data has client_feedback_text but NOT proposal_effectiveness_score
-        or client_satisfaction fields, so we only filter by feedback presence and status.
+        CRITICAL: Now extracts CLIENT INTENTS (what they actually want done)
+        in addition to platform detection.
         """
+        from app.utils.metadata_extractor import MetadataExtractor
+        
         skills = job_data.get("skills_required", [])
         industry = job_data.get("industry", "")
         task_type = job_data.get("task_type", "")
         complexity = job_data.get("task_complexity", "medium")
         urgency = job_data.get("urgent_adhoc", False)
+        
+        # CRITICAL: Detect platform from job description and skills
+        platform = self._detect_platform(job_data)
+        if platform:
+            logger.info(f"  → Detected platform: {platform.upper()} - will prioritize {platform} projects")
+
+        # CRITICAL: Extract client intents (what they actually want done)
+        client_intents = MetadataExtractor.extract_client_intents(job_data)
+        if client_intents:
+            logger.info(f"  → Detected client intents: {client_intents[:3]}")
+            # Store intents in job_data for later use in ranking
+            job_data["client_intents"] = client_intents
 
         # Build flexible criteria (not overly restrictive)
         # We want to find projects with feedback first, then broaden if needed
-        # NOTE: min_effectiveness and min_satisfaction are disabled since those fields don't exist
         return FilterCriteria(
             industries=[industry] if industry else None,
             skills=skills if skills else None,
             task_type=task_type if task_type else None,
-            with_feedback=True,  # MUST have feedback to learn from
-            completed_only=True  # Only completed projects (proven success)
+            with_feedback=False,  # Don't require feedback - include if available
+            completed_only=True,  # Only completed projects (proven success)
+            platform=platform  # CRITICAL: Platform-specific filtering
         )
+    
+    def _detect_platform(self, job_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Detect the primary platform from job description and skills.
+        
+        This is CRITICAL for ensuring WordPress jobs get WordPress examples,
+        Shopify jobs get Shopify examples, etc.
+        
+        Returns:
+            Platform name (lowercase) or None if not detected
+        """
+        job_desc = job_data.get("job_description", "").lower()
+        job_title = job_data.get("job_title", "").lower()
+        skills = [s.lower() for s in job_data.get("skills_required", [])]
+        
+        # Combine all text for searching
+        search_text = f"{job_title} {job_desc} {' '.join(skills)}"
+        
+        # Check each platform's keywords
+        platform_scores = {}
+        for platform, keywords in self.PLATFORM_KEYWORDS.items():
+            score = 0
+            for keyword in keywords:
+                if keyword in search_text:
+                    score += 1
+                    # Extra weight for skill matches (more specific)
+                    if keyword in skills:
+                        score += 2
+            if score > 0:
+                platform_scores[platform] = score
+        
+        if not platform_scores:
+            return None
+        
+        # Return the platform with highest score
+        detected = max(platform_scores, key=platform_scores.get)
+        logger.debug(f"  Platform scores: {platform_scores} → Selected: {detected}")
+        return detected
 
     def _metadata_filter(
         self,
@@ -167,56 +237,130 @@ class RetrievalPipeline:
         STAGE 1: Fast metadata filtering.
         
         Applies smart filters to reduce search space while keeping good candidates.
-        Prioritizes task_type and completed projects with feedback.
+        CRITICAL: Platform matching is the HIGHEST priority filter.
+        WordPress job = WordPress projects ONLY (same for Shopify, etc.)
+        NEVER mix competing platforms (WordPress ≠ Shopify)
         """
-        filtered = []
-
+        platform_matched = []  # Projects matching the detected platform
+        skill_matched = []     # Projects matching skills (fallback) - but NOT competing platforms
+        
+        # Define competing platforms that should NEVER be mixed
+        competing_platforms = {
+            "wordpress": ["shopify", "magento", "squarespace", "webflow", "wix"],
+            "woocommerce": ["shopify", "magento", "squarespace", "webflow", "wix"],
+            "shopify": ["wordpress", "woocommerce", "magento", "squarespace", "webflow", "wix"],
+            "magento": ["wordpress", "woocommerce", "shopify", "squarespace", "webflow"],
+            "react": ["angular", "vue"],
+            "angular": ["react", "vue"],
+            "vue": ["react", "angular"],
+        }
+        
+        excluded_platforms = competing_platforms.get(criteria.platform, []) if criteria.platform else []
+        
         for job in jobs:
             # Completed projects preferred if specified
             if criteria.completed_only and job.get("project_status") != "completed":
                 continue
-
-            # Must have feedback if specified
-            feedback = job.get("client_feedback_text") or job.get("client_feedback")
-            if criteria.with_feedback and not feedback:
+            
+            job_platform = self._detect_job_platform(job)
+            
+            # CRITICAL: EXCLUDE competing platforms
+            if criteria.platform and job_platform in excluded_platforms:
+                logger.debug(f"  ✗ Excluding {job.get('company_name')} - platform {job_platform} conflicts with {criteria.platform}")
                 continue
-
-            # Task type filter - SOFT (if specified, try to match but not exclusive)
-            if criteria.task_type:
-                # Case-insensitive task type matching
-                job_task_type = str(job.get("task_type", "")).lower().strip()
-                criteria_task_type = str(criteria.task_type).lower().strip()
-                if job_task_type == criteria_task_type:
-                    filtered.append(job)
+            
+            # CRITICAL: Platform matching - highest priority
+            if criteria.platform:
+                if job_platform == criteria.platform:
+                    platform_matched.append(job)
+                    logger.debug(f"  ✓ Platform match: {job.get('company_name')} ({job_platform})")
                     continue
-                # If task type doesn't match, might skip but keep looking for other good matches
-                # Don't skip yet - will use skills/industry as fallback
-
-            # Skills filter (soft - at least some overlap)
-            if criteria.skills:
+                # Check for related platforms (e.g., WooCommerce ↔ WordPress)
+                if self._are_platforms_related(criteria.platform, job_platform):
+                    platform_matched.append(job)
+                    logger.debug(f"  ✓ Related platform match: {job.get('company_name')} ({job_platform} related to {criteria.platform})")
+                    continue
+            
+            # Skills filter (soft - at least some overlap) - but ONLY if not a competing platform
+            if criteria.skills and job_platform not in excluded_platforms:
                 job_skills = set(s.lower() for s in job.get("skills_required", []))
                 query_skills = set(s.lower() for s in criteria.skills)
-                if not (job_skills & query_skills):  # No overlap
-                    continue
-
-            # If we got here and task_type was specified but didn't match, still add it as fallback
-            if criteria.task_type:
-                criteria_task_type = str(criteria.task_type).lower().strip()
-                job_task_type = str(job.get("task_type", "")).lower().strip()
-                if job_task_type != criteria_task_type:
-                    filtered.append(job)
-            elif not criteria.task_type:
-                filtered.append(job)
-
-        # If we filtered to 0, return all completed projects with feedback
-        if not filtered:
-            for job in jobs:
-                if job.get("project_status") == "completed":
-                    feedback = job.get("client_feedback_text") or job.get("client_feedback")
-                    if feedback:
-                        filtered.append(job)
-
-        return filtered
+                if job_skills & query_skills:  # Has overlap
+                    skill_matched.append(job)
+        
+        # PRIORITY: Return platform-matched projects first
+        if platform_matched:
+            logger.info(f"  → Found {len(platform_matched)} projects matching platform: {criteria.platform}")
+            return platform_matched
+        
+        # Fallback to skill-matched projects (already filtered to exclude competing platforms)
+        if skill_matched:
+            logger.info(f"  → No exact platform match, using {len(skill_matched)} skill-matched projects (excluded: {excluded_platforms})")
+            return skill_matched
+        
+        # Last resort: return all completed projects that are NOT competing platforms
+        logger.warning(f"  ⚠ No matching projects found, returning non-competing completed projects")
+        fallback = []
+        for job in jobs:
+            if job.get("project_status") == "completed":
+                job_platform = self._detect_job_platform(job)
+                if job_platform not in excluded_platforms:
+                    fallback.append(job)
+        return fallback[:10]  # Limit to 10
+    
+    def _detect_job_platform(self, job: Dict[str, Any]) -> Optional[str]:
+        """
+        Detect platform from a historical job's data.
+        Uses scoring to find the BEST match, not just first match.
+        """
+        job_desc = job.get("job_description", "").lower()
+        job_title = job.get("job_title", "").lower()
+        skills = [s.lower() for s in job.get("skills_required", [])]
+        
+        search_text = f"{job_title} {job_desc} {' '.join(skills)}"
+        
+        # Score each platform
+        platform_scores = {}
+        for platform, keywords in self.PLATFORM_KEYWORDS.items():
+            score = 0
+            for keyword in keywords:
+                if keyword in skills:  # Skill match = highest weight
+                    score += 3
+                elif keyword in job_title:  # Title match = high weight
+                    score += 2
+                elif keyword in job_desc:  # Description match
+                    score += 1
+            if score > 0:
+                platform_scores[platform] = score
+        
+        if not platform_scores:
+            return None
+        
+        # Return highest scoring platform
+        return max(platform_scores, key=platform_scores.get)
+    
+    def _are_platforms_related(self, platform1: Optional[str], platform2: Optional[str]) -> bool:
+        """
+        Check if two platforms are related (e.g., WooCommerce is part of WordPress).
+        This helps find relevant projects when exact platform match isn't available.
+        """
+        if not platform1 or not platform2:
+            return False
+        
+        # Define related platforms (bi-directional relationships)
+        related_platforms = {
+            "wordpress": ["woocommerce", "elementor", "php"],
+            "woocommerce": ["wordpress", "php"],
+            "shopify": ["liquid"],  # Shopify uses Liquid templating
+            "react": ["next.js", "javascript"],
+            "vue": ["nuxt", "javascript"],
+            "angular": ["typescript", "javascript"],
+            "html_css": ["javascript", "php"],  # Basic web can relate to backend
+        }
+        
+        return platform2 in related_platforms.get(platform1, [])
+        
+        return platform2 in related_platforms.get(platform1, [])
 
     def _semantic_rank(
         self,

@@ -305,12 +305,14 @@ WHAT NOT TO DO:
 ❌ NO proposals over 250 words - SHORT = HIGH IMPACT
 ❌ NO robotic phrases like "I would be delighted", "I am eager to", "I look forward to"
 ❌ NO formal sign-offs like "Best regards", "Sincerely", "Warm regards" - keep it casual
+❌ DO NOT fabricate or invent feedback URLs - only use ones provided in the data
 
 WHAT TO DO:
 ✓ Sound like a REAL person having a coffee chat - natural, casual, human
 ✓ Start with: "I see you're dealing with [SPECIFIC PROBLEM]"
 ✓ Reference 2-3 REAL past projects with company names and outcomes
-✓ Include portfolio proof (links to live work) and feedback URLs
+✓ Include portfolio links (ALWAYS available)
+✓ Include feedback URLs ONLY if they exist in the data - don't make them up
 ✓ Use conversational, punchy language - contractions are good (I've, you're, that's)!
 ✓ Show specific approach for THEIR tech stack
 {timeline_rule}
@@ -325,16 +327,38 @@ CONVERSATIONAL TONE EXAMPLES:
 ✓ "Let me know if you have any questions"
 ✓ "Cheers!" or just end naturally without formal sign-off
 
+CRITICAL - MATCH PROJECT INTENT, NOT JUST PLATFORM:
+⚠️ UNDERSTAND what the client ACTUALLY WANTS:
+   - Migration/Transfer → Show projects where you did content migration, data transfer, platform switching
+   - Membership Setup → Show projects where you set up subscriptions, paid content, member areas
+   - Speed Optimization → Show projects where you improved pagespeed, core web vitals
+   - Bug Fixes → Show projects where you fixed issues, solved problems
+   - New Feature → Show projects where you added functionality
+⚠️ DO NOT mismatch project types:
+   - If client wants MIGRATION → DON'T show speed optimization work
+   - If client wants SPEED → DON'T show membership setup work
+   - If client wants MEMBERSHIP → DON'T show unrelated WordPress work
+⚠️ The project you reference MUST match what they're asking for!
+
 CRITICAL - PLATFORM-SPECIFIC EXAMPLES:
 ⚠️ If the job is for WORDPRESS → ONLY show WordPress project examples
 ⚠️ If the job is for SHOPIFY → ONLY show Shopify project examples
+⚠️ If the job is for WOOCOMMERCE → Show WooCommerce/WordPress examples
 ⚠️ NEVER mix platforms - WordPress job = WordPress proof, Shopify job = Shopify proof
 ⚠️ This builds credibility - show you've done EXACTLY this type of work before
 
+COMBINED REQUIREMENT - INTENT + PLATFORM:
+✓ Match BOTH the platform AND the type of work
+✓ Example: "Substack to WordPress migration with membership" needs:
+  - WordPress platform ✓
+  - Migration/content transfer work ✓
+  - OR membership/subscription setup work ✓
+✓ NOT just any WordPress project - must be RELEVANT work!
+
 SUCCESS PATTERN:
 1. HOOK (1-2 sentences): Acknowledge THEIR specific problem + include ONE portfolio link to similar work
-   Example: "I see you're dealing with slow WooCommerce load times. Check out my recent work: https://ggov.no/"
-2. PROOF (2 bullets): Past similar projects + portfolio links + feedback URLs
+   Example: "I see you're dealing with slow WooCommerce load times. Check out my recent work: https://example.com/"
+2. PROOF (2 bullets): Past similar projects + portfolio links (+ feedback URLs IF available)
 3. APPROACH (2-3 sentences): How you'd solve THEIR problem specifically
 {timeline_pattern}
 5. CTA (1 casual sentence): "Happy to chat" or "Let me know what you think" - friendly, easygoing
@@ -342,12 +366,13 @@ SUCCESS PATTERN:
 KEY WINNING STRATEGY:
 - Put a portfolio link IN THE HOOK - clients see this in preview!
 - ONLY use platform-specific examples (WordPress→WordPress, Shopify→Shopify)
-- Include feedback URLs to show what past clients said
+- Include feedback URLs ONLY when they actually exist in the data provided
 
 CRITICAL LINK FORMAT:
-- Use PLAIN URLs only (e.g., https://ggov.no/)
+- Use PLAIN URLs only (e.g., https://example.com/)
 - DO NOT use markdown format like [Company](url)
-- Include both: portfolio URL (live work) + feedback URL (client review)
+- Portfolio URL = ALWAYS include (live work proof)
+- Feedback URL = ONLY if provided in the data (don't fabricate)
 
 TARGET: 150-250 words MAXIMUM. Every word must count.
 """
@@ -372,11 +397,11 @@ TARGET: 150-250 words MAXIMUM. Every word must count.
                 hook_project = proj.get("company", proj.get("title", "past project"))
                 # PRIORITIZE actual project URLs over Upwork profile links
                 for url in portfolio_urls:
-                    if 'upwork.com' not in url.lower():
+                    if url and 'upwork.com' not in url.lower():
                         hook_portfolio_url = url
                         break
                 # Fallback to Upwork if no actual project URL
-                if not hook_portfolio_url:
+                if not hook_portfolio_url and portfolio_urls[0]:
                     hook_portfolio_url = portfolio_urls[0]
                 break
         
@@ -384,20 +409,26 @@ TARGET: 150-250 words MAXIMUM. Every word must count.
         for i, proj in enumerate(similar_projects[:3], 1):
             company_name = proj.get("company", proj.get("title", "past project"))
             portfolio_urls = proj.get("portfolio_urls", [])
+            feedback_url = proj.get("client_feedback_url", "")  # May be None or empty
             
             # Prioritize actual project URL
             best_url = None
             for url in portfolio_urls:
-                if 'upwork.com' not in url.lower():
+                if url and 'upwork.com' not in url.lower():
                     best_url = url
                     break
-            if not best_url and portfolio_urls:
+            if not best_url and portfolio_urls and portfolio_urls[0]:
                 best_url = portfolio_urls[0]
             
             portfolio = f"\n     → Live site: {best_url}" if best_url else ""
             
+            # ONLY add feedback URL if it actually exists
+            feedback_line = ""
+            if feedback_url and feedback_url.strip():
+                feedback_line = f"\n     → Client feedback: {feedback_url}"
+            
             satisfaction = proj.get("satisfaction", proj.get("effectiveness", 4.5))
-            projects_proof += f"  {i}. {company_name} - {satisfaction}/5 satisfaction{portfolio}\n"
+            projects_proof += f"  {i}. {company_name} - {satisfaction}/5 satisfaction{portfolio}{feedback_line}\n"
 
         # Build hook example with portfolio link (actual project URL preferred) - PLAIN URL, no markdown
         hook_example = '"I see you\'re dealing with [specific problem from their job description]..."'
@@ -433,14 +464,14 @@ PROPOSAL STRUCTURE TO USE:
 ⚠️ IMPORTANT: Include a portfolio link IN THE HOOK! Clients see this in the preview - it triggers curiosity!
 ⚠️ USE PLAIN URLs only (e.g., https://example.com) - NOT markdown format like [text](url)
 
-[PROOF - 2-3 bullets with portfolio + feedback URLs]
+[PROOF - 2-3 bullets with portfolio links]
 Reference these similar past projects:
 {projects_proof}
 
 Format each proof point like:
 - **Company Name**: Brief outcome
   Live work: https://portfolio-url.com
-  Client feedback: https://feedback-url.com
+  (Only include feedback URL if it exists in the data above - DON'T fabricate)
 
 [APPROACH - 2-3 sentences]
 "For you, I'd [specific approach for their tech stack]..."
@@ -491,29 +522,39 @@ JOB DESCRIPTION:
         
         CRITICAL: 
         1. Only include projects that have actual portfolio URLs
-        2. PREFER actual project URLs (https://ggov.no/) over Upwork profile links
-        3. Format: Company name, brief outcome, portfolio link
+        2. PREFER actual project URLs (https://example.com/) over Upwork profile links
+        3. Only include feedback URL if it ACTUALLY EXISTS - don't fabricate
+        4. Format: Company name, TASK TYPE, brief outcome, portfolio link, feedback (if available)
+        5. Include task_type so AI knows what work was actually done (not just platform)
         """
         if not similar_projects:
             return "SIMILAR PAST PROJECTS: None found in database yet."
 
         section = "SIMILAR PAST PROJECTS (WITH PORTFOLIO PROOF):\n\n"
+        section += "⚠️ IMPORTANT: Only reference projects that match BOTH the platform AND the type of work the client needs!\n\n"
+        projects_added = 0
 
-        for i, project in enumerate(similar_projects[:3], 1):
+        for i, project in enumerate(similar_projects[:5], 1):  # Check up to 5 to find 3 good ones
+            if projects_added >= 3:
+                break
+                
             company = project.get('company') or project.get('title', 'Past project')
             portfolio_urls = project.get('portfolio_urls') or []
-            feedback_url = project.get('client_feedback_url')
+            feedback_url = project.get('client_feedback_url')  # May be None/empty
+            feedback_text = project.get('client_feedback_text', '')  # May be empty
+            task_type = project.get('task_type', '')  # What work was actually done
             
             # Only include projects with portfolio links
             if not portfolio_urls:
                 continue
             
             # PRIORITIZE actual project URLs over Upwork profile links
-            # Actual project URL = more impressive (client can see live work)
             actual_project_url = None
             upwork_profile_url = None
             
             for url in portfolio_urls:
+                if not url:  # Skip empty strings
+                    continue
                 if 'upwork.com' in url.lower():
                     upwork_profile_url = url
                 else:
@@ -522,9 +563,20 @@ JOB DESCRIPTION:
             
             # Use actual project URL first, fallback to Upwork profile
             best_portfolio_url = actual_project_url or upwork_profile_url
+            
+            if not best_portfolio_url:
+                continue
+            
+            projects_added += 1
                 
-            # Format: Company name, specific outcome, link
-            section += f"{i}. **{company}**: "
+            # Format: Company name, TASK TYPE, specific outcome, link
+            section += f"{projects_added}. **{company}**"
+            
+            # Add task type - CRITICAL for AI to know what work was done
+            if task_type:
+                section += f" [Task: {task_type}]"
+            
+            section += ": "
             
             # Add specific outcome/skills for context
             skills = project.get('skills', [])
@@ -537,17 +589,19 @@ JOB DESCRIPTION:
             if include_portfolio and best_portfolio_url:
                 section += f"\n   → Live project: {best_portfolio_url}"
             
-            # Add feedback URL if available - this shows what client said about this work
-            if include_feedback and feedback_url:
+            # ONLY add feedback URL if it ACTUALLY EXISTS and is not empty
+            # Don't suggest or fabricate feedback URLs
+            if include_feedback and feedback_url and feedback_url.strip():
                 section += f"\n   → Client feedback: {feedback_url}"
-                # Get feedback text preview if available
-                feedback_text = project.get('client_feedback_text', '')
-                if feedback_text:
-                    # Show first 100 chars of feedback as preview
+                # Only show feedback text preview if it exists
+                if feedback_text and feedback_text.strip():
                     preview = feedback_text[:100] + '...' if len(feedback_text) > 100 else feedback_text
                     section += f"\n     \"{preview}\""
             
             section += "\n\n"
+        
+        if projects_added == 0:
+            return "SIMILAR PAST PROJECTS: No projects with portfolio links found."
 
         return section
 

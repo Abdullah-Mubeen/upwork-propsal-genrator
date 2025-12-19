@@ -44,6 +44,181 @@ class MetadataExtractor:
         "low": ["landing page", "blog", "portfolio", "static", "basic crud"],
     }
 
+    # CLIENT INTENT CATEGORIES - What the client ACTUALLY wants done
+    # This is CRITICAL for matching jobs by actual requirement, not just platform
+    CLIENT_INTENT_KEYWORDS = {
+        # Migration/Transfer intents
+        "content_migration": ["migrate", "migration", "transfer content", "move content", "import content", "export content", "convert", "transition", "switch from", "move from", "substack", "mailchimp import", "medium import"],
+        "platform_switch": ["switch to wordpress", "move to shopify", "migrate to", "convert to wordpress", "rebuild on", "recreate on"],
+        
+        # Membership/Subscription intents  
+        "membership_setup": ["membership", "woomembership", "subscription site", "paid content", "paywall", "member area", "paid subscriber", "recurring payment", "member pages", "restrict content", "premium content"],
+        "newsletter_email": ["newsletter", "email list", "mailing list", "email marketing", "mailchimp", "convertkit", "email subscribers", "email campaign", "email automation"],
+        
+        # E-commerce intents
+        "store_setup": ["online store", "e-commerce store", "ecommerce store", "sell products", "product listing", "shopping cart", "checkout page"],
+        "payment_integration": ["payment gateway", "stripe integration", "paypal integration", "woocommerce payments", "checkout integration", "buy button", "accept payments"],
+        
+        # Performance/Optimization intents
+        "speed_optimization": ["speed up", "pagespeed", "core web vitals", "performance optimization", "load time", "site optimization", "gtmetrix", "lighthouse score", "website slow", "slow loading"],
+        "seo_optimization": ["seo optimization", "search engine optimization", "google ranking", "keyword optimization", "organic traffic", "meta tags", "on-page seo"],
+        
+        # Design/Development intents
+        "website_redesign": ["redesign website", "restyle website", "makeover", "new look", "refresh design", "modernize website", "update design"],
+        "new_website": ["build website", "create website", "new website", "from scratch", "brand new site", "develop website"],
+        "bug_fixes": ["fix bug", "fix issue", "broken", "not working", "website issue", "website problem", "fix error", "repair"],
+        "feature_addition": ["add feature", "new feature", "add functionality", "integrate", "custom feature", "enhancement", "extend"],
+        
+        # Content/Blog intents
+        "content_management": ["blog posts", "articles", "content management", "cms setup", "publish content", "editorial"],
+        "form_setup": ["contact form", "web form", "form submission", "lead capture form", "cf7", "gravity forms", "formidable forms", "form plugin"],
+    }
+
+    # RELATED TASK TYPES - Groups of task types that are semantically similar
+    # Used for fuzzy matching when exact task_type doesn't match
+    RELATED_TASK_TYPES = {
+        # Migration/Transfer cluster
+        "content_migration": ["migration", "transfer", "content", "import", "export", "rebuild"],
+        "platform_switch": ["migration", "rebuild", "recreate", "convert"],
+        
+        # Membership cluster
+        "membership_setup": ["membership", "subscription", "woocommerce", "paid content", "member pages"],
+        "newsletter_email": ["newsletter", "email", "subscription", "mailchimp"],
+        
+        # E-commerce cluster
+        "store_setup": ["complete website", "woocommerce", "shopify", "ecommerce"],
+        "payment_integration": ["woocommerce", "enhance functionality", "integration"],
+        
+        # Performance cluster
+        "speed_optimization": ["speed optimization", "optimization", "performance", "pagespeed"],
+        "seo_optimization": ["seo", "optimization", "marketing"],
+        
+        # Development cluster
+        "website_redesign": ["redesign website", "restyle", "design"],
+        "new_website": ["complete website", "new website", "build"],
+        "bug_fixes": ["bug fixes", "fixes", "repair", "maintenance"],
+        "feature_addition": ["enhance functionality", "integration", "custom development"],
+        
+        # Content cluster
+        "content_management": ["blogs webdesign", "content", "editorial"],
+        "form_setup": ["enhance functionality", "integration", "contact form"],
+    }
+
+    @staticmethod
+    def extract_client_intents(job_data: Dict[str, Any]) -> List[str]:
+        """
+        Extract client intents from job description - WHAT they actually want done.
+        
+        This is CRITICAL for matching jobs by actual requirement, not just platform.
+        For example, "migrate Substack to WordPress" should match projects that did
+        content migration or membership setup, NOT speed optimization.
+        
+        Args:
+            job_data: Job data dictionary with job_description, job_title, skills_required
+            
+        Returns:
+            List of detected intent categories (e.g., ["content_migration", "membership_setup"])
+        """
+        job_desc = job_data.get("job_description", "").lower()
+        job_title = job_data.get("job_title", "").lower()
+        skills = " ".join(s.lower() for s in job_data.get("skills_required", []))
+        
+        # Combine all text for searching
+        search_text = f"{job_title} {job_desc} {skills}"
+        
+        detected_intents = []
+        intent_scores = {}
+        
+        for intent, keywords in MetadataExtractor.CLIENT_INTENT_KEYWORDS.items():
+            score = 0
+            for keyword in keywords:
+                if keyword in search_text:
+                    # Weight by keyword length (longer = more specific = more weight)
+                    score += len(keyword.split())
+            
+            if score > 0:
+                intent_scores[intent] = score
+        
+        # Sort by score and return top intents
+        if intent_scores:
+            sorted_intents = sorted(intent_scores.items(), key=lambda x: x[1], reverse=True)
+            detected_intents = [intent for intent, score in sorted_intents if score >= 1]
+            
+            logger.debug(f"  Detected intents: {detected_intents[:5]} from scores {intent_scores}")
+        
+        return detected_intents[:5]  # Return top 5 intents
+
+    @staticmethod
+    def get_intent_similarity(intents1: List[str], intents2: List[str]) -> float:
+        """
+        Calculate similarity between two sets of client intents.
+        
+        Uses Jaccard similarity with bonus for matching primary (first) intent.
+        
+        Returns:
+            Similarity score 0-1
+        """
+        if not intents1 or not intents2:
+            return 0.0
+        
+        set1 = set(intents1)
+        set2 = set(intents2)
+        
+        intersection = len(set1 & set2)
+        union = len(set1 | set2)
+        
+        base_similarity = intersection / union if union > 0 else 0.0
+        
+        # Bonus for matching primary intent (first one is most important)
+        primary_match_bonus = 0.3 if intents1[0] == intents2[0] else 0.0
+        
+        return min(1.0, base_similarity + primary_match_bonus)
+
+    @staticmethod
+    def get_task_type_similarity(task1: str, task2: str, intents1: List[str] = None, intents2: List[str] = None) -> float:
+        """
+        Calculate semantic similarity between task types.
+        
+        Uses related task type clusters for fuzzy matching instead of just exact match.
+        If task types don't match exactly, checks if they're semantically related.
+        
+        Args:
+            task1: First task type
+            task2: Second task type  
+            intents1: Client intents for first job (optional, for fallback matching)
+            intents2: Client intents for second job (optional)
+            
+        Returns:
+            Similarity score 0-1
+        """
+        task1 = str(task1).lower().strip() if task1 else ""
+        task2 = str(task2).lower().strip() if task2 else ""
+        
+        # Exact match = perfect similarity
+        if task1 and task2 and task1 == task2:
+            return 1.0
+        
+        # Check if tasks are in the same semantic cluster
+        for intent, related_tasks in MetadataExtractor.RELATED_TASK_TYPES.items():
+            related_lower = [t.lower() for t in related_tasks]
+            
+            # Check if both tasks are in same cluster
+            task1_in_cluster = any(task1 in rt or rt in task1 for rt in related_lower) if task1 else False
+            task2_in_cluster = any(task2 in rt or rt in task2 for rt in related_lower) if task2 else False
+            
+            if task1_in_cluster and task2_in_cluster:
+                logger.debug(f"  Task type fuzzy match: '{task1}' ~ '{task2}' via cluster '{intent}'")
+                return 0.7  # Semantic match = 70% similarity
+        
+        # Fallback: Check if intents overlap (even if task types don't)
+        if intents1 and intents2:
+            intent_sim = MetadataExtractor.get_intent_similarity(intents1, intents2)
+            if intent_sim > 0.3:
+                logger.debug(f"  Intent-based match: {intents1[:2]} ~ {intents2[:2]} = {intent_sim}")
+                return intent_sim * 0.6  # Intent match weighted at 60%
+        
+        return 0.0  # No match
+
     @staticmethod
     def extract_all_metadata(job_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -65,10 +240,16 @@ class MetadataExtractor:
         job_data["industry_tags"] = MetadataExtractor.extract_industry_tags(job_data)
         job_data["project_duration_days"] = MetadataExtractor.calculate_duration(job_data)
         job_data["reusable_sections"] = MetadataExtractor.identify_reusable_sections(job_data)
+        
+        # NEW: Extract client intents
+        job_data["client_intents"] = MetadataExtractor.extract_client_intents(job_data)
 
         logger.debug(f"✓ Metadata extracted: effectiveness={job_data.get('proposal_effectiveness_score')}, "
                     f"satisfaction={job_data.get('client_satisfaction')}, "
-                    f"complexity={job_data.get('task_complexity')}")
+                    f"complexity={job_data.get('task_complexity')}, "
+                    f"intents={job_data.get('client_intents', [])[:2]}")
+
+        return job_data
 
         return job_data
 
@@ -326,12 +507,29 @@ class MetadataExtractor:
         job2: Dict[str, Any]
     ) -> Dict[str, float]:
         """
-        Compare two projects across multiple dimensions.
+        Compare two projects across multiple dimensions including CLIENT INTENT.
+        
+        CRITICAL: This now uses semantic task type matching and client intent
+        similarity to find projects that did SIMILAR WORK, not just same platform.
+        
+        For example: "Substack migration" should match projects that did:
+        - Content migration/transfer
+        - Membership/subscription setup
+        - Newsletter integration
+        NOT just any WordPress project like "speed optimization"
         
         Returns:
             Similarity scores for each dimension (0-1)
         """
         similarity = {}
+
+        # Extract client intents for both jobs
+        intents1 = job1.get("client_intents") or MetadataExtractor.extract_client_intents(job1)
+        intents2 = job2.get("client_intents") or MetadataExtractor.extract_client_intents(job2)
+
+        # CLIENT INTENT similarity - HIGHEST PRIORITY
+        # This captures WHAT the client actually wants done
+        similarity["intent"] = MetadataExtractor.get_intent_similarity(intents1, intents2)
 
         # Industry similarity
         industries1 = job1.get("industry_tags") or []
@@ -355,13 +553,12 @@ class MetadataExtractor:
         else:
             similarity["skills"] = 0.0
 
-        # Task type similarity
+        # Task type similarity - NOW USES SEMANTIC MATCHING
         job1_task = str(job1.get("task_type", "")).lower() if job1.get("task_type") else ""
         job2_task = str(job2.get("task_type", "")).lower() if job2.get("task_type") else ""
-        if job1_task and job2_task and job1_task == job2_task:
-            similarity["task_type"] = 1.0
-        else:
-            similarity["task_type"] = 0.0
+        similarity["task_type"] = MetadataExtractor.get_task_type_similarity(
+            job1_task, job2_task, intents1, intents2
+        )
 
         # Complexity similarity (exact match)
         if job1.get("task_complexity") == job2.get("task_complexity"):
@@ -388,27 +585,43 @@ class MetadataExtractor:
         """
         Calculate overall similarity from individual dimension scores.
         
-        Uses weighted average with task_type most critical, then skills and industry.
-        Task type is heavily weighted because matching by task type is the strongest
-        indicator of project relevance (e.g., WordPress optimization, WooCommerce fixes).
+        CRITICAL CHANGE: Now includes CLIENT INTENT as the HIGHEST weighted factor.
+        Intent captures WHAT the client wants done (migration, membership, speed, etc.)
+        which is more important than just platform or skill match.
+        
+        Weights prioritize:
+        1. CLIENT INTENT (what they want done) - 35%
+        2. TASK TYPE (type of work) - 25%
+        3. SKILLS (technical overlap) - 20%
+        4. INDUSTRY (domain relevance) - 10%
+        5. COMPLEXITY/DURATION - 10%
         """
         weights = {
-            "task_type": 0.40,      # CRITICAL: Task type match = most relevant projects
-            "skills": 0.25,         # Secondary: Skill overlap
-            "industry": 0.15,       # Tertiary: Industry relevance
-            "complexity": 0.10,     # Minor: Complexity match
-            "duration": 0.10        # Minor: Duration reference
+            "intent": 0.35,         # HIGHEST: What the client actually wants done
+            "task_type": 0.25,      # HIGH: Type of work (now with semantic matching)
+            "skills": 0.20,         # Medium: Skill overlap
+            "industry": 0.10,       # Lower: Industry relevance
+            "complexity": 0.05,     # Minor: Complexity match
+            "duration": 0.05        # Minor: Duration reference
         }
 
         total_score = 0.0
         total_weight = 0.0
 
         for dimension, score in similarity_scores.items():
-            weight = weights.get(dimension, 0.1)
+            weight = weights.get(dimension, 0.05)
             total_score += score * weight
             total_weight += weight
 
-        return total_score / total_weight if total_weight > 0 else 0.0
+        final_score = total_score / total_weight if total_weight > 0 else 0.0
+        
+        # Log when intent makes a big difference
+        intent_score = similarity_scores.get("intent", 0)
+        task_score = similarity_scores.get("task_type", 0)
+        if intent_score > 0.5 or task_score > 0.5:
+            logger.debug(f"  Similarity breakdown: intent={intent_score:.2f}, task={task_score:.2f}, overall={final_score:.2f}")
+        
+        return final_score
 
     @staticmethod
     def rank_similar_projects(
