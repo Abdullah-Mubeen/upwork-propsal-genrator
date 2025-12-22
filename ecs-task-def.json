@@ -8,7 +8,7 @@
   "containerDefinitions": [
     {
       "name": "proposal-generator",
-      "image": "605600142754.dkr.ecr.ap-south-1.amazonaws.com/proposal_generator:latest",
+      "image": "REPLACED_BY_CICD",
       "essential": true,
       "portMappings": [
         {
