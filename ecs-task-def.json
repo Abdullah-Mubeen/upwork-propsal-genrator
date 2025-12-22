@@ -1,0 +1,95 @@
+{
+  "family": "proposal-generator",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::605600142754:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "proposal-generator",
+      "image": "605600142754.dkr.ecr.ap-south-1.amazonaws.com/proposal_generator:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "name": "proposal-generator-8000-tcp",
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/proposal-generator",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8000/ || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "environment": [
+        {
+          "name": "ENVIRONMENT",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:OPENAI_API_KEY::"
+        },
+        {
+          "name": "OPENAI_EMBEDDING_MODEL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:OPENAI_EMBEDDING_MODEL::"
+        },
+        {
+          "name": "OPENAI_LLM_MODEL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:OPENAI_LLM_MODEL::"
+        },
+        {
+          "name": "PINECONE_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:PINECONE_API_KEY::"
+        },
+        {
+          "name": "PINECONE_INDEX",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:PINECONE_INDEX::"
+        },
+        {
+          "name": "PINECONE_ENVIRONMENT",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:PINECONE_ENVIRONMENT::"
+        },
+        {
+          "name": "PINECONE_HOST",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:PINECONE_HOST::"
+        },
+        {
+          "name": "MONGODB_URI",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:MONGODB_URI::"
+        },
+        {
+          "name": "MONGODB_DB_NAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:MONGODB_DB_NAME::"
+        }
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Application",
+      "value": "proposal-generator"
+    }
+  ]
+}
