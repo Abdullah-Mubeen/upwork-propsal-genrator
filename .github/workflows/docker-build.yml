@@ -67,13 +67,24 @@ jobs:
           TASK_DEFINITION=$(aws ecs register-task-definition --cli-input-json file://ecs-task-def.json --region ${{ env.AWS_REGION }})
           TASK_DEFINITION_ARN=$(echo $TASK_DEFINITION | jq -r '.taskDefinition.taskDefinitionArn')
           
-          # Update service with new task definition
+          # Update service with new task definition (FORCE NEW DEPLOYMENT)
           aws ecs update-service \
             --cluster proposal-generator-cluster \
             --service proposal-generator-service \
             --task-definition $TASK_DEFINITION_ARN \
+            --force-new-deployment \
             --region ${{ env.AWS_REGION }}
+          
+          echo "✅ Service updated with task definition: $TASK_DEFINITION_ARN"
 
+      - name: Wait for service to stabilize
+        if: github.ref == 'refs/heads/main'
+        run: |
+          aws ecs wait services-stable \
+            --cluster proposal-generator-cluster \
+            --services proposal-generator-service \
+            --region ${{ env.AWS_REGION }}
+          echo "✅ Service has stabilized with new deployment"
       - name: Output image URI
         run: |
           echo "Docker image pushed: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
