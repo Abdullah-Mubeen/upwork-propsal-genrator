@@ -301,6 +301,101 @@
             background: #f0f0f0;
             color: #171717;
         }
+
+        /* Action buttons group */
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: transparent;
+            color: #737373;
+            border: none;
+            padding: 6px 10px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+
+        .action-btn:hover {
+            color: #171717;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .action-btn svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .action-btn.action-btn-primary {
+            background: #171717;
+            color: #fff;
+            border-radius: 6px;
+            padding: 6px 12px;
+        }
+
+        .action-btn.action-btn-primary:hover {
+            background: #262626;
+        }
+
+        /* Editable proposal */
+        .proposal-body-editable {
+            padding: 24px;
+            font-size: 15px;
+            line-height: 1.75;
+            color: #171717;
+            white-space: pre-wrap;
+            min-height: 200px;
+            border-left: 2px solid #171717;
+            margin: 0;
+            background: #fafafa;
+            outline: none;
+        }
+
+        .proposal-body-editable:focus {
+            background: #fff;
+        }
+
+        /* Edit mode indicator */
+        .edit-mode-banner {
+            background: #fafafa;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .edit-mode-banner p {
+            font-size: 12px;
+            color: #737373;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #171717;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -427,12 +522,42 @@
                                     <div class="stat-label">quality</div>
                                 </div>
                             </div>
-                            <button onclick="copyToClipboard()" class="btn-secondary relative">
-                                Copy
-                                <span class="copy-tooltip" id="copy-feedback">Copied!</span>
-                            </button>
+                            <div class="flex items-center gap-1">
+                                <button onclick="toggleEditMode()" id="edit-btn" class="action-btn" title="Edit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM16.862 4.487L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                    </svg>
+                                    <span id="edit-btn-text">Edit</span>
+                                </button>
+                                <span class="text-neutral-300">|</span>
+                                <button onclick="copyToClipboard()" class="action-btn action-btn-primary" title="Copy">
+                                    Copy
+                                </button>
+                            </div>
                         </div>
+                        
+                        <!-- Edit mode banner (hidden by default) -->
+                        <div id="edit-mode-banner" class="edit-mode-banner hidden">
+                            <p>Editing mode — click outside or press Escape to finish</p>
+                            <div class="flex gap-2">
+                                <button onclick="cancelEdit()" class="action-btn text-xs">Discard</button>
+                                <button onclick="saveEdit()" class="action-btn action-btn-primary text-xs">Done</button>
+                            </div>
+                        </div>
+                        
                         <div id="proposal-text" class="proposal-body"></div>
+                    </div>
+
+                    <!-- Quick Adjustments -->
+                    <div class="flex flex-wrap items-center gap-2 px-1">
+                        <span class="text-xs text-neutral-400">Adjust:</span>
+                        <button onclick="quickTweak('shorter')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Shorter</button>
+                        <span class="text-neutral-300">·</span>
+                        <button onclick="quickTweak('friendlier')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Friendlier</button>
+                        <span class="text-neutral-300">·</span>
+                        <button onclick="quickTweak('technical')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Technical</button>
+                        <span class="text-neutral-300">·</span>
+                        <button onclick="quickTweak('confident')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Confident</button>
                     </div>
 
                     <!-- Similar Projects -->
@@ -451,23 +576,37 @@
                         </div>
                     </div>
 
-                    <!-- Reset -->
-                    <button onclick="resetForm()" class="w-full py-3 text-sm text-neutral-500 hover:text-neutral-700 transition-colors">
-                        Generate another proposal
+                    <!-- Start Fresh -->
+                    <button onclick="resetForm()" class="w-full py-2 text-xs text-neutral-400 hover:text-neutral-600 transition-colors">
+                        Start over
                     </button>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- Toast notification -->
+    <div id="toast" class="toast"></div>
+
     <script>
         // CHANGE THIS TO TEST LOCALLY vs PRODUCTION
         // Local: 'http://127.0.0.1:8000/api/proposals'
         // Production: 'https://ml.genproposals.com/api/proposals'
-        const API_BASE = 'https://ml.genproposals.com/api/proposals';
+        const API_BASE = 'http://127.0.0.1:8000/api/proposals';
         
         let currentSkills = [];
         let includeTimeline = false;
+        let isEditMode = false;
+        let originalProposalText = '';
+        let lastRequestData = null;
+
+        // Toast notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show';
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
 
         function toggleTimeline() {
             includeTimeline = !includeTimeline;
@@ -507,10 +646,11 @@
         }
 
         function copyToClipboard() {
-            navigator.clipboard.writeText(document.getElementById('proposal-text').innerText).then(() => {
-                const el = document.getElementById('copy-feedback');
-                el.classList.add('show');
-                setTimeout(() => el.classList.remove('show'), 1500);
+            const proposalEl = document.getElementById('proposal-text');
+            const text = proposalEl.innerText;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied');
             });
         }
 
@@ -522,7 +662,117 @@
         function resetForm() {
             document.getElementById('result-state').classList.add('hidden');
             document.getElementById('empty-state').classList.remove('hidden');
+            isEditMode = false;
+            originalProposalText = '';
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Edit functionality
+        function toggleEditMode() {
+            const proposalEl = document.getElementById('proposal-text');
+            const editBtn = document.getElementById('edit-btn');
+            const editBtnText = document.getElementById('edit-btn-text');
+            const editBanner = document.getElementById('edit-mode-banner');
+            
+            if (!isEditMode) {
+                // Enter edit mode
+                isEditMode = true;
+                originalProposalText = proposalEl.innerText;
+                proposalEl.setAttribute('contenteditable', 'true');
+                proposalEl.classList.remove('proposal-body');
+                proposalEl.classList.add('proposal-body-editable');
+                proposalEl.focus();
+                editBtnText.textContent = 'Editing...';
+                editBtn.classList.add('action-btn-primary');
+                editBanner.classList.remove('hidden');
+            } else {
+                // Exit edit mode (save)
+                saveEdit();
+            }
+        }
+
+        function saveEdit() {
+            const proposalEl = document.getElementById('proposal-text');
+            const editBtn = document.getElementById('edit-btn');
+            const editBtnText = document.getElementById('edit-btn-text');
+            const editBanner = document.getElementById('edit-mode-banner');
+            
+            isEditMode = false;
+            proposalEl.setAttribute('contenteditable', 'false');
+            proposalEl.classList.remove('proposal-body-editable');
+            proposalEl.classList.add('proposal-body');
+            editBtnText.textContent = 'Edit';
+            editBtn.classList.remove('action-btn-primary');
+            editBanner.classList.add('hidden');
+            
+            // Update word count
+            updateWordCount();
+            showToast('Saved');
+        }
+
+        function cancelEdit() {
+            const proposalEl = document.getElementById('proposal-text');
+            const editBtn = document.getElementById('edit-btn');
+            const editBtnText = document.getElementById('edit-btn-text');
+            const editBanner = document.getElementById('edit-mode-banner');
+            
+            isEditMode = false;
+            proposalEl.innerText = originalProposalText;
+            proposalEl.setAttribute('contenteditable', 'false');
+            proposalEl.classList.remove('proposal-body-editable');
+            proposalEl.classList.add('proposal-body');
+            editBtnText.textContent = 'Edit';
+            editBtn.classList.remove('action-btn-primary');
+            editBanner.classList.add('hidden');
+        }
+
+        function updateWordCount() {
+            const text = document.getElementById('proposal-text').innerText;
+            const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+            document.getElementById('word-count').textContent = wordCount;
+        }
+
+        // Quick tweaks
+        async function quickTweak(tweakType) {
+            if (!lastRequestData) {
+                showToast('Generate a proposal first');
+                return;
+            }
+
+            const tweakData = { ...lastRequestData };
+            
+            switch(tweakType) {
+                case 'shorter':
+                    tweakData.max_word_count = Math.max(100, (tweakData.max_word_count || 150) - 50);
+                    break;
+                case 'friendlier':
+                    tweakData.tone = 'friendly';
+                    tweakData.proposal_style = 'casual';
+                    break;
+                case 'technical':
+                    tweakData.proposal_style = 'technical';
+                    tweakData.tone = 'analytical';
+                    break;
+                case 'confident':
+                    tweakData.tone = 'confident';
+                    break;
+            }
+
+            // Show loading
+            showToast('Adjusting...');
+
+            try {
+                const res = await axios.post(`${API_BASE}/generate`, tweakData);
+                const result = res.data;
+
+                document.getElementById('proposal-text').innerText = result.generated_proposal;
+                document.getElementById('word-count').innerText = result.word_count;
+                document.getElementById('quality-score').innerText = Math.round((result.confidence_score || 0.85) * 100) + '%';
+
+                showToast('Done');
+            } catch (err) {
+                showToast('Something went wrong');
+            }
         }
 
         document.getElementById('proposal-form').addEventListener('submit', async (e) => {
@@ -557,6 +807,9 @@
                 include_timeline: includeTimeline,
                 timeline_duration: document.getElementById('timeline_duration').value.trim() || null
             };
+
+            // Store for rephrase functionality
+            lastRequestData = data;
 
             // UI: Loading
             document.getElementById('empty-state').classList.add('hidden');
