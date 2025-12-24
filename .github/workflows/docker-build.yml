@@ -85,6 +85,19 @@ jobs:
             --services proposal-generator-service \
             --region ${{ env.AWS_REGION }}
           echo "✅ Service has stabilized with new deployment"
+      
+      - name: Deploy frontend to S3
+        if: github.ref == 'refs/heads/main'
+        run: |
+          aws s3 sync frontend/ s3://genproposals.com/ --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
+          echo "✅ Frontend deployed to S3"
+
+      - name: Invalidate CloudFront cache
+        if: github.ref == 'refs/heads/main'
+        run: |
+          aws cloudfront create-invalidation --distribution-id E2FANG0M4M7PYU --paths "/*"
+          echo "✅ CloudFront cache invalidated"
+      
       - name: Output image URI
         run: |
           echo "Docker image pushed: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
