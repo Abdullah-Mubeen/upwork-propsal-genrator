@@ -86,16 +86,27 @@ jobs:
             --region ${{ env.AWS_REGION }}
           echo "✅ Service has stabilized with new deployment"
       
+      - name: Verify frontend directory
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Checking frontend directory..."
+          ls -la frontend/ || echo "Frontend directory not found!"
+          
       - name: Deploy frontend to S3
         if: github.ref == 'refs/heads/main'
         run: |
-          aws s3 sync frontend/ s3://genproposals.com/ --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
-          echo "✅ Frontend deployed to S3"
+          if [ -d "frontend" ]; then
+            aws s3 sync frontend/ s3://genproposals.com/ --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate" --region ap-south-1
+            echo "✅ Frontend deployed to S3"
+          else
+            echo "❌ Frontend directory not found, skipping S3 sync"
+            exit 1
+          fi
 
       - name: Invalidate CloudFront cache
         if: github.ref == 'refs/heads/main'
         run: |
-          aws cloudfront create-invalidation --distribution-id E2FANG0M4M7PYU --paths "/*"
+          aws cloudfront create-invalidation --distribution-id E2FANG0M4M7PYU --paths "/*" --region ap-south-1
           echo "✅ CloudFront cache invalidated"
       
       - name: Output image URI
