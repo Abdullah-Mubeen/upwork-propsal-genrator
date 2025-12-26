@@ -129,6 +129,10 @@ class JobDataUploadRequest(BaseModel):
         None,
         description="Custom task type if task_type is 'other'"
     )
+    platform: Optional[str] = Field(
+        None,
+        description="Platform/technology (WordPress, Shopify, React, etc.)"
+    )
     urgent_adhoc: bool = Field(
         False,
         description="Whether this was an urgent/adhoc project"
@@ -272,6 +276,7 @@ class UpdateJobDataRequest(BaseModel):
     project_status: Optional[str] = Field(None)
     task_type: Optional[str] = Field(None, description="Type of task/project")
     other_task_type: Optional[str] = Field(None, description="Custom task type")
+    platform: Optional[str] = Field(None, description="Platform/technology (WordPress, Shopify, React, etc.)")
     urgent_adhoc: Optional[bool] = Field(None)
     
     # ===== NEW: Proposal tracking fields =====
@@ -321,6 +326,7 @@ class JobDataResponse(BaseModel):
     industry: str = Field(..., description="Industry sector")
     skills_required: Optional[List[str]] = Field(None, description="Required skills")
     task_type: Optional[str] = Field(None, description="Type of task/project")
+    platform: Optional[str] = Field(None, description="Platform/technology")
     project_status: str = Field(..., description="Project status")
     urgent_adhoc: Optional[bool] = Field(None, description="Is urgent/adhoc project")
     start_date: Optional[str] = Field(None, description="Project start date")
@@ -340,6 +346,7 @@ class JobDataResponse(BaseModel):
                 "industry": "Technology",
                 "skills_required": ["Python", "FastAPI", "PostgreSQL"],
                 "task_type": "backend_api",
+                "platform": "Python",
                 "project_status": "completed",
                 "urgent_adhoc": False,
                 "start_date": "2025-12-01",
@@ -360,9 +367,11 @@ class JobDataDetailResponse(JobDataResponse):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     portfolio_url: Optional[str] = None
+    portfolio_urls: Optional[List[str]] = Field(None, description="List of portfolio URLs")
     client_feedback_url: Optional[str] = None
     client_feedback_text: Optional[str] = None
     task_type: Optional[str] = Field(None, description="Type of task/project")
+    platform: Optional[str] = Field(None, description="Platform/technology")
     urgent_adhoc: bool
     chunks_count: Optional[int] = Field(None, description="Number of chunks created")
     embedded_chunks_count: Optional[int] = Field(None, description="Number of embedded chunks")

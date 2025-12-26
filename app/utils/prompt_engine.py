@@ -357,7 +357,7 @@ COMBINED REQUIREMENT - INTENT + PLATFORM:
 
 SUCCESS PATTERN:
 1. HOOK (1-2 sentences): Acknowledge THEIR specific problem + include ONE portfolio link to similar work
-   Example: "I see you're dealing with slow WooCommerce load times. Check out my recent work: https://example.com/"
+   Example: "Noticed you're dealing with slow WooCommerce load times - I just wrapped up a similar fix: https://example.com/"
 2. PROOF (2 bullets): Past similar projects + portfolio links (+ feedback URLs IF available)
 3. APPROACH (2-3 sentences): How you'd solve THEIR problem specifically
 {timeline_pattern}
@@ -431,9 +431,9 @@ TARGET: 150-250 words MAXIMUM. Every word must count.
             projects_proof += f"  {i}. {company_name} - {satisfaction}/5 satisfaction{portfolio}{feedback_line}\n"
 
         # Build hook example with portfolio link (actual project URL preferred) - PLAIN URL, no markdown
-        hook_example = '"I see you\'re dealing with [specific problem from their job description]..."'
+        hook_example = '"Noticed you need help with [specific problem from their job description] - I\'ve got relevant experience here..."'
         if hook_project and hook_portfolio_url:
-            hook_example = f'"I see you\'re dealing with [specific problem]. I just solved this exact issue - check it out: {hook_portfolio_url}"'
+            hook_example = f'"Noticed you need help with [specific problem]. Just wrapped up something similar: {hook_portfolio_url}"'
 
         # Build timeline section based on include_timeline flag
         timeline_section = ""

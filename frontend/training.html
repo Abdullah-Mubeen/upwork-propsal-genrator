@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Platform | Proposal Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            box-sizing: border-box;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body { 
+            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%); 
+            min-height: 100vh;
+            color: #171717;
+        }
+
+        /* Input styling */
+        .input-field {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            width: 100%;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+        
+        .input-field:hover {
+            border-color: #d4d4d4;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #171717;
+            box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .input-field::placeholder {
+            color: #a3a3a3;
+        }
+
+        /* Select */
+        select.input-field {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        /* Skill tags */
+        .skill-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #171717;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .skill-tag button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #a3a3a3;
+            font-size: 14px;
+            line-height: 1;
+            padding: 0;
+            margin-left: 2px;
+        }
+
+        .skill-tag button:hover {
+            color: #fff;
+        }
+
+        /* Primary button */
+        .btn-primary {
+            background: #171717;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(23, 23, 23, 0.12);
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary:hover {
+            background: #262626;
+            box-shadow: 0 4px 12px rgba(23, 23, 23, 0.18); 
+        }
+
+        .btn-primary:disabled {
+            background: #a3a3a3;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Secondary button */
+        .btn-secondary {
+            background: #fff;
+            color: #171717;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        .btn-secondary:hover {
+            background: #fafafa;
+            border-color: #d4d4d4;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        } 
+
+        /* Danger button */
+        .btn-danger {
+            background: #fff;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-weight: 500;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-danger:hover {
+            background: #fef2f2;
+        }
+
+        /* Navigation tabs */
+        .nav-tab {
+            padding: 12px 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: #737373;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: none;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+        }
+
+        .nav-tab:hover {
+            color: #171717;
+            border-bottom-color: #d4d4d4;
+        }
+
+        .nav-tab.active {
+            color: #171717;
+            border-bottom-color: #171717;
+            font-weight: 600;
+        }
+
+        /* Cards */
+        .card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #d4d4d4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Stat card */
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: #d4d4d4; 
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #171717;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #737373;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
+        /* Status badges */
+        .badge {
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-muted {
+            background: #f5f5f5;
+            color: #525252;
+        }
+
+        /* Progress */
+        .progress-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(250, 250, 250, 0.98);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .progress-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .progress-modal {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            max-width: 360px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e5e5;
+            border-top-color: #171717;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #171717;
+            color: #fff;
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500; 
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 200;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .toast.show { 
+            opacity: 1;
+        }
+
+        /* Image upload */
+        .upload-zone {
+            border: 2px dashed #e5e5e5;
+            border-radius: 10px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fafafa;
+        }
+
+        .upload-zone:hover {
+            border-color: #d4d4d4;
+            background: #f5f5f5;
+        }
+
+        .upload-zone.dragover {
+            border-color: #171717;
+            background: #f0f0f0;
+            border-width: 2px;
+        }
+
+        /* Image preview */
+        .image-preview {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e5e5e5;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .image-preview .remove-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .image-preview .remove-btn:hover {
+            background: rgba(0,0,0,0.9);
+        }
+
+        /* Tab content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Table */
+        .table-row:hover {
+            background: #fafafa;
+        }
+
+        /* Feedback Tab Styling */
+        .feedback-tab {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: #737373;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .feedback-tab:hover {
+            color: #171717;
+            background: rgba(23, 23, 23, 0.02);
+        }
+
+        .feedback-tab.feedback-tab-text {
+            background: #fff;
+            color: #171717;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Feedback content animation */
+        .feedback-content {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .feedback-content.hidden {
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Image drop zone */
+        #image-drop-zone {
+            background: #fff;
+            border: 2px dashed #e5e5e5;
+            border-radius: 10px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #image-drop-zone:hover {
+            border-color: #d4d4d4;
+            background: #fafafa;
+        }
+
+        #image-drop-zone.bg-neutral-50 {
+            background: #fafafa;
+            border-color: #d4d4d4;
+        }
+
+        /* OCR Result */
+        #ocr-result {
+            background: #f9fafb;
+            border: 1px solid #e5e5e5;
+            border-radius: 10px;
+            padding: 14px;
+            animation: slideDown 0.3s ease-in-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+                overflow: hidden;
+            }
+            to {
+                opacity: 1;
+                max-height: 500px;
+            }
+        }
+
+        #ocr-result.hidden {
+            display: none;
+        }
+
+        #ocr-text {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #525252;
+        }
+
+        /* Copy button styling */
+        #ocr-result button {
+            background: none;
+            border: none;
+            color: #2563eb;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0;
+            transition: all 0.2s ease;
+        }
+
+        #ocr-result button:hover {
+            color: #1d4ed8;
+        }
+
+        /* Image preview styling */
+        #image-preview-container {
+            margin-top: 12px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        #image-preview-container img {
+            border-radius: 10px;
+            border: 1px solid #e5e5e5;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+        }
+
+        #image-preview-container img:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Animations */
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Progress Overlay -->
+    <div class="progress-overlay" id="progress-overlay">
+        <div class="progress-modal">
+            <div class="loader"></div>
+            <p class="text-sm text-neutral-700 font-medium" id="progress-text">Uploading data...</p>
+            <p class="text-xs text-neutral-500 mt-2" id="progress-step">Storing in database</p>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Header -->
+    <header class="border-b border-neutral-200 bg-white sticky top-0 z-50 backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98);">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="flex items-center justify-between py-4">
+                <div>
+                    <h1 class="text-lg font-semibold text-neutral-900">Training Platform</h1>
+                    <p class="text-xs text-neutral-500 font-400">Add winning proposals to improve AI</p>
+                </div>
+                <div class="flex items-center gap-8">
+                    <div class="text-right border-r border-neutral-200 pr-8">
+                        <div class="text-2xl font-bold text-neutral-900" id="total-count">0</div>
+                        <div class="text-xs text-neutral-500 font-500">Entries Trained</div>
+                    </div>
+                    <a href="index.html" class="btn-primary inline-flex items-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+                        Generate Proposal
+                    </a>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex gap-8 border-t border-neutral-200 pt-3">
+                <button class="nav-tab active" data-tab="upload">Add Entry</button>
+                <button class="nav-tab" data-tab="dashboard">Dashboard</button>
+                <button class="nav-tab" data-tab="entries">All Entries</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="max-w-5xl mx-auto px-6 py-8">
+        
+        <!-- Upload Tab -->
+        <div id="tab-upload" class="tab-content active">
+            <div class="max-w-2xl">
+                <div class="card p-6">
+                    <h2 class="text-base font-semibold text-neutral-900 mb-6">New Training Entry</h2>
+                    
+                    <form id="proposal-form" class="space-y-5">
+                        <!-- Row: Company & Industry -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Company *</label>
+                                <input type="text" name="company_name" placeholder="TechCorp Inc" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Industry</label>
+                                <input type="text" name="industry" placeholder="e.g., SaaS, Finance, E-commerce" class="input-field">
+                            </div>
+                        </div>
+
+                        <!-- Row: Job Title & Task Type -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Job Title *</label>
+                                <input type="text" name="job_title" placeholder="Senior Backend Developer" class="input-field" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Task Type *</label>
+                                <select name="task_type" id="task-type-select" class="input-field" required>
+                                    <option value="">Select...</option>
+                                    <!-- Options loaded from database -->
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Custom Task Type -->
+                        <div id="custom-task-group" class="hidden">
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Custom Task Type</label>
+                            <input type="text" name="other_task_type" placeholder="e.g., Video Editing" class="input-field">
+                        </div>
+
+                        <!-- Platform -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Platform</label>
+                            <div class="flex gap-2">
+                                <select name="platform" id="platform-select" class="input-field flex-1">
+                                    <option value="">Select or auto-detect...</option>
+                                    <!-- Options loaded from database -->
+                                </select>
+                                <button type="button" onclick="autoDetectPlatform()" class="btn-secondary" title="Auto-detect from skills">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                </button>
+                            </div>
+                            <p class="text-xs text-neutral-500 mt-1">Auto-detected from skills or select manually</p>
+                        </div>
+
+                        <!-- Row: Dates & Status -->
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Start Date</label>
+                                <input type="date" name="start_date" class="input-field">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">End Date</label>
+                                <input type="date" name="end_date" class="input-field">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Status *</label>
+                                <select name="project_status" class="input-field" required>
+                                    <option value="">Select...</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="ongoing">Ongoing</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Urgent checkbox -->
+                        <label class="flex items-center gap-3 cursor-pointer py-2">
+                            <input type="checkbox" name="urgent_adhoc" class="w-4 h-4 rounded border-neutral-300 cursor-pointer">
+                            <span class="text-sm text-neutral-700">Urgent / Adhoc Project</span>
+                        </label>
+
+                        <!-- Skills -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Skills * (comma separated)</label>
+                            <div class="flex gap-2 mb-3">
+                                <input type="text" id="skill-input" placeholder="Python, React, etc" class="input-field flex-1">
+                                <button type="button" onclick="addSkill()" class="btn-secondary">Add</button>
+                            </div>
+                            <div id="skills-container" class="flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <!-- Portfolio URLs -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Portfolio Links (Optional)</label>
+                            <div class="flex gap-2 mb-3">
+                                <input type="url" id="portfolio-input" placeholder="https://github.com/..." class="input-field flex-1">
+                                <button type="button" onclick="addPortfolio()" class="btn-secondary">Add</button>
+                            </div>
+                            <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <!-- Job Description -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Job Description *</label>
+                            <textarea name="job_description" placeholder="Describe the job requirements..." rows="4" class="input-field resize-none" required></textarea>
+                        </div>
+
+                        <!-- Proposal -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Your Proposal *</label>
+                            <textarea name="your_proposal_text" placeholder="Your proposal response..." rows="4" class="input-field resize-none" required></textarea>
+                        </div>
+
+                        <!-- Client Feedback -->
+                        <div class="border-t border-neutral-200 pt-5">
+                            <label class="block text-sm font-600 text-neutral-700 mb-4">Client Feedback (Optional)</label>
+                            <p class="text-xs text-neutral-500 mb-4">Add one or both - text feedback and/or review link</p>
+                            
+                            <!-- Text feedback -->
+                            <div class="mb-5">
+                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Feedback Text</label>
+                                <textarea name="client_feedback_text" id="feedback-text" placeholder="e.g., Excellent communication and quality work. Delivered ahead of schedule!" rows="3" class="input-field resize-none placeholder-neutral-400"></textarea>
+                                <p class="text-xs text-neutral-500 mt-1.5">Paste direct quotes from client messages or reviews</p>
+                            </div>
+
+                            <!-- URL feedback -->
+                            <div>
+                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Review/Feedback Link</label>
+                                <input type="url" name="client_feedback_url" id="feedback-url" placeholder="https://upwork.com/o/profiles/users/..." class="input-field placeholder-neutral-400">
+                                <p class="text-xs text-neutral-500 mt-1.5">Link to your Upwork profile review or feedback page</p>
+                            </div>
+                        </div>
+
+                        <!-- Submit -->
+                        <div class="flex gap-3 pt-4 border-t border-neutral-200">
+                            <button type="submit" id="submit-btn" class="btn-primary flex-1">Submit Entry</button>
+                            <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="btn-secondary hidden">Cancel</button>
+                            <button type="button" onclick="clearForm()" class="btn-secondary">Clear</button>
+                        </div>
+                        <input type="hidden" name="editing_contract_id" id="editing-contract-id" value="">
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <div class="stat-card">
+                    <div class="stat-value" id="dash-total">0</div>
+                    <div class="stat-label">Training Entries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dash-industries">0</div>
+                    <div class="stat-label">Industries Covered</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dash-chunks">0</div>
+                    <div class="stat-label">Total Chunks</div>
+                </div>
+            </div>
+
+            <!-- Top row: Industries and Task Types -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="card p-6">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-sm font-600 text-neutral-900">Top Industries</h3>
+                        <div class="text-xs font-500 text-neutral-500">Project distribution</div>
+                    </div>
+                    <div id="industry-breakdown" class="space-y-3">
+                        <p class="text-sm text-neutral-500">Loading...</p>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-sm font-600 text-neutral-900">Task Types</h3>
+                        <div class="text-xs font-500 text-neutral-500">Work breakdown</div>
+                    </div>
+                    <div id="task-breakdown" class="space-y-3">
+                        <p class="text-sm text-neutral-500">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom row: Most Used Skills -->
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-sm font-600 text-neutral-900">Most Used Skills</h3>
+                    <div class="text-xs font-500 text-neutral-500">Core competencies</div>
+                </div>
+                <div id="skills-breakdown" class="flex flex-wrap gap-3">
+                    <p class="text-sm text-neutral-500">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Entries Tab -->
+        <div id="tab-entries" class="tab-content">
+            <div class="card">
+                <!-- Search -->
+                <div class="p-4 border-b border-neutral-200 flex flex-wrap gap-3">
+                    <input type="text" id="search-input" placeholder="Search by company or title..." class="input-field flex-1 min-w-48">
+                    <select id="platform-filter" class="input-field w-40">
+                        <option value="">All Platforms</option>
+                    </select>
+                    <select id="task-type-filter" class="input-field w-44">
+                        <option value="">All Task Types</option>
+                    </select>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-neutral-200 bg-neutral-50">
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Company</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Title</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Platform</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Task Type</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="entries-table">
+                            <tr>
+                                <td colspan="5" class="px-4 py-8 text-center text-neutral-500">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="px-4 py-3 border-t border-neutral-200 flex items-center justify-between">
+                    <p class="text-sm text-neutral-600">Showing <span id="showing-count">0</span> of <span id="total-entries">0</span></p>
+                    <div class="flex gap-2">
+                        <button id="prev-btn" class="btn-secondary" disabled>Previous</button>
+                        <button id="next-btn" class="btn-secondary" disabled>Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // CHANGE THIS TO TEST LOCALLY vs PRODUCTION
+        // Local: 'http://127.0.0.1:8000/api/job-data'
+        // Production: 'https://ml.genproposals.com/api/job-data'
+        const API_BASE = 'http://127.0.0.1:8000/api/job-data';
+        
+        let currentSkills = [];
+        let currentPortfolios = [];
+        let selectedImage = null;
+        let extractedOCRText = '';
+        
+        // Entries pagination
+        let entriesData = [];
+        let currentPage = 0;
+        const perPage = 10;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupTabs();
+            setupForm();
+            setupSkillInput();
+            setupPortfolioInput();
+            setupEntriesView();
+            loadStats();
+            loadFilterOptions(); // Load task types and platforms from database
+            loadFormFromStorage();
+        });
+
+        // Load filter options from database
+        async function loadFilterOptions() {
+            try {
+                const response = await axios.get(`${API_BASE}/stats/filter-options`);
+                const { task_types, platforms } = response.data;
+                
+                // Populate task type dropdown in form
+                const taskSelect = document.getElementById('task-type-select');
+                const defaultTaskTypes = ['development', 'design', 'writing', 'marketing', 'consulting', 'support'];
+                const allTaskTypes = [...new Set([...defaultTaskTypes, ...task_types])].sort();
+                
+                taskSelect.innerHTML = '<option value="">Select...</option>' + 
+                    allTaskTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('') +
+                    '<option value="other">Other (Custom)</option>';
+                
+                // Populate platform dropdown in form
+                const platformSelect = document.getElementById('platform-select');
+                const defaultPlatforms = ['WordPress', 'Shopify', 'WooCommerce', 'Webflow', 'React', 'Vue', 'Angular', 'Node.js', 'Python', 'Magento', 'Drupal', 'Squarespace'];
+                const allPlatforms = [...new Set([...defaultPlatforms, ...platforms])].sort();
+                
+                platformSelect.innerHTML = '<option value="">Select or auto-detect...</option>' + 
+                    allPlatforms.map(p => `<option value="${p}">${p}</option>`).join('') +
+                    '<option value="Custom">Custom/Other</option>';
+                
+            } catch (e) {
+                console.error('Error loading filter options:', e);
+                // Fallback to default options if API fails
+                populateDefaultOptions();
+            }
+        }
+
+        // Fallback default options
+        function populateDefaultOptions() {
+            const taskSelect = document.getElementById('task-type-select');
+            taskSelect.innerHTML = `
+                <option value="">Select...</option>
+                <option value="development">Development</option>
+                <option value="design">Design</option>
+                <option value="writing">Writing</option>
+                <option value="marketing">Marketing</option>
+                <option value="consulting">Consulting</option>
+                <option value="support">Support</option>
+                <option value="other">Other</option>
+            `;
+            
+            const platformSelect = document.getElementById('platform-select');
+            platformSelect.innerHTML = `
+                <option value="">Select or auto-detect...</option>
+                <option value="WordPress">WordPress</option>
+                <option value="Shopify">Shopify</option>
+                <option value="WooCommerce">WooCommerce</option>
+                <option value="Webflow">Webflow</option>
+                <option value="React">React</option>
+                <option value="Vue">Vue</option>
+                <option value="Angular">Angular</option>
+                <option value="Node.js">Node.js</option>
+                <option value="Python">Python</option>
+                <option value="Magento">Magento</option>
+                <option value="Drupal">Drupal</option>
+                <option value="Squarespace">Squarespace</option>
+                <option value="Custom">Custom/Other</option>
+            `;
+        }
+
+        // === TABS ===
+        function setupTabs() {
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(`tab-${tabName}`).classList.add('active');
+                    
+                    if (tabName === 'dashboard') loadDashboard();
+                    if (tabName === 'entries') loadEntries();
+                });
+            });
+        }
+
+        // === FORM ===
+        function setupForm() {
+            const form = document.getElementById('proposal-form');
+            const taskSelect = document.getElementById('task-type-select');
+            
+            taskSelect.addEventListener('change', () => {
+                document.getElementById('custom-task-group').classList.toggle('hidden', taskSelect.value !== 'other');
+            });
+
+            // Auto-save on change
+            form.addEventListener('input', debounce(saveFormToStorage, 1000));
+
+            form.addEventListener('submit', handleSubmit);
+        }
+
+        function saveFormToStorage() {
+            const form = document.getElementById('proposal-form');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            data.skills = currentSkills;
+            data.portfolios = currentPortfolios;
+            localStorage.setItem('training_form_draft', JSON.stringify(data));
+        }
+
+        function loadFormFromStorage() {
+            const saved = localStorage.getItem('training_form_draft');
+            if (!saved) return;
+            
+            try {
+                const data = JSON.parse(saved);
+                const form = document.getElementById('proposal-form');
+                
+                Object.keys(data).forEach(key => {
+                    if (key === 'skills') {
+                        currentSkills = data.skills || [];
+                        renderSkills();
+                    } else if (key === 'portfolios') {
+                        currentPortfolios = data.portfolios || [];
+                        renderPortfolios();
+                    } else if (key === 'feedbackMode') {
+                        // Skip feedbackMode as it's no longer used
+                    } else {
+                        const field = form.elements[key];
+                        if (field) {
+                            if (field.type === 'checkbox') {
+                                field.checked = data[key] === 'on';
+                            } else {
+                                field.value = data[key] || '';
+                            }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('Error loading draft:', e);
+            }
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            
+            if (!currentSkills.length) {
+                alert('Please add at least one skill');
+                return;
+            }
+
+            const form = e.target;
+            const formData = new FormData(form);
+            const editingId = document.getElementById('editing-contract-id').value;
+            const isEditing = !!editingId;
+            
+            // Build data object matching the backend schema
+            const data = {
+                company_name: formData.get('company_name').trim(),
+                job_title: formData.get('job_title').trim(),
+                job_description: formData.get('job_description').trim(),
+                your_proposal_text: formData.get('your_proposal_text').trim(),
+                industry: formData.get('industry')?.trim() || null,
+                task_type: formData.get('task_type') === 'other' ? formData.get('other_task_type').trim() : formData.get('task_type'),
+                project_status: formData.get('project_status'),
+                platform: formData.get('platform') || null,
+                skills_required: currentSkills,
+                start_date: formData.get('start_date') || null,
+                end_date: formData.get('end_date') || null,
+                urgent_adhoc: formData.get('urgent_adhoc') === 'on',
+                portfolio_urls: currentPortfolios,
+                client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
+                client_feedback_url: formData.get('client_feedback_url')?.trim() || null
+            };
+
+            showProgress(isEditing ? 'Updating entry...' : 'Uploading data...', 'Storing in database');
+
+            try {
+                let response;
+                if (isEditing) {
+                    response = await axios.put(`${API_BASE}/update/${editingId}`, data);
+                } else {
+                    response = await axios.post(`${API_BASE}/upload`, data);
+                }
+                
+                if (response.status === 200 || response.status === 201) {
+                    hideProgress();
+                    showToast(isEditing ? 'Entry updated successfully!' : 'Entry added successfully!');
+                    
+                    // Complete reset
+                    form.reset();
+                    currentSkills = [];
+                    currentPortfolios = [];
+                    renderSkills();
+                    renderPortfolios();
+                    localStorage.removeItem('training_form_draft');
+                    
+                    // Reset edit mode
+                    document.getElementById('editing-contract-id').value = '';
+                    document.getElementById('submit-btn').textContent = 'Submit Entry';
+                    document.getElementById('cancel-edit-btn').classList.add('hidden');
+                    document.querySelector('#tab-upload h2').textContent = 'New Training Entry';
+                    
+                    loadStats();
+                    
+                    // Refresh entries if we were editing
+                    if (isEditing) {
+                        loadEntries();
+                    }
+                }
+            } catch (error) {
+                hideProgress();
+                alert('Error: ' + (error.response?.data?.detail || error.message));
+            }
+        }
+
+        // Auto-detect platform from skills
+        function autoDetectPlatform() {
+            const detected = detectPlatformFromSkills(currentSkills);
+            if (detected) {
+                document.getElementById('platform-select').value = detected;
+                showToast(`Detected: ${detected}`);
+            } else {
+                showToast('Could not detect platform from skills');
+            }
+        }
+
+        // Platform detection from skills (matches backend logic)
+        function detectPlatformFromSkills(skills = []) {
+            const platforms = {
+                'WordPress': ['wordpress', 'wp-admin', 'elementor', 'divi', 'theme', 'plugin', 'gutenberg', 'acf', 'wp theme', 'wp plugin'],
+                'Shopify': ['shopify', 'liquid', 'shopify plus', 'shopify theme'],
+                'WooCommerce': ['woocommerce', 'woo commerce', 'woo membership', 'woomembership'],
+                'Webflow': ['webflow'],
+                'React': ['react', 'reactjs', 'react.js', 'next.js', 'nextjs', 'react native'],
+                'Vue': ['vue', 'vuejs', 'vue.js', 'nuxt'],
+                'Angular': ['angular', 'angularjs'],
+                'Node.js': ['node', 'nodejs', 'express', 'nest.js', 'nestjs'],
+                'Python': ['python', 'django', 'flask', 'fastapi'],
+                'Magento': ['magento', 'adobe commerce'],
+                'Drupal': ['drupal'],
+                'Squarespace': ['squarespace']
+            };
+            
+            const text = skills.map(s => s.toLowerCase()).join(' ');
+            
+            for (const [platform, keywords] of Object.entries(platforms)) {
+                if (keywords.some(kw => text.includes(kw))) {
+                    return platform;
+                }
+            }
+            return null;
+        }
+
+        function clearForm() {
+            if (!confirm('Clear all form data?')) return;
+            
+            const form = document.getElementById('proposal-form');
+            form.reset();
+            currentSkills = [];
+            currentPortfolios = [];
+            renderSkills();
+            renderPortfolios();
+            localStorage.removeItem('training_form_draft');
+        }
+
+        // === SKILLS ===
+        function setupSkillInput() {
+            document.getElementById('skill-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addSkill();
+                }
+            });
+        }
+
+        function addSkill() {
+            const input = document.getElementById('skill-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const skills = text.split(',').map(s => s.trim()).filter(s => s && !currentSkills.includes(s));
+            currentSkills.push(...skills);
+            renderSkills();
+            input.value = '';
+            input.focus();
+        }
+
+        function removeSkill(skill) {
+            currentSkills = currentSkills.filter(s => s !== skill);
+            renderSkills();
+        }
+
+        function renderSkills() {
+            document.getElementById('skills-container').innerHTML = currentSkills.map(skill => `
+                <div class="skill-tag">
+                    ${skill}
+                    <button type="button" onclick="removeSkill('${skill}')">×</button>
+                </div>
+            `).join('');
+        }
+
+        // === PORTFOLIOS ===
+        function setupPortfolioInput() {
+            document.getElementById('portfolio-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addPortfolio();
+                }
+            });
+        }
+
+        function addPortfolio() {
+            const input = document.getElementById('portfolio-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            try {
+                new URL(text);
+                if (!currentPortfolios.includes(text)) {
+                    currentPortfolios.push(text);
+                    renderPortfolios();
+                }
+                input.value = '';
+                input.focus();
+            } catch {
+                alert('Please enter a valid URL');
+            }
+        }
+
+        function removePortfolio(url) {
+            currentPortfolios = currentPortfolios.filter(p => p !== url);
+            renderPortfolios();
+        }
+
+        function renderPortfolios() {
+            document.getElementById('portfolio-container').innerHTML = currentPortfolios.map(url => {
+                let hostname;
+                try { hostname = new URL(url).hostname; } catch { hostname = url; }
+                return `
+                    <div class="skill-tag">
+                        ${hostname}
+                        <button type="button" onclick="removePortfolio('${url}')">×</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // === FEEDBACK ===
+        // === STATS ===
+        async function loadStats() {
+            try {
+                const response = await axios.get(`${API_BASE}/stats/overview`);
+                document.getElementById('total-count').textContent = response.data.total_jobs || 0;
+            } catch (e) {
+                console.error('Error loading stats:', e);
+            }
+        }
+
+        // === DASHBOARD ===
+        async function loadDashboard() {
+            try {
+                const response = await axios.get(`${API_BASE}/stats/overview`);
+                const stats = response.data;
+                
+                // Key stats
+                document.getElementById('dash-total').textContent = stats.total_jobs || 0;
+                
+                // Count unique industries
+                const industryCount = stats.by_industry ? Object.keys(stats.by_industry).length : 0;
+                document.getElementById('dash-industries').textContent = industryCount;
+                
+                document.getElementById('dash-chunks').textContent = stats.total_chunks || 0;
+                
+                // Industry breakdown with minimalistic design
+                const industryEl = document.getElementById('industry-breakdown');
+                if (stats.by_industry && Object.keys(stats.by_industry).length) {
+                    industryEl.innerHTML = Object.entries(stats.by_industry)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 8)
+                        .map(([industry, count]) => {
+                            const percentage = stats.total_jobs ? ((count / stats.total_jobs) * 100).toFixed(0) : 0;
+                            return `
+                                <div class="flex items-center justify-between py-2.5 px-1 border-b border-neutral-100 hover:border-neutral-300 transition-all duration-200 last:border-0">
+                                    <span class="text-sm text-neutral-700">${industry || 'Unspecified'}</span>
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-16 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                                            <div class="h-full bg-neutral-900 transition-all duration-300" style="width: ${Math.min(percentage, 100)}%"></div>
+                                        </div>
+                                        <span class="text-xs font-600 text-neutral-900 min-w-8 text-right">${count}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                } else {
+                    industryEl.innerHTML = '<p class="text-sm text-neutral-500 py-8 text-center">No industry data yet</p>';
+                }
+                
+                // Top skills with minimalistic tag styling
+                const skillsEl = document.getElementById('skills-breakdown');
+                if (stats.top_skills && Array.isArray(stats.top_skills) && stats.top_skills.length) {
+                    skillsEl.innerHTML = stats.top_skills.slice(0, 15).map((skill) => {
+                        return `
+                            <div class="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-500 transition-all duration-200 hover:bg-neutral-800 cursor-default">
+                                ${skill}
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    skillsEl.innerHTML = '<p class="text-sm text-neutral-500">No skill data yet</p>';
+                }
+                
+                // Task type distribution with minimalistic design
+                const taskEl = document.getElementById('task-breakdown');
+                if (stats.by_task_type && Object.keys(stats.by_task_type).length) {
+                    taskEl.innerHTML = Object.entries(stats.by_task_type)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 8)
+                        .map(([task, count]) => {
+                            const percentage = stats.total_jobs ? ((count / stats.total_jobs) * 100).toFixed(0) : 0;
+                            return `
+                                <div class="flex items-center justify-between py-2.5 px-1 border-b border-neutral-100 hover:border-neutral-300 transition-all duration-200 last:border-0">
+                                    <span class="text-sm text-neutral-700 capitalize">${task}</span>
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-16 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                                            <div class="h-full bg-neutral-900 transition-all duration-300" style="width: ${Math.min(percentage, 100)}%"></div>
+                                        </div>
+                                        <span class="text-xs font-600 text-neutral-900 min-w-8 text-right">${count}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                } else {
+                    taskEl.innerHTML = '<p class="text-sm text-neutral-500 py-8 text-center">No task data yet</p>';
+                }
+            } catch (e) {
+                console.error('Error loading dashboard:', e);
+            }
+        }
+
+        // === ENTRIES ===
+        let allEntriesCache = []; // Cache all entries for smart filtering
+        
+        function setupEntriesView() {
+            document.getElementById('search-input').addEventListener('input', debounce(applyFilters, 300));
+            document.getElementById('platform-filter').addEventListener('change', onPlatformChange);
+            document.getElementById('task-type-filter').addEventListener('change', applyFilters);
+            document.getElementById('prev-btn').addEventListener('click', () => {
+                if (currentPage > 0) { currentPage--; renderEntries(); }
+            });
+            document.getElementById('next-btn').addEventListener('click', () => {
+                if ((currentPage + 1) * perPage < entriesData.length) { currentPage++; renderEntries(); }
+            });
+        }
+
+        // Platform detection helper - matches backend logic (fallback for entries without platform field)
+        function detectPlatform(skills = [], description = '') {
+            const platforms = {
+                'WordPress': ['wordpress', 'wp-admin', 'elementor', 'divi', 'theme', 'plugin', 'gutenberg', 'acf', 'wp theme', 'wp plugin'],
+                'Shopify': ['shopify', 'liquid', 'shopify plus', 'shopify theme'],
+                'WooCommerce': ['woocommerce', 'woo commerce', 'woo membership', 'woomembership'],
+                'Webflow': ['webflow'],
+                'React': ['react', 'reactjs', 'react.js', 'next.js', 'nextjs', 'react native'],
+                'Vue': ['vue', 'vuejs', 'vue.js', 'nuxt'],
+                'Angular': ['angular', 'angularjs'],
+                'Magento': ['magento', 'adobe commerce'],
+                'Drupal': ['drupal'],
+                'Squarespace': ['squarespace'],
+                'Python': ['python', 'django', 'flask', 'fastapi'],
+                'Node.js': ['node', 'nodejs', 'express', 'nest.js', 'nestjs']
+            };
+            
+            const text = [...skills.map(s => s.toLowerCase()), (description || '').toLowerCase()].join(' ');
+            
+            for (const [platform, keywords] of Object.entries(platforms)) {
+                if (keywords.some(kw => text.includes(kw))) {
+                    return platform;
+                }
+            }
+            return null;
+        }
+
+        // Load entries and build dynamic filters
+        async function loadEntries() {
+            try {
+                const response = await axios.get(`${API_BASE}/list?limit=100`);
+                allEntriesCache = (response.data.items || []).map(e => ({
+                    ...e,
+                    // Use stored platform directly - no fallback detection
+                    _platform: e.platform || null
+                }));
+                
+                buildDynamicFilters();
+                applyFilters();
+            } catch (e) {
+                document.getElementById('entries-table').innerHTML = `
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-red-600">Error loading entries</td></tr>
+                `;
+            }
+        }
+
+        // Build filter dropdowns from API endpoint (database values)
+        async function buildDynamicFilters() {
+            try {
+                const response = await axios.get(`${API_BASE}/stats/filter-options`);
+                const { task_types, platforms } = response.data;
+                
+                // Populate platform filter
+                const platformSelect = document.getElementById('platform-filter');
+                platformSelect.innerHTML = '<option value="">All Platforms</option>' + 
+                    platforms.map(p => `<option value="${p}">${p}</option>`).join('');
+                
+                // Populate task type filter
+                const taskSelect = document.getElementById('task-type-filter');
+                taskSelect.innerHTML = '<option value="">All Task Types</option>' + 
+                    task_types.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('');
+                
+            } catch (e) {
+                console.error('Error loading filter options:', e);
+                // Fallback: extract from cached entries
+                buildFiltersFromCache();
+            }
+        }
+
+        // Fallback: Build filters from cached entries
+        function buildFiltersFromCache() {
+            // Get unique platforms from cache
+            const platforms = [...new Set(allEntriesCache.map(e => e._platform).filter(Boolean))].sort();
+            const platformSelect = document.getElementById('platform-filter');
+            platformSelect.innerHTML = '<option value="">All Platforms</option>' + 
+                platforms.map(p => `<option value="${p}">${p}</option>`).join('');
+            
+            // Get unique task types from cache
+            const taskTypes = [...new Set(allEntriesCache.map(e => e.task_type).filter(Boolean))].sort();
+            const taskSelect = document.getElementById('task-type-filter');
+            taskSelect.innerHTML = '<option value="">All Task Types</option>' + 
+                taskTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('');
+        }
+
+        // Handle platform change - just filter, no cascade
+        function onPlatformChange() {
+            applyFilters();
+        }
+
+        // Apply all filters
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const platform = document.getElementById('platform-filter').value;
+            const taskType = document.getElementById('task-type-filter').value;
+            
+            entriesData = allEntriesCache.filter(e => {
+                const matchSearch = !search || 
+                    (e.company_name || '').toLowerCase().includes(search) ||
+                    (e.job_title || '').toLowerCase().includes(search);
+                const matchPlatform = !platform || e._platform === platform;
+                const matchTaskType = !taskType || e.task_type === taskType;
+                return matchSearch && matchPlatform && matchTaskType;
+            });
+            
+            currentPage = 0;
+            renderEntries();
+        }
+
+        function renderEntries() {
+            const start = currentPage * perPage;
+            const end = start + perPage;
+            const page = entriesData.slice(start, end);
+            
+            const tbody = document.getElementById('entries-table');
+            
+            if (!page.length) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-neutral-500">No entries found</td></tr>`;
+            } else {
+                tbody.innerHTML = page.map(e => `
+                    <tr class="border-b border-neutral-200 table-row">
+                        <td class="px-4 py-3">
+                            <p class="font-medium text-neutral-900">${e.company_name}</p>
+                            <p class="text-xs text-neutral-500">${e.contract_id}</p>
+                        </td>
+                        <td class="px-4 py-3 text-neutral-700">${e.job_title}</td>
+                        <td class="px-4 py-3">
+                            ${e.platform || e._platform ? `<span class="badge badge-info">${e.platform || e._platform}</span>` : '<span class="text-neutral-400">-</span>'}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="badge badge-muted capitalize">${e.task_type || '-'}</span>
+                        </td>
+                        <td class="px-4 py-3 flex gap-2">
+                            <button onclick="editEntry('${e.contract_id}')" class="btn-secondary text-xs py-1 px-3">Edit</button>
+                            <button onclick="deleteEntry('${e.contract_id}', '${e.company_name}')" class="btn-danger">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            
+            document.getElementById('showing-count').textContent = Math.min(end, entriesData.length);
+            document.getElementById('total-entries').textContent = entriesData.length;
+            document.getElementById('prev-btn').disabled = currentPage === 0;
+            document.getElementById('next-btn').disabled = end >= entriesData.length;
+        }
+
+        // Edit entry - load data into form
+        async function editEntry(contractId) {
+            try {
+                const response = await axios.get(`${API_BASE}/${contractId}`);
+                const entry = response.data;
+                
+                // Switch to upload tab
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelector('[data-tab="upload"]').classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById('tab-upload').classList.add('active');
+                
+                // Fill form
+                const form = document.getElementById('proposal-form');
+                form.elements['company_name'].value = entry.company_name || '';
+                form.elements['job_title'].value = entry.job_title || '';
+                form.elements['industry'].value = entry.industry || '';
+                form.elements['project_status'].value = entry.project_status || 'completed';
+                form.elements['start_date'].value = entry.start_date || '';
+                form.elements['end_date'].value = entry.end_date || '';
+                form.elements['job_description'].value = entry.job_description || '';
+                form.elements['your_proposal_text'].value = entry.your_proposal_text || '';
+                form.elements['client_feedback_text'].value = entry.client_feedback_text || '';
+                form.elements['client_feedback_url'].value = entry.client_feedback_url || '';
+                form.elements['urgent_adhoc'].checked = entry.urgent_adhoc || false;
+                
+                // Task type - check if exists in options, add if not
+                const taskSelect = document.getElementById('task-type-select');
+                const taskValue = entry.task_type || '';
+                if (taskValue && ![...taskSelect.options].some(opt => opt.value === taskValue)) {
+                    // Add the task type if it doesn't exist in dropdown
+                    const newOption = document.createElement('option');
+                    newOption.value = taskValue;
+                    newOption.textContent = taskValue.charAt(0).toUpperCase() + taskValue.slice(1);
+                    taskSelect.insertBefore(newOption, taskSelect.querySelector('option[value="other"]'));
+                }
+                taskSelect.value = taskValue;
+                
+                // Platform - check if exists in options, add if not
+                const platformSelect = document.getElementById('platform-select');
+                const platformValue = entry.platform || '';
+                if (platformValue && ![...platformSelect.options].some(opt => opt.value === platformValue)) {
+                    // Add the platform if it doesn't exist in dropdown
+                    const newOption = document.createElement('option');
+                    newOption.value = platformValue;
+                    newOption.textContent = platformValue;
+                    platformSelect.insertBefore(newOption, platformSelect.querySelector('option[value="Custom"]'));
+                }
+                platformSelect.value = platformValue;
+                
+                // Skills
+                currentSkills = entry.skills_required || [];
+                renderSkills();
+                
+                // Portfolios
+                currentPortfolios = entry.portfolio_urls || [];
+                renderPortfolios();
+                
+                // Set edit mode
+                document.getElementById('editing-contract-id').value = contractId;
+                document.getElementById('submit-btn').textContent = 'Update Entry';
+                document.getElementById('cancel-edit-btn').classList.remove('hidden');
+                
+                // Update form title
+                document.querySelector('#tab-upload h2').textContent = `Editing: ${entry.company_name}`;
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                showToast('Entry loaded for editing');
+                
+            } catch (e) {
+                alert('Error loading entry: ' + (e.response?.data?.detail || e.message));
+            }
+        }
+
+        // Cancel edit mode
+        function cancelEdit() {
+            clearForm();
+            document.getElementById('editing-contract-id').value = '';
+            document.getElementById('submit-btn').textContent = 'Submit Entry';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+            document.querySelector('#tab-upload h2').textContent = 'New Training Entry';
+        }
+
+        async function deleteEntry(id, name) {
+            if (!confirm(`Delete "${name}" and all its data?`)) return;
+            
+            try {
+                await axios.delete(`${API_BASE}/delete/${id}`);
+                showToast('Entry deleted');
+                loadEntries();
+                loadStats();
+            } catch (e) {
+                alert('Error: ' + (e.response?.data?.detail || e.message));
+            }
+        }
+
+        // === UTILS ===
+        function showProgress(text, step) {
+            document.getElementById('progress-text').textContent = text;
+            document.getElementById('progress-step').textContent = step;
+            document.getElementById('progress-overlay').classList.add('show');
+        }
+
+        function hideProgress() {
+            document.getElementById('progress-overlay').classList.remove('show');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function debounce(fn, delay) {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn(...args), delay);
+            };
+        }
+    </script>
+</body>
+</html>

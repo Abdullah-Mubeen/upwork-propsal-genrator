@@ -166,6 +166,7 @@ async def upload_job_data(job_data: JobDataUploadRequest):
             industry=stored_job["industry"],
             skills_required=stored_job.get("skills_required"),
             task_type=stored_job.get("task_type"),
+            platform=stored_job.get("platform"),
             project_status=stored_job.get("project_status", "completed"),
             urgent_adhoc=stored_job.get("urgent_adhoc", False),
             start_date=stored_job.get("start_date"),
@@ -256,6 +257,7 @@ async def list_job_data(
                 industry=job["industry"],
                 skills_required=job.get("skills_required"),
                 task_type=job.get("task_type"),
+                platform=job.get("platform"),
                 project_status=job.get("project_status", "completed"),
                 urgent_adhoc=job.get("urgent_adhoc", False),
                 start_date=job.get("start_date"),
@@ -318,9 +320,11 @@ async def get_job_data(contract_id: str):
             start_date=job_data.get("start_date"),
             end_date=job_data.get("end_date"),
             portfolio_url=job_data.get("portfolio_url"),
+            portfolio_urls=job_data.get("portfolio_urls"),
             client_feedback_url=job_data.get("client_feedback_url"),
             client_feedback_text=job_data.get("client_feedback_text"),
             task_type=job_data.get("task_type"),
+            platform=job_data.get("platform"),
             urgent_adhoc=job_data.get("urgent_adhoc", False),
             created_at=job_data.get("created_at", datetime.utcnow().isoformat()),
             updated_at=job_data.get("updated_at"),
@@ -419,6 +423,132 @@ async def get_job_chunks(
     except Exception as e:
         logger.error(f"Error retrieving chunks: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve chunks")
+
+
+# ===================== UPDATE ENDPOINTS =====================
+
+@router.put(
+    "/update/{contract_id}",
+    response_model=UploadResponse,
+    summary="Update job data by contract ID",
+    responses={
+        200: {"description": "Job updated successfully"},
+        404: {"model": ErrorResponse, "description": "Job not found"},
+        500: {"model": ErrorResponse, "description": "Server error"}
+    }
+)
+async def update_job_data(contract_id: str, update_data: UpdateJobDataRequest):
+    """
+    Update existing job data entry.
+    
+    **Path Parameters:**
+    - `contract_id`: Contract ID to update
+    
+    **Updatable Fields:**
+    - company_name, job_title, job_description
+    - your_proposal_text, skills_required, industry
+    - platform, task_type, project_status
+    - portfolio_urls, client_feedback_text/url
+    - And all other job metadata
+    
+    **Note:** Chunks and embeddings will be regenerated if content changes.
+    """
+    try:
+        processor = get_processor()
+        db = get_db()
+        
+        # Check if job exists
+        existing = db.get_training_data(contract_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
+        
+        # Build update dict (only non-None values)
+        update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+        
+        if not update_dict:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        # Convert HttpUrl to string if present
+        if "client_feedback_url" in update_dict and update_dict["client_feedback_url"] is not None:
+            update_dict["client_feedback_url"] = str(update_dict["client_feedback_url"])
+        
+        # Add updated timestamp
+        update_dict["updated_at"] = datetime.utcnow().isoformat()
+        
+        # Update in database
+        db.db["training_data"].update_one(
+            {"contract_id": contract_id},
+            {"$set": update_dict}
+        )
+        
+        # Check if content changed - if so, regenerate chunks/embeddings
+        content_fields = ["job_description", "your_proposal_text", "skills_required"]
+        content_changed = any(f in update_dict for f in content_fields)
+        
+        if content_changed:
+            logger.info(f"Content changed for {contract_id}, regenerating chunks...")
+            
+            # Delete old vectors from Pinecone FIRST
+            pinecone_service = get_pinecone_service()
+            if pinecone_service:
+                try:
+                    vectors_deleted = pinecone_service.delete_by_contract(contract_id)
+                    logger.info(f"Deleted {vectors_deleted} old vectors from Pinecone for {contract_id}")
+                except Exception as e:
+                    logger.warning(f"Error deleting old Pinecone vectors: {str(e)}")
+            
+            # Delete old chunks and embeddings from MongoDB
+            db.db["chunks"].delete_many({"contract_id": contract_id})
+            db.db["embeddings"].delete_many({"contract_id": contract_id})
+            
+            # Regenerate chunks and embeddings (without re-storing the job)
+            chunks_count, chunk_ids = processor.process_and_chunk_job(contract_id)
+            embeddings_count, failed = processor.process_and_embed_chunks(contract_id)
+            
+            # Save to Pinecone
+            if pinecone_service:
+                try:
+                    pinecone_count = processor.save_embeddings_to_pinecone(contract_id)
+                    logger.info(f"Saved {pinecone_count} vectors to Pinecone for {contract_id}")
+                except Exception as e:
+                    logger.warning(f"Error saving to Pinecone: {str(e)}")
+        
+        # Get updated job for response
+        stored_job = processor.get_job_with_chunks(contract_id)
+        
+        response_data = JobDataResponse(
+            db_id=str(stored_job["_id"]),
+            contract_id=contract_id,
+            company_name=stored_job["company_name"],
+            job_title=stored_job["job_title"],
+            industry=stored_job.get("industry"),
+            skills_required=stored_job.get("skills_required"),
+            task_type=stored_job.get("task_type"),
+            platform=stored_job.get("platform"),
+            project_status=stored_job.get("project_status", "completed"),
+            urgent_adhoc=stored_job.get("urgent_adhoc", False),
+            start_date=stored_job.get("start_date"),
+            end_date=stored_job.get("end_date"),
+            portfolio_url=stored_job.get("portfolio_url"),
+            created_at=stored_job.get("created_at"),
+            updated_at=stored_job.get("updated_at")
+        )
+        
+        logger.info(f"✅ Updated job: {contract_id}")
+        
+        return UploadResponse(
+            status="success",
+            db_id=str(stored_job["_id"]),
+            contract_id=contract_id,
+            message=f"Job updated successfully" + (" (chunks regenerated)" if content_changed else ""),
+            data=response_data
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating job data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update job data")
 
 
 # ===================== DELETE ENDPOINTS =====================
@@ -674,5 +804,51 @@ async def get_statistics():
     except Exception as e:
         logger.error(f"Error getting statistics: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve statistics")
+
+
+@router.get(
+    "/stats/filter-options",
+    summary="Get unique filter options from database",
+    responses={
+        200: {"description": "Filter options retrieved"},
+        500: {"model": ErrorResponse, "description": "Server error"}
+    }
+)
+async def get_filter_options():
+    """
+    Get unique task types and platforms from the database for filter dropdowns.
+    
+    **Returns:**
+    - task_types: List of unique task types from database
+    - platforms: List of unique platforms from database
+    """
+    try:
+        db = get_db()
+        
+        # Get all jobs
+        all_jobs = list(db.db["training_data"].find({}, {"task_type": 1, "platform": 1, "_id": 0}))
+        
+        # Extract unique task types (non-null)
+        task_types = sorted(list(set(
+            job.get("task_type") 
+            for job in all_jobs 
+            if job.get("task_type")
+        )))
+        
+        # Extract unique platforms (non-null)
+        platforms = sorted(list(set(
+            job.get("platform") 
+            for job in all_jobs 
+            if job.get("platform")
+        )))
+        
+        return {
+            "task_types": task_types,
+            "platforms": platforms
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting filter options: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve filter options")
 
 

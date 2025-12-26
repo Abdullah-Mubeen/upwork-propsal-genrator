@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Training Platform | Proposal Generator</title>
+    <!-- Disable caching for development -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Proposal Generator | AI-Powered Upwork Proposals</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
@@ -11,17 +15,11 @@
         
         * { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
-            box-sizing: border-box;
-        }
-        
-        html {
-            scroll-behavior: smooth;
         }
         
         body { 
-            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%); 
+            background: #fafafa;
             min-height: 100vh;
-            color: #171717;
         }
 
         /* Input styling */
@@ -31,20 +29,18 @@
             border-radius: 8px;
             padding: 12px 14px;
             font-size: 14px;
-            transition: all 0.2s ease;
+            transition: border-color 0.15s, box-shadow 0.15s;
             width: 100%;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
         }
         
         .input-field:hover {
             border-color: #d4d4d4;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
         }
         
         .input-field:focus {
             outline: none;
             border-color: #171717;
-            box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
         }
 
         .input-field::placeholder {
@@ -99,20 +95,20 @@
             font-weight: 600;
             font-size: 14px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(23, 23, 23, 0.12);
-            letter-spacing: 0.3px;
+            transition: background 0.15s, transform 0.1s;
         }
 
         .btn-primary:hover {
             background: #262626;
-            box-shadow: 0 4px 12px rgba(23, 23, 23, 0.18); 
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
         }
 
         .btn-primary:disabled {
             background: #a3a3a3;
             cursor: not-allowed;
-            box-shadow: none;
         }
 
         /* Secondary button */
@@ -125,874 +121,516 @@
             font-weight: 500;
             font-size: 13px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+            transition: background 0.15s, border-color 0.15s;
         }
 
         .btn-secondary:hover {
             background: #fafafa;
             border-color: #d4d4d4;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-        } 
+        }
 
-        /* Danger button */
-        .btn-danger {
+        /* Toggle */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
             background: #fff;
-            color: #dc2626;
-            border: 1px solid #fecaca;
+            border: 1px solid #e5e5e5;
             border-radius: 8px;
-            padding: 8px 12px;
-            font-weight: 500;
-            font-size: 12px;
             cursor: pointer;
-            transition: background 0.15s;
+            transition: border-color 0.15s;
         }
 
-        .btn-danger:hover {
-            background: #fef2f2;
+        .toggle-container:hover {
+            border-color: #d4d4d4;
         }
 
-        /* Navigation tabs */
-        .nav-tab {
-            padding: 12px 0;
-            font-size: 14px;
-            font-weight: 500;
-            color: #737373;
-            border-bottom: 2px solid transparent;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background: none;
-            border-top: none;
-            border-left: none;
-            border-right: none;
+        .toggle-switch {
+            width: 40px;
+            height: 22px;
+            background: #e5e5e5;
+            border-radius: 11px;
+            position: relative;
+            transition: background 0.2s;
         }
 
-        .nav-tab:hover {
-            color: #171717;
-            border-bottom-color: #d4d4d4;
+        .toggle-switch.active {
+            background: #171717;
         }
 
-        .nav-tab.active {
-            color: #171717;
-            border-bottom-color: #171717;
-            font-weight: 600;
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        /* Cards */
-        .card {
+        .toggle-switch.active::after {
+            transform: translateX(18px);
+        }
+
+        /* Loading */
+        .loader {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e5e5;
+            border-top-color: #171717;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Proposal card */
+        .proposal-card {
             background: #fff;
             border: 1px solid #e5e5e5;
             border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-            transition: all 0.3s ease;
+            overflow: hidden;
         }
 
-        .card:hover {
-            border-color: #d4d4d4;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        .proposal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        /* Stat card */
-        .stat-card {
-            background: #fff;
-            border: 1px solid #e5e5e5;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-            transition: all 0.3s ease;
+        .proposal-body {
+            padding: 24px;
+            font-size: 15px;
+            line-height: 1.75;
+            color: #404040;
+            white-space: pre-wrap;
         }
 
-        .stat-card:hover {
-            border-color: #d4d4d4; 
+        /* Stats */
+        .stat-item {
+            text-align: center;
+            padding: 0 16px;
         }
 
         .stat-value {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
             color: #171717;
-            line-height: 1;
         }
 
         .stat-label {
             font-size: 12px;
             color: #737373;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 8px;
-            font-weight: 500;
+            margin-top: 2px;
         }
 
-        /* Status badges */
-        .badge {
-            display: inline-flex;
-            padding: 4px 10px;
+        /* Copy feedback */
+        .copy-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #171717;
+            color: #fff;
+            padding: 6px 10px;
             border-radius: 6px;
             font-size: 12px;
-            font-weight: 500;
-        }
-
-        .badge-success {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .badge-info {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .badge-muted {
-            background: #f5f5f5;
-            color: #525252;
-        }
-
-        /* Progress */
-        .progress-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(250, 250, 250, 0.98);
-            backdrop-filter: blur(2px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
             opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
+            pointer-events: none;
+            transition: opacity 0.15s;
         }
 
-        .progress-overlay.show {
+        .copy-tooltip.show {
             opacity: 1;
-            visibility: visible;
         }
 
-        .progress-modal {
+        /* Info section */
+        .info-section {
             background: #fff;
             border: 1px solid #e5e5e5;
-            border-radius: 16px;
-            padding: 40px;
-            text-align: center;
-            max-width: 360px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+            border-radius: 10px;
+            padding: 20px;
         }
 
-        .loader {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #e5e5e5;
-            border-top-color: #171717;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 20px;
+        .info-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #525252;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* Toast */
+        /* Project card */
+        .project-item {
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .project-item:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Link item */
+        .link-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #fafafa;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #525252;
+            text-decoration: none;
+            transition: background 0.15s;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        .link-item:hover {
+            background: #f0f0f0;
+            color: #171717;
+        }
+
+        /* Action buttons group */
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: transparent;
+            color: #737373;
+            border: none;
+            padding: 6px 10px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+
+        .action-btn:hover {
+            color: #171717;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .action-btn svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .action-btn.action-btn-primary {
+            background: #171717;
+            color: #fff;
+            border-radius: 6px;
+            padding: 6px 12px;
+        }
+
+        .action-btn.action-btn-primary:hover {
+            background: #262626;
+        }
+
+        /* Editable proposal */
+        .proposal-body-editable {
+            padding: 24px;
+            font-size: 15px;
+            line-height: 1.75;
+            color: #171717;
+            white-space: pre-wrap;
+            min-height: 200px;
+            border-left: 2px solid #171717;
+            margin: 0;
+            background: #fafafa;
+            outline: none;
+        }
+
+        .proposal-body-editable:focus {
+            background: #fff;
+        }
+
+        /* Edit mode indicator */
+        .edit-mode-banner {
+            background: #fafafa;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .edit-mode-banner p {
+            font-size: 12px;
+            color: #737373;
+        }
+
+        /* Toast notification */
         .toast {
             position: fixed;
             bottom: 24px;
             right: 24px;
             background: #171717;
             color: #fff;
-            padding: 14px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500; 
-            opacity: 0;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            z-index: 200;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .toast.show { 
-            opacity: 1;
-        }
-
-        /* Image upload */
-        .upload-zone {
-            border: 2px dashed #e5e5e5;
-            border-radius: 10px;
-            padding: 32px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background: #fafafa;
-        }
-
-        .upload-zone:hover {
-            border-color: #d4d4d4;
-            background: #f5f5f5;
-        }
-
-        .upload-zone.dragover {
-            border-color: #171717;
-            background: #f0f0f0;
-            border-width: 2px;
-        }
-
-        /* Image preview */
-        .image-preview {
-            position: relative;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #e5e5e5;
-        }
-
-        .image-preview img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-        }
-
-        .image-preview .remove-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            border: none;
-            width: 28px;
-            height: 28px;
+            padding: 12px 16px;
             border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.15s;
-        }
-
-        .image-preview .remove-btn:hover {
-            background: rgba(0,0,0,0.9);
-        }
-
-        /* Tab content */
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Table */
-        .table-row:hover {
-            background: #fafafa;
-        }
-
-        /* Feedback Tab Styling */
-        .feedback-tab {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            border-radius: 8px;
-            border: none;
-            background: transparent;
-            color: #737373;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .feedback-tab:hover {
-            color: #171717;
-            background: rgba(23, 23, 23, 0.02);
-        }
-
-        .feedback-tab.feedback-tab-text {
-            background: #fff;
-            color: #171717;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-        }
-
-        /* Feedback content animation */
-        .feedback-content {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        .feedback-content.hidden {
-            display: none;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-4px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Image drop zone */
-        #image-drop-zone {
-            background: #fff;
-            border: 2px dashed #e5e5e5;
-            border-radius: 10px;
-            padding: 32px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        #image-drop-zone:hover {
-            border-color: #d4d4d4;
-            background: #fafafa;
-        }
-
-        #image-drop-zone.bg-neutral-50 {
-            background: #fafafa;
-            border-color: #d4d4d4;
-        }
-
-        /* OCR Result */
-        #ocr-result {
-            background: #f9fafb;
-            border: 1px solid #e5e5e5;
-            border-radius: 10px;
-            padding: 14px;
-            animation: slideDown 0.3s ease-in-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                max-height: 0;
-                overflow: hidden;
-            }
-            to {
-                opacity: 1;
-                max-height: 500px;
-            }
-        }
-
-        #ocr-result.hidden {
-            display: none;
-        }
-
-        #ocr-text {
-            background: #fff;
-            border: 1px solid #e5e5e5;
-            border-radius: 8px;
-            padding: 12px;
             font-size: 13px;
-            line-height: 1.5;
-            color: #525252;
-        }
-
-        /* Copy button styling */
-        #ocr-result button {
-            background: none;
-            border: none;
-            color: #2563eb;
             font-weight: 500;
-            cursor: pointer;
-            padding: 0;
+            opacity: 0;
+            transform: translateY(8px);
             transition: all 0.2s ease;
+            z-index: 100;
         }
 
-        #ocr-result button:hover {
-            color: #1d4ed8;
-        }
-
-        /* Image preview styling */
-        #image-preview-container {
-            margin-top: 12px;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        #image-preview-container img {
-            border-radius: 10px;
-            border: 1px solid #e5e5e5;
-            max-width: 300px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            transition: all 0.2s ease;
-        }
-
-        #image-preview-container img:hover {
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-        }
-
-        /* Animations */
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-            to {
-                transform: rotate(360deg);
-            }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
 <body>
-    <!-- Progress Overlay -->
-    <div class="progress-overlay" id="progress-overlay">
-        <div class="progress-modal">
-            <div class="loader"></div>
-            <p class="text-sm text-neutral-700 font-medium" id="progress-text">Uploading data...</p>
-            <p class="text-xs text-neutral-500 mt-2" id="progress-step">Storing in database</p>
-        </div>
-    </div>
-
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
-
     <!-- Header -->
-    <header class="border-b border-neutral-200 bg-white sticky top-0 z-50 backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98);">
-        <div class="max-w-5xl mx-auto px-6">
-            <div class="flex items-center justify-between py-4">
-                <div>
-                    <h1 class="text-lg font-semibold text-neutral-900">Training Platform</h1>
-                    <p class="text-xs text-neutral-500 font-400">Add winning proposals to improve AI</p>
-                </div>
-                <div class="flex items-center gap-8">
-                    <div class="text-right border-r border-neutral-200 pr-8">
-                        <div class="text-2xl font-bold text-neutral-900" id="total-count">0</div>
-                        <div class="text-xs text-neutral-500 font-500">Entries Trained</div>
-                    </div>
-                    <a href="proposal-generator.html" class="btn-primary">
-                        Generate Proposal
-                    </a>
-                </div>
+    <header class="border-b border-neutral-200 bg-white">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-semibold text-neutral-900">Proposal Generator</h1>
+                <p class="text-xs text-neutral-500">AI-powered winning proposals</p>
             </div>
-
-            <!-- Navigation -->
-            <div class="flex gap-8 border-t border-neutral-200 pt-3">
-                <button class="nav-tab active" data-tab="upload">Add Entry</button>
-                <button class="nav-tab" data-tab="dashboard">Dashboard</button>
-                <button class="nav-tab" data-tab="entries">All Entries</button>
-            </div>
+            <a href="training.html" class="btn-secondary inline-flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                Training Platform
+            </a>
         </div>
     </header>
 
     <!-- Main -->
-    <main class="max-w-5xl mx-auto px-6 py-8">
-        
-        <!-- Upload Tab -->
-        <div id="tab-upload" class="tab-content active">
-            <div class="max-w-2xl">
-                <div class="card p-6">
-                    <h2 class="text-base font-semibold text-neutral-900 mb-6">New Training Entry</h2>
+    <main class="max-w-7xl mx-auto px-6 py-10">
+        <div class="grid lg:grid-cols-5 gap-8">
+            
+            <!-- Left: Form (narrower) -->
+            <div class="lg:col-span-2">
+                <div class="bg-white border border-neutral-200 rounded-xl p-6">
+                    <h2 class="text-base font-semibold text-neutral-900 mb-6">Job Details</h2>
                     
                     <form id="proposal-form" class="space-y-5">
-                        <!-- Row: Company & Industry -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Company *</label>
-                                <input type="text" name="company_name" placeholder="TechCorp Inc" class="input-field" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Industry</label>
-                                <input type="text" name="industry" placeholder="e.g., SaaS, Finance, E-commerce" class="input-field">
-                            </div>
+                        <!-- Task Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Task Type</label>
+                            <select id="task_type" class="input-field" required>
+                                <option value="">Select...</option>
+                                <option value="complete website">Complete Website</option>
+                                <option value="enhance functionality">Enhance Functionality</option>
+                                <option value="redesign website">Redesign Website</option>
+                                <option value="bug fixes">Bug Fixes</option>
+                                <option value="speed optimization">Speed Optimization</option>
+                                <option value="layout fixing">Layout Fixing</option>
+                                <option value="seo">SEO</option>
+                                <option value="consultation">Consultation</option>
+                                <option value="other">Other</option>
+                            </select>
                         </div>
-
-                        <!-- Row: Job Title & Task Type -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Job Title *</label>
-                                <input type="text" name="job_title" placeholder="Senior Backend Developer" class="input-field" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Task Type *</label>
-                                <select name="task_type" class="input-field" required>
-                                    <option value="">Select...</option>
-                                    <option value="development">Development</option>
-                                    <option value="design">Design</option>
-                                    <option value="writing">Writing</option>
-                                    <option value="marketing">Marketing</option>
-                                    <option value="consulting">Consulting</option>
-                                    <option value="support">Support</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Custom Task Type -->
-                        <div id="custom-task-group" class="hidden">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Custom Task Type</label>
-                            <input type="text" name="other_task_type" placeholder="e.g., Video Editing" class="input-field">
-                        </div>
-
-                        <!-- Row: Dates & Status -->
-                        <div class="grid grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Start Date</label>
-                                <input type="date" name="start_date" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">End Date</label>
-                                <input type="date" name="end_date" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Status *</label>
-                                <select name="project_status" class="input-field" required>
-                                    <option value="">Select...</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="ongoing">Ongoing</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Urgent checkbox -->
-                        <label class="flex items-center gap-3 cursor-pointer py-2">
-                            <input type="checkbox" name="urgent_adhoc" class="w-4 h-4 rounded border-neutral-300 cursor-pointer">
-                            <span class="text-sm text-neutral-700">Urgent / Adhoc Project</span>
-                        </label>
 
                         <!-- Skills -->
                         <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Skills * (comma separated)</label>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Skills</label>
                             <div class="flex gap-2 mb-3">
-                                <input type="text" id="skill-input" placeholder="Python, React, etc" class="input-field flex-1">
-                                <button type="button" onclick="addSkill()" class="btn-secondary">Add</button>
+                                <input 
+                                    type="text" 
+                                    id="skill-input"
+                                    placeholder="Add skills (comma separated)"
+                                    class="input-field flex-1"
+                                />
+                                <button type="button" onclick="addSkills()" class="btn-secondary">Add</button>
                             </div>
                             <div id="skills-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
-                        <!-- Portfolio URLs -->
-                        <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Portfolio Links (Optional)</label>
-                            <div class="flex gap-2 mb-3">
-                                <input type="url" id="portfolio-input" placeholder="https://github.com/..." class="input-field flex-1">
-                                <button type="button" onclick="addPortfolio()" class="btn-secondary">Add</button>
-                            </div>
-                            <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
-                        </div>
-
                         <!-- Job Description -->
                         <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Job Description *</label>
-                            <textarea name="job_description" placeholder="Describe the job requirements..." rows="4" class="input-field resize-none" required></textarea>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Job Description</label>
+                            <textarea 
+                                id="job_description"
+                                placeholder="Paste the job description..."
+                                rows="8"
+                                class="input-field resize-none"
+                                required
+                            ></textarea>
                         </div>
 
-                        <!-- Proposal -->
+                        <!-- Timeline Toggle -->
                         <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Your Proposal *</label>
-                            <textarea name="your_proposal_text" placeholder="Your proposal response..." rows="4" class="input-field resize-none" required></textarea>
-                        </div>
-
-                        <!-- Client Feedback -->
-                        <div class="border-t border-neutral-200 pt-5">
-                            <label class="block text-sm font-600 text-neutral-700 mb-4">Client Feedback (Optional)</label>
-                            <p class="text-xs text-neutral-500 mb-4">Add one or both - text feedback and/or review link</p>
-                            
-                            <!-- Text feedback -->
-                            <div class="mb-5">
-                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Feedback Text</label>
-                                <textarea name="client_feedback_text" id="feedback-text" placeholder="e.g., Excellent communication and quality work. Delivered ahead of schedule!" rows="3" class="input-field resize-none placeholder-neutral-400"></textarea>
-                                <p class="text-xs text-neutral-500 mt-1.5">Paste direct quotes from client messages or reviews</p>
+                            <div class="toggle-container" onclick="toggleTimeline()">
+                                <div>
+                                    <p class="text-sm font-medium text-neutral-700">Include Timeline</p>
+                                    <p class="text-xs text-neutral-500 mt-0.5">Add delivery duration to proposal</p>
+                                </div>
+                                <div id="timeline-toggle" class="toggle-switch"></div>
                             </div>
-
-                            <!-- URL feedback -->
-                            <div>
-                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Review/Feedback Link</label>
-                                <input type="url" name="client_feedback_url" id="feedback-url" placeholder="https://upwork.com/o/profiles/users/..." class="input-field placeholder-neutral-400">
-                                <p class="text-xs text-neutral-500 mt-1.5">Link to your Upwork profile review or feedback page</p>
+                            <div id="timeline-input" class="hidden mt-3">
+                                <input 
+                                    type="text" 
+                                    id="timeline_duration"
+                                    placeholder="e.g., 2-3 weeks"
+                                    class="input-field"
+                                />
                             </div>
                         </div>
 
                         <!-- Submit -->
-                        <div class="flex gap-3 pt-4 border-t border-neutral-200">
-                            <button type="submit" class="btn-primary flex-1">Submit Entry</button>
-                            <button type="button" onclick="clearForm()" class="btn-secondary">Clear</button>
-                        </div>
+                        <button type="submit" id="generate-btn" class="btn-primary w-full">
+                            Generate Proposal
+                        </button>
                     </form>
                 </div>
             </div>
-        </div>
 
-        <!-- Dashboard Tab -->
-        <div id="tab-dashboard" class="tab-content">
-            <div class="grid grid-cols-3 gap-4 mb-8">
-                <div class="stat-card">
-                    <div class="stat-value" id="dash-total">0</div>
-                    <div class="stat-label">Training Entries</div>
+            <!-- Right: Output (wider) -->
+            <div class="lg:col-span-3">
+                <!-- Empty State -->
+                <div id="empty-state" class="bg-white border border-neutral-200 rounded-xl p-12 text-center">
+                    <p class="text-neutral-400 text-sm">Fill in the job details to generate a proposal</p>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="dash-industries">0</div>
-                    <div class="stat-label">Industries Covered</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="dash-chunks">0</div>
-                    <div class="stat-label">Total Chunks</div>
-                </div>
-            </div>
 
-            <!-- Top row: Industries and Task Types -->
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="card p-6">
-                    <div class="flex items-center justify-between mb-5">
-                        <h3 class="text-sm font-600 text-neutral-900">Top Industries</h3>
-                        <div class="text-xs font-500 text-neutral-500">Project distribution</div>
-                    </div>
-                    <div id="industry-breakdown" class="space-y-3">
-                        <p class="text-sm text-neutral-500">Loading...</p>
+                <!-- Loading State -->
+                <div id="loading-state" class="hidden bg-white border border-neutral-200 rounded-xl p-12">
+                    <div class="flex flex-col items-center">
+                        <div class="loader mb-4"></div>
+                        <p class="text-sm text-neutral-600">Generating proposal...</p>
                     </div>
                 </div>
 
-                <div class="card p-6">
-                    <div class="flex items-center justify-between mb-5">
-                        <h3 class="text-sm font-600 text-neutral-900">Task Types</h3>
-                        <div class="text-xs font-500 text-neutral-500">Work breakdown</div>
+                <!-- Result State -->
+                <div id="result-state" class="hidden space-y-6">
+                    <!-- Proposal -->
+                    <div class="proposal-card">
+                        <div class="proposal-header">
+                            <div class="flex items-center gap-6">
+                                <div class="stat-item border-r border-neutral-200">
+                                    <div class="stat-value" id="word-count">0</div>
+                                    <div class="stat-label">words</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="quality-score">0%</div>
+                                    <div class="stat-label">quality</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button onclick="toggleEditMode()" id="edit-btn" class="action-btn" title="Edit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM16.862 4.487L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                                    </svg>
+                                    <span id="edit-btn-text">Edit</span>
+                                </button>
+                                <span class="text-neutral-300">|</span>
+                                <button onclick="copyToClipboard()" class="action-btn action-btn-primary" title="Copy">
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Edit mode banner (hidden by default) -->
+                        <div id="edit-mode-banner" class="edit-mode-banner hidden">
+                            <p>Editing mode — click outside or press Escape to finish</p>
+                            <div class="flex gap-2">
+                                <button onclick="cancelEdit()" class="action-btn text-xs">Discard</button>
+                                <button onclick="saveEdit()" class="action-btn action-btn-primary text-xs">Done</button>
+                            </div>
+                        </div>
+                        
+                        <div id="proposal-text" class="proposal-body"></div>
                     </div>
-                    <div id="task-breakdown" class="space-y-3">
-                        <p class="text-sm text-neutral-500">Loading...</p>
+
+                    <!-- Quick Adjustments -->
+                    <div class="flex flex-wrap items-center gap-2 px-1">
+                        <span class="text-xs text-neutral-400">Adjust:</span>
+                        <button onclick="quickTweak('shorter')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Shorter</button>
+                        <span class="text-neutral-300">·</span>
+                        <button onclick="quickTweak('friendlier')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Friendlier</button>
+                        <span class="text-neutral-300">·</span>
+                        <button onclick="quickTweak('technical')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Technical</button>
+                        <span class="text-neutral-300">·</span>
+                        <button onclick="quickTweak('confident')" class="text-xs text-neutral-500 hover:text-neutral-900 transition-colors">Confident</button>
                     </div>
-                </div>
-            </div>
 
-            <!-- Bottom row: Most Used Skills -->
-            <div class="card p-6">
-                <div class="flex items-center justify-between mb-5">
-                    <h3 class="text-sm font-600 text-neutral-900">Most Used Skills</h3>
-                    <div class="text-xs font-500 text-neutral-500">Core competencies</div>
-                </div>
-                <div id="skills-breakdown" class="flex flex-wrap gap-3">
-                    <p class="text-sm text-neutral-500">Loading...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Entries Tab -->
-        <div id="tab-entries" class="tab-content">
-            <div class="card">
-                <!-- Search -->
-                <div class="p-4 border-b border-neutral-200 flex gap-3">
-                    <input type="text" id="search-input" placeholder="Search entries..." class="input-field flex-1">
-                    <select id="status-filter" class="input-field w-40">
-                        <option value="">All Status</option>
-                        <option value="completed">Completed</option>
-                        <option value="ongoing">Ongoing</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </div>
-
-                <!-- Table -->
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-neutral-200 bg-neutral-50">
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Company</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Title</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Industry</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Status</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Chunks</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-600 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="entries-table">
-                            <tr>
-                                <td colspan="6" class="px-4 py-8 text-center text-neutral-500">Loading...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                <div class="px-4 py-3 border-t border-neutral-200 flex items-center justify-between">
-                    <p class="text-sm text-neutral-600">Showing <span id="showing-count">0</span> of <span id="total-entries">0</span></p>
-                    <div class="flex gap-2">
-                        <button id="prev-btn" class="btn-secondary" disabled>Previous</button>
-                        <button id="next-btn" class="btn-secondary" disabled>Next</button>
+                    <!-- Similar Projects -->
+                    <div class="info-section">
+                        <div class="info-title">Similar Projects</div>
+                        <div id="similar-projects">
+                            <p class="text-sm text-neutral-500">None found</p>
+                        </div>
                     </div>
+
+                    <!-- Portfolio Links -->
+                    <div class="info-section">
+                        <div class="info-title">Portfolio References</div>
+                        <div id="portfolio-links">
+                            <p class="text-sm text-neutral-500">None included</p>
+                        </div>
+                    </div>
+
+                    <!-- Start Fresh -->
+                    <button onclick="resetForm()" class="w-full py-2 text-xs text-neutral-400 hover:text-neutral-600 transition-colors">
+                        Start over
+                    </button>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- Toast notification -->
+    <div id="toast" class="toast"></div>
+
     <script>
         // CHANGE THIS TO TEST LOCALLY vs PRODUCTION
-        // Local: 'http://127.0.0.1:8000/api/job-data'
-        // Production: 'https://ml.genproposals.com/api/job-data'
-        const API_BASE = 'https://ml.genproposals.com/api/job-data';
+        // Local: 'http://127.0.0.1:8000/api/proposals'
+        // Production: 'https://ml.genproposals.com/api/proposals'
+        const API_BASE = 'http://127.0.0.1:8000/api/proposals';
         
         let currentSkills = [];
-        let currentPortfolios = [];
-        let selectedImage = null;
-        let extractedOCRText = '';
-        
-        // Entries pagination
-        let entriesData = [];
-        let currentPage = 0;
-        const perPage = 10;
+        let includeTimeline = false;
+        let isEditMode = false;
+        let originalProposalText = '';
+        let lastRequestData = null;
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            setupTabs();
-            setupForm();
-            setupSkillInput();
-            setupPortfolioInput();
-            setupEntriesView();
-            loadStats();
-            loadFormFromStorage();
-        });
-
-        // === TABS ===
-        function setupTabs() {
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const tabName = tab.dataset.tab;
-                    
-                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                    document.getElementById(`tab-${tabName}`).classList.add('active');
-                    
-                    if (tabName === 'dashboard') loadDashboard();
-                    if (tabName === 'entries') loadEntries();
-                });
-            });
+        // Toast notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show';
+            setTimeout(() => toast.classList.remove('show'), 2000);
         }
 
-        // === FORM ===
-        function setupForm() {
-            const form = document.getElementById('proposal-form');
-            const taskSelect = form.querySelector('select[name="task_type"]');
-            
-            taskSelect.addEventListener('change', () => {
-                document.getElementById('custom-task-group').classList.toggle('hidden', taskSelect.value !== 'other');
-            });
-
-            // Auto-save on change
-            form.addEventListener('input', debounce(saveFormToStorage, 1000));
-
-            form.addEventListener('submit', handleSubmit);
-        }
-
-        function saveFormToStorage() {
-            const form = document.getElementById('proposal-form');
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData);
-            data.skills = currentSkills;
-            data.portfolios = currentPortfolios;
-            localStorage.setItem('training_form_draft', JSON.stringify(data));
-        }
-
-        function loadFormFromStorage() {
-            const saved = localStorage.getItem('training_form_draft');
-            if (!saved) return;
-            
-            try {
-                const data = JSON.parse(saved);
-                const form = document.getElementById('proposal-form');
-                
-                Object.keys(data).forEach(key => {
-                    if (key === 'skills') {
-                        currentSkills = data.skills || [];
-                        renderSkills();
-                    } else if (key === 'portfolios') {
-                        currentPortfolios = data.portfolios || [];
-                        renderPortfolios();
-                    } else if (key === 'feedbackMode') {
-                        // Skip feedbackMode as it's no longer used
-                    } else {
-                        const field = form.elements[key];
-                        if (field) {
-                            if (field.type === 'checkbox') {
-                                field.checked = data[key] === 'on';
-                            } else {
-                                field.value = data[key] || '';
-                            }
-                        }
-                    }
-                });
-            } catch (e) {
-                console.error('Error loading draft:', e);
+        function toggleTimeline() {
+            includeTimeline = !includeTimeline;
+            document.getElementById('timeline-toggle').classList.toggle('active', includeTimeline);
+            document.getElementById('timeline-input').classList.toggle('hidden', !includeTimeline);
+            if (!includeTimeline) {
+                document.getElementById('timeline_duration').value = '';
             }
         }
 
-        async function handleSubmit(e) {
-            e.preventDefault();
-            
-            if (!currentSkills.length) {
-                alert('Please add at least one skill');
-                return;
-            }
-
-            const form = e.target;
-            const formData = new FormData(form);
-            
-            // Build data object matching the backend schema
-            const data = {
-                company_name: formData.get('company_name').trim(),
-                job_title: formData.get('job_title').trim(),
-                job_description: formData.get('job_description').trim(),
-                your_proposal_text: formData.get('your_proposal_text').trim(),
-                industry: formData.get('industry')?.trim() || null,
-                task_type: formData.get('task_type') === 'other' ? formData.get('other_task_type').trim() : formData.get('task_type'),
-                project_status: formData.get('project_status'),
-                skills_required: currentSkills,
-                start_date: formData.get('start_date') || null,
-                end_date: formData.get('end_date') || null,
-                urgent_adhoc: formData.get('urgent_adhoc') === 'on',
-                portfolio_urls: currentPortfolios,
-                client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
-                client_feedback_url: formData.get('client_feedback_url')?.trim() || null
-            };
-
-            showProgress('Uploading data...', 'Storing in database');
-
-            try {
-                const response = await axios.post(`${API_BASE}/upload`, data);
-                
-                if (response.status === 201) {
-                    hideProgress();
-                    showToast('Entry added successfully!');
-                    
-                    // Complete reset - remove all stored data
-                    form.reset();
-                    currentSkills = [];
-                    currentPortfolios = [];
-                    renderSkills();
-                    renderPortfolios();
-                    localStorage.removeItem('training_form_draft');
-                    
-                    loadStats();
-                }
-            } catch (error) {
-                hideProgress();
-                alert('Error: ' + (error.response?.data?.detail || error.message));
-            }
-        }
-
-        function clearForm() {
-            if (!confirm('Clear all form data?')) return;
-            
-            const form = document.getElementById('proposal-form');
-            form.reset();
-            currentSkills = [];
-            currentPortfolios = [];
-            renderSkills();
-            renderPortfolios();
-            localStorage.removeItem('training_form_draft');
-        }
-
-        // === SKILLS ===
-        function setupSkillInput() {
-            document.getElementById('skill-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addSkill();
-                }
-            });
-        }
-
-        function addSkill() {
+        function addSkills() {
             const input = document.getElementById('skill-input');
             const text = input.value.trim();
             if (!text) return;
             
             const skills = text.split(',').map(s => s.trim()).filter(s => s && !currentSkills.includes(s));
-            currentSkills.push(...skills);
-            renderSkills();
-            input.value = '';
-            input.focus();
+            if (skills.length) {
+                currentSkills.push(...skills);
+                renderSkills();
+                input.value = '';
+                input.focus();
+            }
         }
 
         function removeSkill(skill) {
@@ -1009,258 +647,225 @@
             `).join('');
         }
 
-        // === PORTFOLIOS ===
-        function setupPortfolioInput() {
-            document.getElementById('portfolio-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addPortfolio();
-                }
+        function copyToClipboard() {
+            const proposalEl = document.getElementById('proposal-text');
+            const text = proposalEl.innerText;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied');
             });
         }
 
-        function addPortfolio() {
-            const input = document.getElementById('portfolio-input');
-            const text = input.value.trim();
-            if (!text) return;
+        function formatLink(url) {
+            try { return new URL(url).hostname.replace('www.', ''); } 
+            catch { return url; }
+        }
+
+        function resetForm() {
+            document.getElementById('result-state').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+            isEditMode = false;
+            originalProposalText = '';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Edit functionality
+        function toggleEditMode() {
+            const proposalEl = document.getElementById('proposal-text');
+            const editBtn = document.getElementById('edit-btn');
+            const editBtnText = document.getElementById('edit-btn-text');
+            const editBanner = document.getElementById('edit-mode-banner');
             
-            try {
-                new URL(text);
-                if (!currentPortfolios.includes(text)) {
-                    currentPortfolios.push(text);
-                    renderPortfolios();
-                }
-                input.value = '';
-                input.focus();
-            } catch {
-                alert('Please enter a valid URL');
-            }
-        }
-
-        function removePortfolio(url) {
-            currentPortfolios = currentPortfolios.filter(p => p !== url);
-            renderPortfolios();
-        }
-
-        function renderPortfolios() {
-            document.getElementById('portfolio-container').innerHTML = currentPortfolios.map(url => {
-                let hostname;
-                try { hostname = new URL(url).hostname; } catch { hostname = url; }
-                return `
-                    <div class="skill-tag">
-                        ${hostname}
-                        <button type="button" onclick="removePortfolio('${url}')">×</button>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // === FEEDBACK ===
-        // === STATS ===
-        async function loadStats() {
-            try {
-                const response = await axios.get(`${API_BASE}/stats/overview`);
-                document.getElementById('total-count').textContent = response.data.total_jobs || 0;
-            } catch (e) {
-                console.error('Error loading stats:', e);
-            }
-        }
-
-        // === DASHBOARD ===
-        async function loadDashboard() {
-            try {
-                const response = await axios.get(`${API_BASE}/stats/overview`);
-                const stats = response.data;
-                
-                // Key stats
-                document.getElementById('dash-total').textContent = stats.total_jobs || 0;
-                
-                // Count unique industries
-                const industryCount = stats.by_industry ? Object.keys(stats.by_industry).length : 0;
-                document.getElementById('dash-industries').textContent = industryCount;
-                
-                document.getElementById('dash-chunks').textContent = stats.total_chunks || 0;
-                
-                // Industry breakdown with minimalistic design
-                const industryEl = document.getElementById('industry-breakdown');
-                if (stats.by_industry && Object.keys(stats.by_industry).length) {
-                    industryEl.innerHTML = Object.entries(stats.by_industry)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 8)
-                        .map(([industry, count]) => {
-                            const percentage = stats.total_jobs ? ((count / stats.total_jobs) * 100).toFixed(0) : 0;
-                            return `
-                                <div class="flex items-center justify-between py-2.5 px-1 border-b border-neutral-100 hover:border-neutral-300 transition-all duration-200 last:border-0">
-                                    <span class="text-sm text-neutral-700">${industry || 'Unspecified'}</span>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-16 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
-                                            <div class="h-full bg-neutral-900 transition-all duration-300" style="width: ${Math.min(percentage, 100)}%"></div>
-                                        </div>
-                                        <span class="text-xs font-600 text-neutral-900 min-w-8 text-right">${count}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('');
-                } else {
-                    industryEl.innerHTML = '<p class="text-sm text-neutral-500 py-8 text-center">No industry data yet</p>';
-                }
-                
-                // Top skills with minimalistic tag styling
-                const skillsEl = document.getElementById('skills-breakdown');
-                if (stats.top_skills && Array.isArray(stats.top_skills) && stats.top_skills.length) {
-                    skillsEl.innerHTML = stats.top_skills.slice(0, 15).map((skill) => {
-                        return `
-                            <div class="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-500 transition-all duration-200 hover:bg-neutral-800 cursor-default">
-                                ${skill}
-                            </div>
-                        `;
-                    }).join('');
-                } else {
-                    skillsEl.innerHTML = '<p class="text-sm text-neutral-500">No skill data yet</p>';
-                }
-                
-                // Task type distribution with minimalistic design
-                const taskEl = document.getElementById('task-breakdown');
-                if (stats.by_task_type && Object.keys(stats.by_task_type).length) {
-                    taskEl.innerHTML = Object.entries(stats.by_task_type)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 8)
-                        .map(([task, count]) => {
-                            const percentage = stats.total_jobs ? ((count / stats.total_jobs) * 100).toFixed(0) : 0;
-                            return `
-                                <div class="flex items-center justify-between py-2.5 px-1 border-b border-neutral-100 hover:border-neutral-300 transition-all duration-200 last:border-0">
-                                    <span class="text-sm text-neutral-700 capitalize">${task}</span>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-16 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
-                                            <div class="h-full bg-neutral-900 transition-all duration-300" style="width: ${Math.min(percentage, 100)}%"></div>
-                                        </div>
-                                        <span class="text-xs font-600 text-neutral-900 min-w-8 text-right">${count}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('');
-                } else {
-                    taskEl.innerHTML = '<p class="text-sm text-neutral-500 py-8 text-center">No task data yet</p>';
-                }
-            } catch (e) {
-                console.error('Error loading dashboard:', e);
-            }
-        }
-
-        // === ENTRIES ===
-        function setupEntriesView() {
-            document.getElementById('search-input').addEventListener('input', debounce(loadEntries, 300));
-            document.getElementById('status-filter').addEventListener('change', loadEntries);
-            document.getElementById('prev-btn').addEventListener('click', () => {
-                if (currentPage > 0) { currentPage--; renderEntries(); }
-            });
-            document.getElementById('next-btn').addEventListener('click', () => {
-                if ((currentPage + 1) * perPage < entriesData.length) { currentPage++; renderEntries(); }
-            });
-        }
-
-        async function loadEntries() {
-            try {
-                const response = await axios.get(`${API_BASE}/list?limit=100`);
-                let entries = response.data.items || [];
-                
-                const search = document.getElementById('search-input').value.toLowerCase();
-                const status = document.getElementById('status-filter').value;
-                
-                entries = entries.filter(e => {
-                    const matchSearch = !search || 
-                        (e.company_name || '').toLowerCase().includes(search) ||
-                        (e.job_title || '').toLowerCase().includes(search);
-                    const matchStatus = !status || e.project_status === status;
-                    return matchSearch && matchStatus;
-                });
-                
-                entriesData = entries;
-                currentPage = 0;
-                renderEntries();
-            } catch (e) {
-                document.getElementById('entries-table').innerHTML = `
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-red-600">Error loading entries</td></tr>
-                `;
-            }
-        }
-
-        function renderEntries() {
-            const start = currentPage * perPage;
-            const end = start + perPage;
-            const page = entriesData.slice(start, end);
-            
-            const tbody = document.getElementById('entries-table');
-            
-            if (!page.length) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-neutral-500">No entries found</td></tr>`;
+            if (!isEditMode) {
+                // Enter edit mode
+                isEditMode = true;
+                originalProposalText = proposalEl.innerText;
+                proposalEl.setAttribute('contenteditable', 'true');
+                proposalEl.classList.remove('proposal-body');
+                proposalEl.classList.add('proposal-body-editable');
+                proposalEl.focus();
+                editBtnText.textContent = 'Editing...';
+                editBtn.classList.add('action-btn-primary');
+                editBanner.classList.remove('hidden');
             } else {
-                tbody.innerHTML = page.map(e => `
-                    <tr class="border-b border-neutral-200 table-row">
-                        <td class="px-4 py-3">
-                            <p class="font-medium text-neutral-900">${e.company_name}</p>
-                            <p class="text-xs text-neutral-500">${e.contract_id}</p>
-                        </td>
-                        <td class="px-4 py-3 text-neutral-700">${e.job_title}</td>
-                        <td class="px-4 py-3 text-neutral-600">${e.industry || '-'}</td>
-                        <td class="px-4 py-3">
-                            <span class="badge ${
-                                e.project_status === 'completed' ? 'badge-success' :
-                                e.project_status === 'ongoing' ? 'badge-info' : 'badge-muted'
-                            }">${e.project_status}</span>
-                        </td>
-                        <td class="px-4 py-3 font-medium">${e.chunks_count || 0}</td>
-                        <td class="px-4 py-3">
-                            <button onclick="deleteEntry('${e.contract_id}', '${e.company_name}')" class="btn-danger">Delete</button>
-                        </td>
-                    </tr>
-                `).join('');
+                // Exit edit mode (save)
+                saveEdit();
             }
-            
-            document.getElementById('showing-count').textContent = Math.min(end, entriesData.length);
-            document.getElementById('total-entries').textContent = entriesData.length;
-            document.getElementById('prev-btn').disabled = currentPage === 0;
-            document.getElementById('next-btn').disabled = end >= entriesData.length;
         }
 
-        async function deleteEntry(id, name) {
-            if (!confirm(`Delete "${name}" and all its data?`)) return;
+        function saveEdit() {
+            const proposalEl = document.getElementById('proposal-text');
+            const editBtn = document.getElementById('edit-btn');
+            const editBtnText = document.getElementById('edit-btn-text');
+            const editBanner = document.getElementById('edit-mode-banner');
             
+            isEditMode = false;
+            proposalEl.setAttribute('contenteditable', 'false');
+            proposalEl.classList.remove('proposal-body-editable');
+            proposalEl.classList.add('proposal-body');
+            editBtnText.textContent = 'Edit';
+            editBtn.classList.remove('action-btn-primary');
+            editBanner.classList.add('hidden');
+            
+            // Update word count
+            updateWordCount();
+            showToast('Saved');
+        }
+
+        function cancelEdit() {
+            const proposalEl = document.getElementById('proposal-text');
+            const editBtn = document.getElementById('edit-btn');
+            const editBtnText = document.getElementById('edit-btn-text');
+            const editBanner = document.getElementById('edit-mode-banner');
+            
+            isEditMode = false;
+            proposalEl.innerText = originalProposalText;
+            proposalEl.setAttribute('contenteditable', 'false');
+            proposalEl.classList.remove('proposal-body-editable');
+            proposalEl.classList.add('proposal-body');
+            editBtnText.textContent = 'Edit';
+            editBtn.classList.remove('action-btn-primary');
+            editBanner.classList.add('hidden');
+        }
+
+        function updateWordCount() {
+            const text = document.getElementById('proposal-text').innerText;
+            const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+            document.getElementById('word-count').textContent = wordCount;
+        }
+
+        // Quick tweaks
+        async function quickTweak(tweakType) {
+            if (!lastRequestData) {
+                showToast('Generate a proposal first');
+                return;
+            }
+
+            const tweakData = { ...lastRequestData };
+            
+            switch(tweakType) {
+                case 'shorter':
+                    tweakData.max_word_count = Math.max(100, (tweakData.max_word_count || 150) - 50);
+                    break;
+                case 'friendlier':
+                    tweakData.tone = 'friendly';
+                    tweakData.proposal_style = 'casual';
+                    break;
+                case 'technical':
+                    tweakData.proposal_style = 'technical';
+                    tweakData.tone = 'analytical';
+                    break;
+                case 'confident':
+                    tweakData.tone = 'confident';
+                    break;
+            }
+
+            // Show loading
+            showToast('Adjusting...');
+
             try {
-                await axios.delete(`${API_BASE}/delete/${id}`);
-                showToast('Entry deleted');
-                loadEntries();
-                loadStats();
-            } catch (e) {
-                alert('Error: ' + (e.response?.data?.detail || e.message));
+                const res = await axios.post(`${API_BASE}/generate`, tweakData);
+                const result = res.data;
+
+                document.getElementById('proposal-text').innerText = result.generated_proposal;
+                document.getElementById('word-count').innerText = result.word_count;
+                document.getElementById('quality-score').innerText = Math.round((result.confidence_score || 0.85) * 100) + '%';
+
+                showToast('Done');
+            } catch (err) {
+                showToast('Something went wrong');
             }
         }
 
-        // === UTILS ===
-        function showProgress(text, step) {
-            document.getElementById('progress-text').textContent = text;
-            document.getElementById('progress-step').textContent = step;
-            document.getElementById('progress-overlay').classList.add('show');
-        }
+        document.getElementById('proposal-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-        function hideProgress() {
-            document.getElementById('progress-overlay').classList.remove('show');
-        }
+            if (!currentSkills.length) {
+                alert('Please add at least one skill');
+                return;
+            }
 
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2500);
-        }
+            const jobDesc = document.getElementById('job_description').value;
+            const companyMatch = jobDesc.match(/(?:company|client|organization)[\s:]+([^\n]+)/i);
+            const company = companyMatch ? companyMatch[1].trim().substring(0, 50) : 'Client';
+            
+            const titleMatch = jobDesc.match(/^(.+?)(?:\s*[-–]\s*|$)/);
+            const title = titleMatch ? titleMatch[1].trim().substring(0, 50) : 'Project';
 
-        function debounce(fn, delay) {
-            let timer;
-            return (...args) => {
-                clearTimeout(timer);
-                timer = setTimeout(() => fn(...args), delay);
+            const data = {
+                company_name: company,
+                job_title: title,
+                job_description: jobDesc,
+                skills_required: currentSkills,
+                industry: 'general',
+                task_type: document.getElementById('task_type').value || 'other',
+                proposal_style: 'professional',
+                tone: 'confident',
+                max_word_count: 150,
+                similar_projects_count: 3,
+                include_portfolio: true,
+                include_feedback: true,
+                include_previous_proposals: true,
+                include_timeline: includeTimeline,
+                timeline_duration: document.getElementById('timeline_duration').value.trim() || null
             };
-        }
+
+            // Store for rephrase functionality
+            lastRequestData = data;
+
+            // UI: Loading
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('result-state').classList.add('hidden');
+            document.getElementById('loading-state').classList.remove('hidden');
+            
+            const btn = document.getElementById('generate-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="loader mx-auto"></div>';
+
+            try {
+                const res = await axios.post(`${API_BASE}/generate`, data);
+                const result = res.data;
+
+                document.getElementById('proposal-text').innerText = result.generated_proposal;
+                document.getElementById('word-count').innerText = result.word_count;
+                document.getElementById('quality-score').innerText = Math.round((result.confidence_score || 0.85) * 100) + '%';
+
+                // Similar projects
+                const projects = result.similar_projects || [];
+                document.getElementById('similar-projects').innerHTML = projects.length
+                    ? projects.map(p => `
+                        <div class="project-item">
+                            <p class="font-medium text-neutral-800 text-sm">${p.company}</p>
+                            <p class="text-xs text-neutral-500 mt-1">${(p.skills || []).slice(0, 4).join(' · ')}</p>
+                        </div>
+                    `).join('')
+                    : '<p class="text-sm text-neutral-500">None found</p>';
+
+                // Portfolio
+                const links = result.portfolio_links_used || [];
+                document.getElementById('portfolio-links').innerHTML = links.length
+                    ? links.map(url => `<a href="${url}" target="_blank" class="link-item">${formatLink(url)}</a>`).join('')
+                    : '<p class="text-sm text-neutral-500">None included</p>';
+
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('result-state').classList.remove('hidden');
+
+            } catch (err) {
+                alert('Error: ' + (err.response?.data?.detail || err.message));
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('empty-state').classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Generate Proposal';
+            }
+        });
+
+        document.getElementById('skill-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addSkills();
+            }
+        });
     </script>
 </body>
 </html>
