@@ -369,27 +369,124 @@ class RetrievalPipeline:
         use_semantic_search: bool = True
     ) -> List[Tuple[Dict[str, Any], float]]:
         """
-        STAGE 2: Semantic ranking using embeddings + metadata.
+        STAGE 2: Semantic ranking using Pinecone embeddings + metadata.
         
-        Combines semantic similarity with metadata similarity.
+        Combines:
+        1. Semantic similarity from Pinecone embeddings (if available)
+        2. Metadata similarity from project attributes
+        3. Diversity boost to avoid returning the same portfolios repeatedly
         """
         from app.utils.metadata_extractor import MetadataExtractor
 
         ranked = []
+        pinecone_scores = {}  # contract_id -> semantic score from Pinecone
 
+        # Try to use Pinecone semantic search for better ranking
+        if use_semantic_search and self.pinecone_service:
+            try:
+                import os
+                from app.utils.openai_service import OpenAIService
+                from app.config import settings
+                
+                api_key = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
+                if not api_key:
+                    raise ValueError("OPENAI_API_KEY not set")
+                    
+                openai_service = OpenAIService(api_key=api_key)
+                
+                # Create query text from new job
+                query_text = f"{new_job.get('job_title', '')} {new_job.get('job_description', '')[:500]}"
+                query_embedding = openai_service.get_embedding(query_text)
+                
+                if query_embedding:
+                    # Query Pinecone for semantic matches
+                    pinecone_results = self.pinecone_service.query_vectors(
+                        query_embedding=query_embedding,
+                        top_k=50,  # Get more results for diversity
+                        include_metadata=True
+                    )
+                    
+                    # Build contract_id -> score mapping from Pinecone results
+                    for result in pinecone_results:
+                        contract_id = result.get("metadata", {}).get("contract_id")
+                        if contract_id:
+                            # Keep highest score for each contract
+                            current_score = pinecone_scores.get(contract_id, 0)
+                            pinecone_scores[contract_id] = max(current_score, result.get("score", 0))
+                    
+                    logger.info(f"  → Pinecone returned {len(pinecone_scores)} unique contracts with scores")
+            except Exception as e:
+                logger.warning(f"  ⚠ Pinecone semantic search failed, using metadata only: {e}")
+
+        # Calculate combined scores for each candidate job
         for job in candidate_jobs:
-            # Use metadata similarity
+            contract_id = job.get("contract_id", "")
+            
+            # Metadata similarity (always computed)
             similarity_scores = MetadataExtractor.compare_projects(new_job, job)
-            overall_sim = MetadataExtractor.calculate_overall_similarity(similarity_scores)
+            metadata_sim = MetadataExtractor.calculate_overall_similarity(similarity_scores)
+            
+            # Semantic similarity from Pinecone (if available)
+            semantic_sim = pinecone_scores.get(contract_id, 0.0)
+            
+            # Combined score: weight semantic search higher when available
+            if semantic_sim > 0:
+                # 60% semantic + 40% metadata when we have Pinecone scores
+                combined_score = (semantic_sim * 0.6) + (metadata_sim * 0.4)
+            else:
+                # Fall back to metadata only
+                combined_score = metadata_sim
 
-            # Could enhance with semantic search if available
-            # For now, use metadata-based ranking
-            ranked.append((job, overall_sim))
+            ranked.append((job, combined_score))
 
-        # Sort by similarity descending
+        # Sort by combined score descending
         ranked.sort(key=lambda x: x[1], reverse=True)
 
-        return ranked
+        # Apply diversity boost: avoid returning jobs with same company name or very similar portfolios
+        diversified = self._apply_diversity(ranked)
+
+        return diversified
+
+    def _apply_diversity(
+        self,
+        ranked_projects: List[Tuple[Dict[str, Any], float]],
+        max_per_company: int = 1
+    ) -> List[Tuple[Dict[str, Any], float]]:
+        """
+        Apply diversity to avoid returning the same companies/portfolios repeatedly.
+        
+        This ensures proposal references are varied and don't always cite the same projects.
+        """
+        seen_companies = {}  # company_name -> count
+        seen_portfolios = set()  # track unique portfolio URLs
+        diversified = []
+        
+        for job, score in ranked_projects:
+            company = job.get("company_name", "").lower().strip()
+            portfolio_urls = job.get("portfolio_urls", [])
+            
+            # Skip if we've already selected max_per_company projects from this company
+            if company and seen_companies.get(company, 0) >= max_per_company:
+                logger.debug(f"  → Skipping duplicate company: {company}")
+                continue
+            
+            # Skip if portfolio URLs are identical to already selected projects
+            portfolio_key = tuple(sorted(url.lower() for url in portfolio_urls if url))
+            if portfolio_key and portfolio_key in seen_portfolios:
+                logger.debug(f"  → Skipping duplicate portfolio: {portfolio_key[:1]}")
+                continue
+            
+            # Add to diversified results
+            diversified.append((job, score))
+            
+            # Track what we've seen
+            if company:
+                seen_companies[company] = seen_companies.get(company, 0) + 1
+            if portfolio_key:
+                seen_portfolios.add(portfolio_key)
+        
+        logger.info(f"  → Diversity filter: {len(ranked_projects)} → {len(diversified)} unique projects")
+        return diversified
 
     def _extract_insights(
         self,
