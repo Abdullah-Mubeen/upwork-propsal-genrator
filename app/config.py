@@ -55,8 +55,8 @@ class Settings:
     # Rate Limiting
     RATE_LIMIT: str = os.getenv("RATE_LIMIT", "30/minute")  # Format: "count/period"
     
-    # CORS - comma-separated origins, "*" for all
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:5500")
+    # CORS - comma-separated origins
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "https://genproposals.com,https://www.genproposals.com,http://127.0.0.1:8000,http://127.0.0.1:5500")
     
     # File Upload Configuration
     MAX_FILE_SIZE_MB: int = int(os.getenv("MAX_FILE_SIZE_MB", "10"))
