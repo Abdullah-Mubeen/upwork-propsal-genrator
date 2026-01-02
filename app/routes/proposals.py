@@ -46,7 +46,7 @@ class GenerateProposalRequest(BaseModel):
     # Proposal customization
     proposal_style: str = Field("professional", description="Style: professional, casual, technical, creative, data_driven")
     tone: str = Field("confident", description="Tone: confident, humble, enthusiastic, analytical, friendly")
-    max_word_count: int = Field(150, ge=100, le=1500, description="Target proposal length in words")
+    max_word_count: int = Field(300, ge=100, le=1500, description="Target proposal length in words (default 300, recommended 200-350)")
     
     # Timeline options
     include_timeline: bool = Field(False, description="Include timeline in proposal? If false, no timeline section added")
@@ -291,10 +291,10 @@ async def generate_proposal(request: GenerateProposalRequest):
         # Step 6: Generate proposal
         logger.info(f"[ProposalAPI] Step 6: Generating proposal with AI...")
         
-        # Calculate max_tokens: target ~150 words (SHORT & PUNCHY format)
-        # 150 words ≈ 200 tokens (1.33 tokens per word average)
-        # Use 250 tokens for consistent 150-180 word output
-        max_tokens = 250
+        # Calculate max_tokens based on target word count
+        # Average: 1.33 tokens per word, add 20% buffer for complete output
+        # For 300 words target: 300 * 1.33 * 1.2 ≈ 480 tokens, round up to 600 for safety
+        max_tokens = int(request.max_word_count * 1.5) + 100  # Dynamic based on request
         
         proposal_text = openai_service.generate_text(
             prompt=prompt,
@@ -304,7 +304,7 @@ async def generate_proposal(request: GenerateProposalRequest):
         
         word_count = len(proposal_text.split())
         
-        logger.info(f"[ProposalAPI] Generated {word_count} word proposal (target ~150 max)")
+        logger.info(f"[ProposalAPI] Generated {word_count} word proposal (target ~{request.max_word_count})")
         
         # Step 7: Score quality and suggest improvements
         logger.info(f"[ProposalAPI] Step 7: Scoring proposal quality...")

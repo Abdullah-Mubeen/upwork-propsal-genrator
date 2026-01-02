@@ -119,6 +119,135 @@ Your response should be:
         ProposalTone.FRIENDLY: "Warm and approachable. Show personality, use 'we', collaborative language, genuine interest."
     }
 
+    # Pain point keywords that indicate client frustration/urgency
+    PAIN_POINT_INDICATORS = {
+        "frustration": ["frustrated", "struggling", "can't figure out", "doesn't work", "broken", "not working", "issues", "problems", "nightmare", "headache", "stuck"],
+        "urgency": ["urgent", "asap", "immediately", "deadline", "time-sensitive", "need quickly", "fast turnaround", "rush", "critical"],
+        "previous_failure": ["previous developer", "last freelancer", "didn't work out", "need someone new", "past experience", "tried before"],
+        "business_impact": ["losing sales", "losing customers", "revenue", "customers complaining", "bad reviews", "conversion", "cart abandonment"],
+        "complexity": ["complex", "complicated", "difficult", "challenging", "advanced", "sophisticated"],
+        "growth": ["scaling", "growing", "expansion", "more traffic", "increased demand", "outgrown"]
+    }
+
+    # Empathy responses for different pain points
+    EMPATHY_RESPONSES = {
+        "frustration": [
+            "I know how frustrating that can be",
+            "That sounds really annoying to deal with", 
+            "I get it - that's a common pain point",
+            "Been there, totally understand the headache"
+        ],
+        "urgency": [
+            "I understand you need this handled quickly",
+            "Time pressure is real - let's get this sorted",
+            "No worries, I can prioritize this"
+        ],
+        "previous_failure": [
+            "Sorry to hear the last experience didn't work out",
+            "I understand the hesitation after a bad experience",
+            "Let me show you a different approach"
+        ],
+        "business_impact": [
+            "Losing sales is never fun - let's fix that",
+            "I know how much that impacts your bottom line",
+            "Revenue matters, so let's get this working ASAP"
+        ],
+        "complexity": [
+            "I love a good technical challenge",
+            "This is exactly the kind of project I specialize in",
+            "Complex projects are where I do my best work"
+        ],
+        "growth": [
+            "Congrats on the growth - exciting problem to have!",
+            "Scaling challenges are a good sign",
+            "Love helping businesses level up"
+        ]
+    }
+
+    @staticmethod
+    def extract_pain_points(job_description: str) -> Dict[str, List[str]]:
+        """
+        Extract specific pain points and frustrations from the job description.
+        
+        This helps craft proposals that directly address what's bothering the client.
+        
+        Returns:
+            Dict with pain point categories and matching phrases found
+        """
+        job_desc_lower = job_description.lower()
+        found_pain_points = {}
+        
+        for category, keywords in PromptEngine.PAIN_POINT_INDICATORS.items():
+            matches = []
+            for keyword in keywords:
+                if keyword in job_desc_lower:
+                    # Extract the sentence containing this keyword for context
+                    sentences = job_description.split('.')
+                    for sentence in sentences:
+                        if keyword in sentence.lower():
+                            matches.append(sentence.strip())
+                            break
+            if matches:
+                found_pain_points[category] = matches[:2]  # Max 2 per category
+        
+        return found_pain_points
+
+    @staticmethod
+    def build_empathy_statement(pain_points: Dict[str, List[str]], tone: str = "friendly") -> str:
+        """
+        Build a natural empathy statement based on detected pain points.
+        
+        This creates genuine human connection in the proposal opening.
+        """
+        import random
+        
+        if not pain_points:
+            return ""
+        
+        # Prioritize business impact and urgency
+        priority_order = ["business_impact", "urgency", "frustration", "previous_failure", "growth", "complexity"]
+        
+        for category in priority_order:
+            if category in pain_points:
+                responses = PromptEngine.EMPATHY_RESPONSES.get(category, [])
+                if responses:
+                    return random.choice(responses)
+        
+        return ""
+
+    @staticmethod  
+    def extract_specific_problem(job_description: str, job_title: str) -> str:
+        """
+        Extract the SPECIFIC problem the client needs solved.
+        
+        This goes beyond generic "build a website" to "migrate 5000 subscribers from Substack"
+        """
+        job_desc_lower = job_description.lower()
+        
+        # Look for specific quantifiable mentions
+        import re
+        
+        # Find numbers + context (e.g., "5000+ subscribers", "2000 products", "30+ seconds")
+        number_patterns = re.findall(r'(\d+[\+]?\s*(?:subscribers|products|items|users|customers|posts|articles|pages|seconds|ms|visitors|orders|\%))', job_desc_lower)
+        
+        # Find specific tool/platform mentions
+        tool_mentions = []
+        tools = ['substack', 'mailchimp', 'woocommerce', 'shopify', 'wordpress', 'elementor', 'stripe', 'paypal']
+        for tool in tools:
+            if tool in job_desc_lower:
+                tool_mentions.append(tool.title())
+        
+        # Build specific problem statement
+        specific_parts = []
+        
+        if number_patterns:
+            specific_parts.append(number_patterns[0])
+        
+        if tool_mentions:
+            specific_parts.append(f"with {'/'.join(tool_mentions[:2])}")
+        
+        return ', '.join(specific_parts) if specific_parts else ""
+
     def build_proposal_prompt(
         self,
         job_data: Dict[str, Any],
@@ -126,7 +255,7 @@ Your response should be:
         success_patterns: List[str],
         style: str = "professional",
         tone: str = "confident",
-        max_words: int = 200,
+        max_words: int = 300,
         include_portfolio: bool = True,
         include_feedback: bool = True,
         include_timeline: bool = False,
@@ -151,7 +280,7 @@ Your response should be:
             success_patterns: Patterns that worked
             style: Writing style
             tone: Proposal tone
-            max_words: Target word count (default 200, ideal range 150-250)
+            max_words: Target word count (default 300, ideal range 200-350)
             include_portfolio: Include portfolio links?
             include_feedback: Include feedback/testimonials?
             include_timeline: Include timeline section? (default False)
@@ -189,7 +318,7 @@ Your response should be:
         prompt = f"""
 {self._get_system_role(style)}
 
-{self._get_proposal_system_rules(include_timeline)}
+{self._get_proposal_system_rules(include_timeline, job_data)}
 
 {job_section}
 
@@ -203,7 +332,7 @@ Your response should be:
 
 {tone_guide}
 
-Generate the proposal NOW. Target: {max_words} words (ideal range: 150-250).
+Generate the proposal NOW. Target: {max_words} words (ideal range: 200-350).
 
 CRITICAL RULES:
 1. NO "As an AI", "I'm an AI", corporate jargon, or formal language
@@ -214,7 +343,7 @@ CRITICAL RULES:
 6. Be conversational, direct, punchy - every word counts
 {timeline_instruction}
 8. End with a friendly, easygoing CTA (e.g., "Happy to hop on a quick call" or "Let me know if you want to chat")
-9. AIM FOR 150-250 words (short proposals get 3-5x better response rates)
+9. AIM FOR 200-350 words (balanced length - not too short, not overwhelming)
 10. PLATFORM MATCH: WordPress job = WordPress examples ONLY, Shopify job = Shopify examples ONLY
 11. NO robotic phrases like "I am eager to", "I would be delighted" - talk like a real human
 """
@@ -280,7 +409,7 @@ Improved Proposal:
         }
         return roles.get(style, roles["professional"])
 
-    def _get_proposal_system_rules(self, include_timeline: bool = False) -> str:
+    def _get_proposal_system_rules(self, include_timeline: bool = False, job_data: Dict[str, Any] = None) -> str:
         """Get critical system rules for generating SHORT, HUMAN, WINNING proposals"""
         
         timeline_rule = ""
@@ -292,9 +421,42 @@ Improved Proposal:
             timeline_rule = "✗ NO timeline section - skip it entirely"
             timeline_pattern = "4. SKIP TIMELINE - do not mention duration or timeline"
         
+        # Extract pain points and build empathy guidance
+        pain_points_section = ""
+        empathy_statement = ""
+        specific_problem = ""
+        if job_data:
+            job_desc = job_data.get('job_description', '')
+            job_title = job_data.get('job_title', '')
+            pain_points = self.extract_pain_points(job_desc)
+            empathy_statement = self.build_empathy_statement(pain_points)
+            specific_problem = self.extract_specific_problem(job_desc, job_title)
+            
+            if pain_points:
+                pain_points_section = f"""
+
+DETECTED CLIENT PAIN POINTS (address these directly!):
+"""
+                for category, phrases in pain_points.items():
+                    pain_points_section += f"• {category.upper()}: {phrases[0][:100]}...\n"
+            
+            if empathy_statement:
+                pain_points_section += f"\n💡 SUGGESTED EMPATHY OPENER: \"{empathy_statement}\"\n"
+            
+            if specific_problem:
+                pain_points_section += f"\n🎯 SPECIFIC PROBLEM TO ADDRESS: {specific_problem}\n"
+        
         return f"""
 SYSTEM MESSAGE - CRITICAL RULES:
 You are a SHORT, HUMAN, WINNING proposal writer. Your goal: 3-5x better response rates.
+{pain_points_section}
+
+🧠 THE HUMAN CONNECTION FORMULA:
+1. SHOW you read their job post (reference SPECIFIC details they mentioned)
+2. FEEL their frustration/urgency (empathize, don't just acknowledge)
+3. PROVE you've solved this EXACT problem before (with links)
+4. EXPLAIN your specific approach for THEIR situation
+5. MAKE IT EASY to say yes (friendly, low-pressure CTA)
 
 WHAT NOT TO DO:
 ❌ NEVER say "As an AI" or "I'm an AI"
@@ -302,7 +464,7 @@ WHAT NOT TO DO:
 ❌ NO generic opening or "I'm excited to help" or "I'm thrilled"
 ❌ NO long introductions - get straight to the point
 ❌ NO talking about yourself - focus on THEIR problem
-❌ NO proposals over 250 words - SHORT = HIGH IMPACT
+❌ NO proposals over 350 words - CONCISE = HIGH IMPACT
 ❌ NO robotic phrases like "I would be delighted", "I am eager to", "I look forward to"
 ❌ NO formal sign-offs like "Best regards", "Sincerely", "Warm regards" - keep it casual
 ❌ DO NOT fabricate or invent feedback URLs - only use ones provided in the data
@@ -317,7 +479,7 @@ WHAT TO DO:
 ✓ Show specific approach for THEIR tech stack
 {timeline_rule}
 ✓ End with friendly, easygoing CTA (e.g., "Happy to chat more" or "Let me know what you think")
-✓ Total: 150-250 words (SHORT, direct, human)
+✓ Total: 200-350 words (concise, direct, human)
 
 CONVERSATIONAL TONE EXAMPLES:
 ✓ "Saw your job post and this is right up my alley"
@@ -374,7 +536,7 @@ CRITICAL LINK FORMAT:
 - Portfolio URL = ALWAYS include (live work proof)
 - Feedback URL = ONLY if provided in the data (don't fabricate)
 
-TARGET: 150-250 words MAXIMUM. Every word must count.
+TARGET: 200-350 words. Every word must count. Include enough detail to build trust.
 """
 
     def _build_hook_proof_approach_structure(
@@ -456,11 +618,33 @@ Keep it conversational and easygoing, not robotic!
 Do NOT include any timeline or duration in this proposal.
 """
 
+        # Extract pain points for HOOK guidance
+        pain_points = self.extract_pain_points(job_data.get('job_description', ''))
+        specific_problem = self.extract_specific_problem(job_data.get('job_description', ''), job_data.get('job_title', ''))
+        empathy_opener = self.build_empathy_statement(pain_points)
+        
+        # Build pain-point-aware hook guidance
+        hook_guidance = ""
+        if pain_points:
+            if 'frustration' in pain_points or 'previous_failure' in pain_points:
+                hook_guidance = "\n💡 This client sounds frustrated - show empathy and reassurance!"
+            elif 'urgency' in pain_points:
+                hook_guidance = "\n💡 This client is in a hurry - emphasize quick turnaround and availability!"
+            elif 'business_impact' in pain_points:
+                hook_guidance = "\n💡 This is affecting their business - show you understand the revenue impact!"
+
         return f"""
 PROPOSAL STRUCTURE TO USE:
 
 [HOOK - 2-3 sentences WITH PORTFOLIO LINK]
 {hook_example}
+{hook_guidance}
+
+🎯 HUMANIZE YOUR HOOK - Don't just acknowledge the problem, FEEL it with them:
+• BAD: "I see you need a WordPress migration"
+• GOOD: "Migrating 5000 subscribers while keeping your membership tiers intact - that's no small task"
+• BEST: "I know how stressful platform migrations can be, especially with 5000+ subscribers counting on you"
+
 ⚠️ IMPORTANT: Include a portfolio link IN THE HOOK! Clients see this in the preview - it triggers curiosity!
 ⚠️ USE PLAIN URLs only (e.g., https://example.com) - NOT markdown format like [text](url)
 
@@ -468,28 +652,35 @@ PROPOSAL STRUCTURE TO USE:
 Reference these similar past projects:
 {projects_proof}
 
-Format each proof point like:
-- **Company Name**: Brief outcome
+📝 Format each proof point CONVERSATIONALLY:
+• BAD: "Successfully completed WordPress project for Acme Corp"
+• GOOD: "Just wrapped up something similar for Acme Corp - migrated their entire blog and membership system"
   Live work: https://portfolio-url.com
   (Only include feedback URL if it exists in the data above - DON'T fabricate)
 
-[APPROACH - 2-3 sentences]
-"For you, I'd [specific approach for their tech stack]..."
+[APPROACH - 2-3 sentences that show YOU UNDERSTAND THEIR SPECIFIC SITUATION]
+🎯 Personalize to THEIR situation, not generic "I will deliver excellent results":
+• BAD: "I will ensure a smooth migration process"
+• GOOD: "For your Substack → WordPress move, I'd handle the subscriber import first (preserving tiers), then migrate content, and finally set up your paywall"
 {timeline_section}
 [CTA - 1 casual sentence]
-End with something friendly and easygoing like:
-- "Happy to hop on a quick call to discuss"
-- "Let me know what you think!"
-- "Drop me a message if you have questions"
-- "Cheers!"
-NO formal sign-offs like "Best regards" or "Sincerely"!
+End naturally - like texting a colleague, not writing a formal letter:
+• "Happy to hop on a quick call to discuss"
+• "Let me know what you think!"
+• "Shoot me a message if you have questions"
+• Just end naturally - no sign-off needed!
+
+❌ NEVER use: "Best regards", "Sincerely", "Looking forward to hearing from you"
 
 CRITICAL FORMAT RULES:
 1. Use PLAIN URLs (https://example.com) - NOT markdown [text](url) format
 2. Include feedback URLs alongside portfolio links
 3. Target: 150-250 words MAXIMUM. PUT A PORTFOLIO LINK IN THE HOOK!
 4. PLATFORM MATCH: WordPress job = WordPress examples, Shopify job = Shopify examples
-5. Sound like a human having a conversation, NOT a robot or AI
+5. Sound like a human having a CONVERSATION - casual, genuine, understanding
+
+🔑 THE WINNING FORMULA:
+Empathy → Proof → Specific Solution → Easy Next Step
 """
 
     def _build_job_section(self, job_data: Dict[str, Any]) -> str:

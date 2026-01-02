@@ -32,6 +32,7 @@ class FilterCriteria:
     completed_only: bool = False
     with_feedback: bool = False
     platform: Optional[str] = None  # wordpress, shopify, woocommerce, etc.
+    urgent_adhoc: Optional[bool] = None  # Prioritize urgent/adhoc projects when job is urgent
 
 
 class RetrievalPipeline:
@@ -179,6 +180,10 @@ class RetrievalPipeline:
             # Store intents in job_data for later use in ranking
             job_data["client_intents"] = client_intents
 
+        # Log urgency detection
+        if urgency:
+            logger.info(f"  → URGENT/AD-HOC project detected - will prioritize similar urgent projects")
+
         # Build flexible criteria (not overly restrictive)
         # We want to find projects with feedback first, then broaden if needed
         return FilterCriteria(
@@ -187,7 +192,8 @@ class RetrievalPipeline:
             task_type=task_type if task_type else None,
             with_feedback=False,  # Don't require feedback - include if available
             completed_only=True,  # Only completed projects (proven success)
-            platform=platform  # CRITICAL: Platform-specific filtering
+            platform=platform,  # CRITICAL: Platform-specific filtering
+            urgent_adhoc=urgency if urgency else None  # Prioritize urgent projects when job is urgent
         )
     
     def _detect_platform(self, job_data: Dict[str, Any]) -> Optional[str]:
@@ -240,8 +246,12 @@ class RetrievalPipeline:
         CRITICAL: Platform matching is the HIGHEST priority filter.
         WordPress job = WordPress projects ONLY (same for Shopify, etc.)
         NEVER mix competing platforms (WordPress ≠ Shopify)
+        
+        URGENT/AD-HOC: When job is urgent, prioritize past urgent projects first
+        (they show you can handle time-sensitive work)
         """
         platform_matched = []  # Projects matching the detected platform
+        urgent_matched = []    # Urgent/ad-hoc projects (when job is urgent)
         skill_matched = []     # Projects matching skills (fallback) - but NOT competing platforms
         
         # Define competing platforms that should NEVER be mixed
@@ -263,6 +273,7 @@ class RetrievalPipeline:
                 continue
             
             job_platform = self._detect_job_platform(job)
+            job_is_urgent = job.get("urgent_adhoc", False)
             
             # CRITICAL: EXCLUDE competing platforms
             if criteria.platform and job_platform in excluded_platforms:
@@ -272,13 +283,22 @@ class RetrievalPipeline:
             # CRITICAL: Platform matching - highest priority
             if criteria.platform:
                 if job_platform == criteria.platform:
-                    platform_matched.append(job)
-                    logger.debug(f"  ✓ Platform match: {job.get('company_name')} ({job_platform})")
+                    # If job is urgent AND this past project was also urgent - EXTRA priority
+                    if criteria.urgent_adhoc and job_is_urgent:
+                        urgent_matched.append(job)
+                        logger.debug(f"  ⚡ URGENT match: {job.get('company_name')} ({job_platform}) - past urgent project!")
+                    else:
+                        platform_matched.append(job)
+                        logger.debug(f"  ✓ Platform match: {job.get('company_name')} ({job_platform})")
                     continue
                 # Check for related platforms (e.g., WooCommerce ↔ WordPress)
                 if self._are_platforms_related(criteria.platform, job_platform):
-                    platform_matched.append(job)
-                    logger.debug(f"  ✓ Related platform match: {job.get('company_name')} ({job_platform} related to {criteria.platform})")
+                    if criteria.urgent_adhoc and job_is_urgent:
+                        urgent_matched.append(job)
+                        logger.debug(f"  ⚡ URGENT related match: {job.get('company_name')} ({job_platform})")
+                    else:
+                        platform_matched.append(job)
+                        logger.debug(f"  ✓ Related platform match: {job.get('company_name')} ({job_platform} related to {criteria.platform})")
                     continue
             
             # Skills filter (soft - at least some overlap) - but ONLY if not a competing platform
@@ -288,7 +308,17 @@ class RetrievalPipeline:
                 if job_skills & query_skills:  # Has overlap
                     skill_matched.append(job)
         
-        # PRIORITY: Return platform-matched projects first
+        # PRIORITY ORDER:
+        # 1. Urgent projects (when job is urgent) - shows you can handle time pressure
+        # 2. Platform-matched projects  
+        # 3. Skill-matched projects
+        
+        if urgent_matched:
+            logger.info(f"  ⚡ Found {len(urgent_matched)} URGENT projects matching platform: {criteria.platform}")
+            # Combine urgent matches first, then platform matches
+            combined = urgent_matched + [p for p in platform_matched if p not in urgent_matched]
+            return combined
+        
         if platform_matched:
             logger.info(f"  → Found {len(platform_matched)} projects matching platform: {criteria.platform}")
             return platform_matched
