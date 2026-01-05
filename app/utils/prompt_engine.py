@@ -122,11 +122,20 @@ Your response should be:
     # Pain point keywords that indicate client frustration/urgency
     PAIN_POINT_INDICATORS = {
         "frustration": ["frustrated", "struggling", "can't figure out", "doesn't work", "broken", "not working", "issues", "problems", "nightmare", "headache", "stuck"],
-        "urgency": ["urgent", "asap", "immediately", "deadline", "time-sensitive", "need quickly", "fast turnaround", "rush", "critical"],
-        "previous_failure": ["previous developer", "last freelancer", "didn't work out", "need someone new", "past experience", "tried before"],
-        "business_impact": ["losing sales", "losing customers", "revenue", "customers complaining", "bad reviews", "conversion", "cart abandonment"],
+        "urgency": ["urgent", "asap", "immediately", "deadline", "time-sensitive", "need quickly", "fast turnaround", "rush", "critical", "today", "right now", "this week", "costing us", "every hour", "emergency"],
+        "previous_failure": ["previous developer", "last freelancer", "didn't work out", "need someone new", "past experience", "tried before", "went mia", "disappeared", "ghosted"],
+        "business_impact": ["losing sales", "losing customers", "revenue", "customers complaining", "bad reviews", "conversion", "cart abandonment", "costing us money", "affecting business"],
         "complexity": ["complex", "complicated", "difficult", "challenging", "advanced", "sophisticated"],
         "growth": ["scaling", "growing", "expansion", "more traffic", "increased demand", "outgrown"]
+    }
+
+    # Urgency timeline responses - faster promises for urgent jobs
+    URGENCY_TIMELINE_PROMISES = {
+        "critical": "I can start right now and have this fixed within hours",
+        "today": "I'm available today - can jump on this immediately",
+        "asap": "Can get started today and have it sorted by tomorrow",
+        "this_week": "I can prioritize this and wrap it up in 2-3 days",
+        "standard": None  # Use normal timeline
     }
 
     # Empathy responses for different pain points
@@ -138,9 +147,11 @@ Your response should be:
             "Been there, totally understand the headache"
         ],
         "urgency": [
-            "I understand you need this handled quickly",
-            "Time pressure is real - let's get this sorted",
-            "No worries, I can prioritize this"
+            "I understand you need this handled quickly - I'm available now",
+            "Time pressure is real - I can start immediately",
+            "No worries, I can prioritize this and jump on it today",
+            "I know every hour counts - let's fix this ASAP",
+            "I can see this is urgent - I'm free to start right now"
         ],
         "previous_failure": [
             "Sorry to hear the last experience didn't work out",
@@ -163,6 +174,52 @@ Your response should be:
             "Love helping businesses level up"
         ]
     }
+
+    @staticmethod
+    def detect_urgency_level(job_description: str, job_title: str = "") -> str:
+        """
+        Detect the urgency level of a job to provide appropriate timeline promises.
+        
+        Returns:
+            Urgency level: 'critical', 'today', 'asap', 'this_week', or 'standard'
+        """
+        text = f"{job_title} {job_description}".lower()
+        
+        # Critical urgency indicators (hours matter)
+        critical_keywords = ["emergency", "critical", "site down", "broken", "not working", "right now", "within hours", "losing sales", "costing us", "every hour"]
+        for kw in critical_keywords:
+            if kw in text:
+                return "critical"
+        
+        # Today urgency (same day)
+        today_keywords = ["today", "immediately", "asap", "urgent help"]
+        for kw in today_keywords:
+            if kw in text:
+                return "today"
+        
+        # ASAP urgency (within 1-2 days)
+        asap_keywords = ["asap", "urgent", "rush", "quick turnaround", "fast", "need quickly"]
+        for kw in asap_keywords:
+            if kw in text:
+                return "asap"
+        
+        # This week urgency
+        week_keywords = ["this week", "deadline", "time-sensitive"]
+        for kw in week_keywords:
+            if kw in text:
+                return "this_week"
+        
+        return "standard"
+
+    @staticmethod
+    def get_urgency_timeline_promise(urgency_level: str) -> Optional[str]:
+        """
+        Get appropriate timeline promise based on urgency level.
+        
+        Returns:
+            Timeline promise string or None for standard urgency
+        """
+        return PromptEngine.URGENCY_TIMELINE_PROMISES.get(urgency_level)
 
     @staticmethod
     def extract_pain_points(job_description: str) -> Dict[str, List[str]]:
@@ -425,12 +482,17 @@ Improved Proposal:
         pain_points_section = ""
         empathy_statement = ""
         specific_problem = ""
+        urgency_promise = ""
         if job_data:
             job_desc = job_data.get('job_description', '')
             job_title = job_data.get('job_title', '')
             pain_points = self.extract_pain_points(job_desc)
             empathy_statement = self.build_empathy_statement(pain_points)
             specific_problem = self.extract_specific_problem(job_desc, job_title)
+            
+            # Detect urgency level and get appropriate timeline promise
+            urgency_level = self.detect_urgency_level(job_desc, job_title)
+            urgency_timeline = self.get_urgency_timeline_promise(urgency_level)
             
             if pain_points:
                 pain_points_section = f"""
@@ -445,6 +507,13 @@ DETECTED CLIENT PAIN POINTS (address these directly!):
             
             if specific_problem:
                 pain_points_section += f"\n🎯 SPECIFIC PROBLEM TO ADDRESS: {specific_problem}\n"
+            
+            # Add urgency-based timeline promise
+            if urgency_level != "standard" and urgency_timeline:
+                pain_points_section += f"\n⚡ URGENT JOB DETECTED ({urgency_level.upper()})!\n"
+                pain_points_section += f"   → Promise fast turnaround: \"{urgency_timeline}\"\n"
+                pain_points_section += f"   → Show availability and willingness to prioritize\n"
+                urgency_promise = urgency_timeline
         
         return f"""
 SYSTEM MESSAGE - CRITICAL RULES:
@@ -518,8 +587,14 @@ COMBINED REQUIREMENT - INTENT + PLATFORM:
 ✓ NOT just any WordPress project - must be RELEVANT work!
 
 SUCCESS PATTERN:
-1. HOOK (1-2 sentences): Acknowledge THEIR specific problem + include ONE portfolio link to similar work
-   Example: "Noticed you're dealing with slow WooCommerce load times - I just wrapped up a similar fix: https://example.com/"
+1. HOOK (1-2 sentences): DIRECTLY ADDRESS THEIR PAIN POINT + include ONE portfolio link
+   ❌ BAD HOOK: "I see you need WordPress help" (too generic)
+   ❌ BAD HOOK: "I'm an experienced developer" (about you, not them)
+   ✅ GOOD HOOK: "8-10 second load times are brutal for conversions - I just fixed this exact issue" + portfolio link
+   ✅ GREAT HOOK: "I know how frustrating it is when checkout stops working and sales drop every hour" + portfolio link
+   → Start with THEIR problem, not your qualifications
+   → Include empathy if they sound frustrated
+   → Drop a portfolio link immediately (they see this in preview!)
 2. PROOF (2 bullets): Past similar projects + portfolio links (+ feedback URLs IF available)
 3. APPROACH (2-3 sentences): How you'd solve THEIR problem specifically
 {timeline_pattern}
@@ -623,15 +698,23 @@ Do NOT include any timeline or duration in this proposal.
         specific_problem = self.extract_specific_problem(job_data.get('job_description', ''), job_data.get('job_title', ''))
         empathy_opener = self.build_empathy_statement(pain_points)
         
-        # Build pain-point-aware hook guidance
+        # Build pain-point-aware hook guidance with SPECIFIC instructions
         hook_guidance = ""
         if pain_points:
-            if 'frustration' in pain_points or 'previous_failure' in pain_points:
-                hook_guidance = "\n💡 This client sounds frustrated - show empathy and reassurance!"
-            elif 'urgency' in pain_points:
-                hook_guidance = "\n💡 This client is in a hurry - emphasize quick turnaround and availability!"
+            if 'urgency' in pain_points:
+                urgency_level = self.detect_urgency_level(job_data.get('job_description', ''), job_data.get('job_title', ''))
+                urgency_timeline = self.get_urgency_timeline_promise(urgency_level)
+                hook_guidance = f"\n⚡ URGENT JOB - Start your HOOK acknowledging the time pressure!\n"
+                hook_guidance += f"   Example opener: \"I know every hour counts when checkout is down - {urgency_timeline or 'I can prioritize this'}\"\n"
+                hook_guidance += f"   → Show immediate availability and commitment to fast delivery"
+            elif 'frustration' in pain_points or 'previous_failure' in pain_points:
+                hook_guidance = "\n💡 FRUSTRATED CLIENT - Start your HOOK with empathy!\n"
+                hook_guidance += f"   Example opener: \"{empathy_opener or 'I know how frustrating this can be'}\"\n"
+                hook_guidance += "   → Acknowledge their pain BEFORE talking about your skills"
             elif 'business_impact' in pain_points:
-                hook_guidance = "\n💡 This is affecting their business - show you understand the revenue impact!"
+                hook_guidance = "\n💰 BUSINESS IMPACT - Start your HOOK acknowledging the revenue pressure!\n"
+                hook_guidance += "   Example opener: \"Losing sales every hour is brutal - let's get this fixed fast\"\n"
+                hook_guidance += "   → Show you understand the business cost, not just the technical problem"
 
         return f"""
 PROPOSAL STRUCTURE TO USE:
@@ -717,13 +800,16 @@ JOB DESCRIPTION:
         3. Only include feedback URL if it ACTUALLY EXISTS - don't fabricate
         4. Format: Company name, TASK TYPE, brief outcome, portfolio link, feedback (if available)
         5. Include task_type so AI knows what work was actually done (not just platform)
+        6. DIVERSIFY: Track used URLs to avoid repeating same portfolio links
         """
         if not similar_projects:
             return "SIMILAR PAST PROJECTS: None found in database yet."
 
         section = "SIMILAR PAST PROJECTS (WITH PORTFOLIO PROOF):\n\n"
-        section += "⚠️ IMPORTANT: Only reference projects that match BOTH the platform AND the type of work the client needs!\n\n"
+        section += "⚠️ IMPORTANT: Reference projects that match the platform AND type of work!\n"
+        section += "⚠️ USE DIFFERENT PORTFOLIO LINKS for each project - don't repeat the same URLs!\n\n"
         projects_added = 0
+        used_portfolio_urls = set()  # Track used URLs for diversity
 
         for i, project in enumerate(similar_projects[:5], 1):  # Check up to 5 to find 3 good ones
             if projects_added >= 3:
@@ -740,23 +826,32 @@ JOB DESCRIPTION:
                 continue
             
             # PRIORITIZE actual project URLs over Upwork profile links
+            # AND ensure we haven't used this URL already (diversification)
             actual_project_url = None
             upwork_profile_url = None
             
             for url in portfolio_urls:
                 if not url:  # Skip empty strings
                     continue
-                if 'upwork.com' in url.lower():
-                    upwork_profile_url = url
+                url_lower = url.lower().strip()
+                # Skip if already used in another project
+                if url_lower in used_portfolio_urls:
+                    continue
+                if 'upwork.com' in url_lower:
+                    if not upwork_profile_url:  # Only set if not already set
+                        upwork_profile_url = url
                 else:
                     actual_project_url = url
-                    break  # Prefer first non-Upwork URL
+                    break  # Prefer first non-Upwork URL that's not used
             
             # Use actual project URL first, fallback to Upwork profile
             best_portfolio_url = actual_project_url or upwork_profile_url
             
             if not best_portfolio_url:
                 continue
+            
+            # Track this URL as used
+            used_portfolio_urls.add(best_portfolio_url.lower().strip())
             
             projects_added += 1
                 
@@ -793,6 +888,9 @@ JOB DESCRIPTION:
         
         if projects_added == 0:
             return "SIMILAR PAST PROJECTS: No projects with portfolio links found."
+        
+        # Add diversity reminder
+        section += f"\n⚠️ DIVERSITY CHECK: {len(used_portfolio_urls)} unique portfolio URLs - use DIFFERENT links for each project!\n"
 
         return section
 

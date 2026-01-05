@@ -480,42 +480,81 @@ class RetrievalPipeline:
     def _apply_diversity(
         self,
         ranked_projects: List[Tuple[Dict[str, Any], float]],
-        max_per_company: int = 1
+        max_per_company: int = 1,
+        max_shared_urls: int = 1
     ) -> List[Tuple[Dict[str, Any], float]]:
         """
         Apply diversity to avoid returning the same companies/portfolios repeatedly.
         
         This ensures proposal references are varied and don't always cite the same projects.
+        
+        ENHANCED: Now tracks INDIVIDUAL portfolio URLs to prevent the same links
+        from appearing across different referenced projects.
+        
+        Args:
+            ranked_projects: Ranked list of (project, score) tuples
+            max_per_company: Max projects from same company (default 1)
+            max_shared_urls: Max times a single portfolio URL can appear (default 1)
         """
         seen_companies = {}  # company_name -> count
-        seen_portfolios = set()  # track unique portfolio URLs
+        seen_portfolio_urls = {}  # individual URL -> count (track each URL separately)
+        seen_feedback_urls = set()  # Track feedback URLs for uniqueness
         diversified = []
         
         for job, score in ranked_projects:
             company = job.get("company_name", "").lower().strip()
             portfolio_urls = job.get("portfolio_urls", [])
+            feedback_url = job.get("client_feedback_url", "")
             
             # Skip if we've already selected max_per_company projects from this company
             if company and seen_companies.get(company, 0) >= max_per_company:
                 logger.debug(f"  → Skipping duplicate company: {company}")
                 continue
             
-            # Skip if portfolio URLs are identical to already selected projects
-            portfolio_key = tuple(sorted(url.lower() for url in portfolio_urls if url))
-            if portfolio_key and portfolio_key in seen_portfolios:
-                logger.debug(f"  → Skipping duplicate portfolio: {portfolio_key[:1]}")
+            # Check if this project has UNIQUE portfolio URLs
+            # A project is good if at least ONE of its URLs is fresh
+            has_fresh_urls = False
+            fresh_url_count = 0
+            for url in portfolio_urls:
+                if url:
+                    url_lower = url.lower().strip()
+                    if seen_portfolio_urls.get(url_lower, 0) < max_shared_urls:
+                        has_fresh_urls = True
+                        fresh_url_count += 1
+            
+            # Skip if ALL portfolio URLs have already been used in other projects
+            if portfolio_urls and not has_fresh_urls:
+                logger.debug(f"  → Skipping project with no fresh portfolio URLs: {company}")
                 continue
             
-            # Add to diversified results
-            diversified.append((job, score))
+            # Prefer projects with MORE unique URLs (diversity bonus)
+            # Slight score boost for projects bringing new portfolio examples
+            diversity_bonus = min(fresh_url_count * 0.02, 0.1)  # Up to 10% bonus
+            adjusted_score = score + diversity_bonus
             
-            # Track what we've seen
+            # Add to diversified results
+            diversified.append((job, adjusted_score))
+            
+            # Track company usage
             if company:
                 seen_companies[company] = seen_companies.get(company, 0) + 1
-            if portfolio_key:
-                seen_portfolios.add(portfolio_key)
+            
+            # Track EACH portfolio URL individually
+            for url in portfolio_urls:
+                if url:
+                    url_lower = url.lower().strip()
+                    seen_portfolio_urls[url_lower] = seen_portfolio_urls.get(url_lower, 0) + 1
+            
+            # Track feedback URLs
+            if feedback_url:
+                seen_feedback_urls.add(feedback_url.lower().strip())
         
-        logger.info(f"  → Diversity filter: {len(ranked_projects)} → {len(diversified)} unique projects")
+        # Re-sort by adjusted score after diversity bonus
+        diversified.sort(key=lambda x: x[1], reverse=True)
+        
+        unique_urls = len(seen_portfolio_urls)
+        unique_companies = len(seen_companies)
+        logger.info(f"  → Diversity filter: {len(ranked_projects)} → {len(diversified)} unique projects ({unique_companies} companies, {unique_urls} unique portfolio URLs)")
         return diversified
 
     def _extract_insights(
