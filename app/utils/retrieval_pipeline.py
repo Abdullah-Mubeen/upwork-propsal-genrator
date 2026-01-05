@@ -268,8 +268,8 @@ class RetrievalPipeline:
         excluded_platforms = competing_platforms.get(criteria.platform, []) if criteria.platform else []
         
         for job in jobs:
-            # Completed projects preferred if specified
-            if criteria.completed_only and job.get("project_status") != "completed":
+            # Completed projects preferred if specified (case-insensitive)
+            if criteria.completed_only and job.get("project_status", "").lower() != "completed":
                 continue
             
             job_platform = self._detect_job_platform(job)
@@ -332,7 +332,7 @@ class RetrievalPipeline:
         logger.warning(f"  ⚠ No matching projects found, returning non-competing completed projects")
         fallback = []
         for job in jobs:
-            if job.get("project_status") == "completed":
+            if job.get("project_status", "").lower() == "completed":
                 job_platform = self._detect_job_platform(job)
                 if job_platform not in excluded_platforms:
                     fallback.append(job)
@@ -546,7 +546,7 @@ class RetrievalPipeline:
         proposals_samples = []
 
         for job, similarity in similar_projects:
-            if job.get("project_status") != "completed":
+            if job.get("project_status", "").lower() != "completed":
                 continue
 
             success_count += 1
@@ -718,7 +718,7 @@ class RetrievalPipeline:
         # Extract top 3 successful projects as references
         success_count = 0
         for job, similarity in similar_projects:
-            if job.get("project_status") == "completed" and success_count < 3:
+            if job.get("project_status", "").lower() == "completed" and success_count < 3:
                 context["reference_projects"].append({
                     "company": job.get("company_name"),
                     "industry": job.get("industry"),
@@ -730,8 +730,8 @@ class RetrievalPipeline:
                 })
                 success_count += 1
 
-        # Calculate estimated success rate
-        completed = sum(1 for j, _ in similar_projects if j.get("project_status") == "completed")
+        # Calculate estimated success rate (case-insensitive)
+        completed = sum(1 for j, _ in similar_projects if j.get("project_status", "").lower() == "completed")
         context["estimated_success_rate"] = completed / len(similar_projects) if similar_projects else 0.5
 
         return context

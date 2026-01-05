@@ -160,7 +160,12 @@ async def generate_proposal(request: GenerateProposalRequest):
         # Initialize services
         db = get_db()
         openai_service = OpenAIService(api_key=settings.OPENAI_API_KEY)
-        retrieval_pipeline = RetrievalPipeline(db, openai_service)
+        
+        # Initialize Pinecone service for semantic search
+        from app.utils.pinecone_service import PineconeService
+        pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
+        
+        retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
         prompt_engine = PromptEngine()
         
         # Prepare job data

@@ -86,21 +86,21 @@ class MetadataExtractor:
         "newsletter_email": ["newsletter", "email", "subscription", "mailchimp"],
         
         # E-commerce cluster
-        "store_setup": ["complete website", "woocommerce", "shopify", "ecommerce"],
+        "store_setup": ["complete website", "woocommerce", "shopify", "ecommerce", "store"],
         "payment_integration": ["woocommerce", "enhance functionality", "integration"],
         
         # Performance cluster
         "speed_optimization": ["speed optimization", "optimization", "performance", "pagespeed"],
         "seo_optimization": ["seo", "optimization", "marketing"],
         
-        # Development cluster
-        "website_redesign": ["redesign website", "restyle", "design"],
-        "new_website": ["complete website", "new website", "build"],
-        "bug_fixes": ["bug fixes", "fixes", "repair", "maintenance"],
-        "feature_addition": ["enhance functionality", "integration", "custom development"],
+        # Development cluster - COMPLETE WEBSITE is a primary cluster
+        "website_redesign": ["redesign website", "restyle", "design", "redesign"],
+        "new_website": ["complete website", "new website", "build", "build website", "website development", "develop website"],
+        "bug_fixes": ["bug fixes", "fixes", "repair", "maintenance", "fix"],
+        "feature_addition": ["enhance functionality", "integration", "custom development", "add feature"],
         
         # Content cluster
-        "content_management": ["blogs webdesign", "content", "editorial"],
+        "content_management": ["blogs webdesign", "content", "editorial", "blog"],
         "form_setup": ["enhance functionality", "integration", "contact form"],
     }
 
