@@ -1121,3 +1121,145 @@ If ANY quality check fails, fix it before submitting.
             questions_section += f"• {q['question']}\n"
 
         return proposal_text + questions_section
+
+    def build_proposal_prompt_with_selections(
+        self,
+        job_data: Dict[str, Any],
+        similar_projects: List[Dict[str, Any]],
+        selected_portfolio_urls: List[str],
+        selected_feedback_items: List[Dict[str, Any]],
+        style: str = "professional",
+        tone: str = "confident",
+        max_words: int = 300,
+        include_timeline: bool = False,
+        timeline_duration: str = None
+    ) -> str:
+        """
+        Build a proposal prompt with USER-SELECTED portfolio URLs and feedback.
+        
+        CRITICAL: The selected items MUST be included EXACTLY as provided.
+        No modifications, no omissions - user's selection is final.
+        
+        Args:
+            job_data: The new job requirements
+            similar_projects: Similar past projects for context
+            selected_portfolio_urls: User-selected portfolio URLs to include EXACTLY
+            selected_feedback_items: User-selected feedback items to include EXACTLY
+            style: Writing style
+            tone: Proposal tone
+            max_words: Target word count
+            include_timeline: Include timeline section?
+            timeline_duration: Custom timeline if include_timeline is True
+            
+        Returns:
+            Optimized prompt for OpenAI with user-selected items
+        """
+        logger.debug(f"[PromptEngine] Building prompt with user selections: {len(selected_portfolio_urls)} portfolio, {len(selected_feedback_items)} feedback")
+
+        # Get style and tone instructions
+        style_enum = ProposalStyle(style) if isinstance(style, str) else style
+        tone_enum = ProposalTone(tone) if isinstance(tone, str) else tone
+
+        style_guide = self.STYLE_INSTRUCTIONS.get(style_enum, "")
+        tone_guide = self.TONE_INSTRUCTIONS.get(tone_enum, "")
+
+        # Build job section
+        job_section = self._build_job_section(job_data)
+
+        # Build USER-SELECTED portfolio section - EXACT as provided
+        portfolio_section = ""
+        if selected_portfolio_urls:
+            portfolio_section = """
+USER-SELECTED PORTFOLIO URLS (MUST include ALL of these EXACTLY):
+"""
+            for i, url in enumerate(selected_portfolio_urls, 1):
+                portfolio_section += f"  {i}. {url}\n"
+            portfolio_section += """
+⚠️ CRITICAL: Include ALL portfolio URLs above EXACTLY as listed.
+Use PLAIN URLs (e.g., https://example.com/) - NO markdown format.
+"""
+
+        # Build USER-SELECTED feedback section - EXACT as provided
+        feedback_section = ""
+        if selected_feedback_items:
+            feedback_section = """
+USER-SELECTED CLIENT FEEDBACK (MUST include ALL of these EXACTLY):
+"""
+            for i, item in enumerate(selected_feedback_items, 1):
+                url = item.get("url", "")
+                text = item.get("text", "")
+                company = item.get("company", "")
+                feedback_section += f"  {i}. From {company}: {url}\n"
+                if text:
+                    feedback_section += f"     Preview: \"{text[:100]}...\"\n"
+            feedback_section += """
+⚠️ CRITICAL: Include ALL feedback URLs above EXACTLY as listed.
+Use PLAIN URLs - NO markdown format.
+"""
+
+        # Build context section from similar projects
+        context_section = ""
+        if similar_projects:
+            context_section = """
+SIMILAR PROJECTS (for context and approach reference):
+"""
+            for i, proj in enumerate(similar_projects[:3], 1):
+                company_name = proj.get("company", proj.get("title", "past project"))
+                skills = proj.get("skills", [])[:4]
+                context_section += f"  {i}. {company_name} - Skills: {', '.join(skills) if skills else 'N/A'}\n"
+
+        # Build timeline instruction
+        timeline_instruction = ""
+        if include_timeline:
+            if timeline_duration:
+                timeline_instruction = f"8. Include a casual timeline mention: {timeline_duration}"
+            else:
+                timeline_instruction = "8. Include a casual timeline (e.g., 'Looking at about 2-3 weeks')"
+        else:
+            timeline_instruction = "8. DO NOT include any timeline - skip timeline section entirely"
+
+        # Combine everything into the prompt
+        prompt = f"""
+{self._get_system_role(style)}
+
+SYSTEM MESSAGE - PROPOSAL WITH USER SELECTIONS:
+You are writing a proposal that MUST include specific user-selected portfolio URLs and feedback.
+The user has carefully selected which items to showcase - include them ALL, EXACTLY as provided.
+
+{job_section}
+
+{portfolio_section}
+
+{feedback_section}
+
+{context_section}
+
+{style_guide}
+
+{tone_guide}
+
+CRITICAL REQUIREMENTS:
+1. Include ALL user-selected portfolio URLs EXACTLY as listed above
+2. Include ALL user-selected feedback URLs EXACTLY as listed above  
+3. Use PLAIN URLs only (e.g., https://example.com/) - NO markdown [text](url) format
+4. NO "As an AI", corporate jargon, or robotic language
+5. Sound like a REAL person - casual, conversational, human
+6. Start by acknowledging THEIR specific problem
+7. Reference the portfolio work naturally in context
+{timeline_instruction}
+9. End with a friendly, easygoing CTA
+10. Target: {max_words} words (ideal range: 200-350)
+
+STRUCTURE:
+1. HOOK (1-2 sentences): Address their problem + include first portfolio link
+2. PROOF (2-3 bullets): Reference portfolio work with remaining URLs + feedback URLs
+3. APPROACH (2-3 sentences): Specific solution for their situation
+{"4. TIMELINE: " + timeline_duration if include_timeline and timeline_duration else ""}
+5. CTA: Friendly close (e.g., "Happy to chat more" or "Let me know what you think")
+
+⚠️ MANDATORY: Every portfolio URL and feedback URL the user selected MUST appear in the proposal.
+Do not skip, modify, or rearrange them. The user's selection is final.
+
+Generate the proposal NOW:
+"""
+        return prompt

@@ -85,6 +85,96 @@ class ProposalResponse(BaseModel):
     metadata: Dict[str, Any] = Field(description="Additional metadata")
 
 
+# ===================== ANALYSIS REQUEST/RESPONSE MODELS =====================
+
+class AnalyzeJobRequest(BaseModel):
+    """Request to analyze job and retrieve similar projects for selection"""
+    job_title: str = Field(..., description="Job position title")
+    company_name: str = Field(..., description="Client company name")
+    job_description: str = Field(..., description="Full job description")
+    skills_required: List[str] = Field(..., description="Required skills")
+    industry: Optional[str] = Field(None, description="Industry category")
+    task_type: Optional[str] = Field(None, description="Type of task")
+    similar_projects_count: int = Field(5, ge=1, le=10, description="Number of similar projects to retrieve")
+
+
+class PortfolioItem(BaseModel):
+    """Individual portfolio item for selection"""
+    url: str = Field(..., description="Portfolio URL")
+    project_company: str = Field(..., description="Company name from source project")
+    project_title: str = Field(..., description="Project title from source project")
+    contract_id: str = Field(..., description="Source contract ID")
+
+
+class FeedbackItem(BaseModel):
+    """Individual feedback item for selection"""
+    url: str = Field(..., description="Feedback URL")
+    text: Optional[str] = Field(None, description="Feedback text preview")
+    project_company: str = Field(..., description="Company name from source project")
+    project_title: str = Field(..., description="Project title from source project")
+    contract_id: str = Field(..., description="Source contract ID")
+    satisfaction_score: Optional[float] = Field(None, description="Client satisfaction score (1-5)")
+
+
+class ProposalTextItem(BaseModel):
+    """Original winning proposal text from past projects"""
+    proposal_text: str = Field(..., description="The original proposal text that won the job")
+    project_company: str = Field(..., description="Company name from source project")
+    project_title: str = Field(..., description="Project title from source project")
+    contract_id: str = Field(..., description="Source contract ID")
+    skills: List[str] = Field(default_factory=list, description="Skills used in this project")
+
+
+class AnalyzeJobResponse(BaseModel):
+    """Response with similar projects and selectable items"""
+    success: bool
+    job_title: str
+    company_name: str
+    
+    # Similar projects found
+    similar_projects: List[Dict[str, Any]] = Field(description="Similar projects with details")
+    
+    # Selectable items
+    available_portfolio_items: List[PortfolioItem] = Field(description="Available portfolio URLs to select from")
+    available_feedback_items: List[FeedbackItem] = Field(description="Available client feedback to select from")
+    available_proposal_texts: List[ProposalTextItem] = Field(description="Available winning proposal texts to select from")
+    
+    # Insights
+    insights: Optional[Dict[str, Any]] = Field(None, description="Success patterns extracted")
+    
+    metadata: Dict[str, Any] = Field(description="Analysis metadata")
+
+
+class GenerateWithSelectionsRequest(BaseModel):
+    """Request to generate proposal with user-selected portfolio and feedback"""
+    # Required job information
+    job_title: str = Field(..., description="Job position title")
+    company_name: str = Field(..., description="Client company name")
+    job_description: str = Field(..., description="Full job description")
+    skills_required: List[str] = Field(..., description="Required skills")
+    
+    # Optional job details
+    industry: Optional[str] = Field(None, description="Industry category")
+    task_type: Optional[str] = Field(None, description="Type of task")
+    
+    # User-selected items (REQUIRED - user must select these)
+    selected_portfolio_urls: List[str] = Field(default_factory=list, description="User-selected portfolio URLs to include exactly as-is")
+    selected_feedback_items: List[Dict[str, Any]] = Field(default_factory=list, description="User-selected feedback items with url and text")
+    selected_proposal_text: Optional[str] = Field(None, description="User-selected winning proposal text to use as base - will be included EXACTLY as-is")
+    
+    # Similar projects context (from analyze step)
+    similar_projects: List[Dict[str, Any]] = Field(default_factory=list, description="Similar projects from analysis step")
+    
+    # Proposal customization
+    proposal_style: str = Field("professional", description="Style: professional, casual, technical, creative")
+    tone: str = Field("confident", description="Tone: confident, humble, enthusiastic, analytical")
+    max_word_count: int = Field(300, ge=100, le=1500, description="Target proposal length")
+    
+    # Timeline options
+    include_timeline: bool = Field(False, description="Include timeline in proposal?")
+    timeline_duration: Optional[str] = Field(None, description="Custom timeline duration")
+
+
 # ===================== MAIN ENDPOINT =====================
 
 @router.post(
@@ -409,3 +499,332 @@ def _generate_improvement_suggestions(quality_score: Dict[str, Any]) -> List[str
         suggestions.append("Add references to 2-3 similar successful projects")
     
     return suggestions
+
+
+# ===================== ANALYZE ENDPOINT =====================
+
+@router.post(
+    "/analyze",
+    response_model=AnalyzeJobResponse,
+    status_code=200,
+    summary="Analyze job and retrieve similar projects for portfolio/feedback selection",
+    responses={
+        200: {"description": "Analysis completed with selectable items"},
+        400: {"description": "Invalid job data"},
+        500: {"description": "Analysis error"}
+    }
+)
+async def analyze_job(request: AnalyzeJobRequest):
+    """
+    Analyze a job description and retrieve similar past projects.
+    
+    Returns portfolio URLs and client feedback from similar projects,
+    allowing the user to SELECT which ones to include in the final proposal.
+    
+    **Use Case:**
+    1. User provides job details
+    2. System finds similar past projects
+    3. Returns available portfolio links and feedback for user selection
+    4. User selects desired items
+    5. User calls /generate-with-selections with chosen items
+    """
+    try:
+        logger.info(f"[AnalyzeAPI] Analyzing job: {request.company_name} - {request.job_title}")
+        
+        # Initialize services
+        db = get_db()
+        
+        # Initialize Pinecone service for semantic search
+        from app.utils.pinecone_service import PineconeService
+        pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
+        
+        retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
+        
+        # Prepare job data
+        job_data = {
+            "job_title": request.job_title,
+            "company_name": request.company_name,
+            "job_description": request.job_description,
+            "skills_required": request.skills_required,
+            "industry": request.industry or "general",
+            "task_type": request.task_type or "other"
+        }
+        
+        # Get historical jobs
+        all_jobs = list(db.db.training_data.find({}))
+        
+        if not all_jobs:
+            logger.warning("No historical job data available")
+            return AnalyzeJobResponse(
+                success=True,
+                job_title=request.job_title,
+                company_name=request.company_name,
+                similar_projects=[],
+                available_portfolio_items=[],
+                available_feedback_items=[],
+                insights=None,
+                metadata={"message": "No historical data available"}
+            )
+        
+        logger.info(f"[AnalyzeAPI] Found {len(all_jobs)} historical jobs")
+        
+        # Find similar projects
+        retrieval_result = retrieval_pipeline.retrieve_for_proposal(
+            job_data,
+            all_jobs,
+            top_k=request.similar_projects_count
+        )
+        
+        similar_projects = retrieval_result.get("similar_projects", [])
+        logger.info(f"[AnalyzeAPI] Found {len(similar_projects)} similar projects")
+        
+        # Extract available portfolio items
+        available_portfolio_items = []
+        available_feedback_items = []
+        seen_portfolio_urls = set()
+        seen_feedback_urls = set()
+        
+        for project in similar_projects:
+            contract_id = project.get("contract_id", "")
+            company = project.get("company", "Unknown")
+            title = project.get("title", "Unknown Project")
+            
+            # Get full project data from training_data for additional details
+            full_project = db.db.training_data.find_one({"contract_id": contract_id}) or {}
+            
+            # Extract portfolio URLs
+            portfolio_urls = project.get("portfolio_urls", [])
+            if isinstance(portfolio_urls, str):
+                portfolio_urls = [portfolio_urls] if portfolio_urls else []
+            
+            for url in portfolio_urls:
+                if url and url not in seen_portfolio_urls:
+                    seen_portfolio_urls.add(url)
+                    available_portfolio_items.append(PortfolioItem(
+                        url=url,
+                        project_company=company,
+                        project_title=title,
+                        contract_id=contract_id
+                    ))
+            
+            # Extract feedback URL
+            feedback_url = project.get("client_feedback_url")
+            if feedback_url and feedback_url not in seen_feedback_urls:
+                seen_feedback_urls.add(feedback_url)
+                feedback_text = full_project.get("client_feedback_text", "")
+                satisfaction = project.get("satisfaction") or full_project.get("client_satisfaction")
+                
+                available_feedback_items.append(FeedbackItem(
+                    url=feedback_url,
+                    text=feedback_text[:200] + "..." if feedback_text and len(feedback_text) > 200 else feedback_text,
+                    project_company=company,
+                    project_title=title,
+                    contract_id=contract_id,
+                    satisfaction_score=satisfaction
+                ))
+        
+        # Extract available proposal texts from similar projects
+        available_proposal_texts = []
+        seen_contract_ids = set()
+        
+        for project in similar_projects:
+            contract_id = project.get("contract_id", "")
+            if contract_id in seen_contract_ids:
+                continue
+            seen_contract_ids.add(contract_id)
+            
+            company = project.get("company", "Unknown")
+            title = project.get("title", "Unknown Project")
+            skills = project.get("skills", [])
+            
+            # Get full project data from training_data for the proposal text
+            full_project = db.db.training_data.find_one({"contract_id": contract_id}) or {}
+            proposal_text = full_project.get("your_proposal_text", "")
+            
+            if proposal_text and proposal_text.strip():
+                available_proposal_texts.append(ProposalTextItem(
+                    proposal_text=proposal_text,
+                    project_company=company,
+                    project_title=title,
+                    contract_id=contract_id,
+                    skills=skills if isinstance(skills, list) else []
+                ))
+        
+        logger.info(f"[AnalyzeAPI] Extracted {len(available_portfolio_items)} portfolio items, {len(available_feedback_items)} feedback items, {len(available_proposal_texts)} proposal texts")
+        
+        return AnalyzeJobResponse(
+            success=True,
+            job_title=request.job_title,
+            company_name=request.company_name,
+            similar_projects=similar_projects,
+            available_portfolio_items=available_portfolio_items,
+            available_feedback_items=available_feedback_items,
+            available_proposal_texts=available_proposal_texts,
+            insights=retrieval_result.get("insights"),
+            metadata={
+                "total_historical_jobs": len(all_jobs),
+                "similar_projects_found": len(similar_projects),
+                "portfolio_items_available": len(available_portfolio_items),
+                "feedback_items_available": len(available_feedback_items),
+                "proposal_texts_available": len(available_proposal_texts)
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"[AnalyzeAPI] Error analyzing job: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze job: {str(e)}")
+
+
+# ===================== GENERATE WITH SELECTIONS ENDPOINT =====================
+
+@router.post(
+    "/generate-with-selections",
+    response_model=ProposalResponse,
+    status_code=200,
+    summary="Generate proposal with user-selected portfolio and feedback",
+    responses={
+        200: {"description": "Proposal generated with selected items"},
+        400: {"description": "Invalid request"},
+        500: {"description": "Generation error"}
+    }
+)
+async def generate_proposal_with_selections(request: GenerateWithSelectionsRequest):
+    """
+    Generate/compile a proposal using USER-SELECTED portfolio URLs, feedback, and proposal text.
+    
+    The selected items will be included EXACTLY as provided - no modifications.
+    
+    If a proposal text is selected, it will be used AS-IS with portfolio/feedback appended.
+    
+    **Workflow:**
+    1. First call /analyze to get available items
+    2. User selects which portfolio URLs, feedback, and proposal text to include
+    3. Call this endpoint with selections
+    4. If proposal text selected: Use it EXACTLY + append portfolio/feedback
+    5. If no proposal text: Generate new proposal with selected items
+    """
+    try:
+        logger.info(f"[GenerateWithSelectionsAPI] Generating proposal for {request.company_name} - {request.job_title}")
+        logger.info(f"[GenerateWithSelectionsAPI] User selected {len(request.selected_portfolio_urls)} portfolio URLs, {len(request.selected_feedback_items)} feedback items")
+        logger.info(f"[GenerateWithSelectionsAPI] Selected proposal text: {'Yes' if request.selected_proposal_text else 'No'}")
+        
+        # Initialize services
+        db = get_db()
+        openai_service = OpenAIService(api_key=settings.OPENAI_API_KEY)
+        prompt_engine = PromptEngine()
+        
+        # Prepare job data
+        job_data = {
+            "job_title": request.job_title,
+            "company_name": request.company_name,
+            "job_description": request.job_description,
+            "skills_required": request.skills_required,
+            "industry": request.industry or "general",
+            "task_type": request.task_type or "other"
+        }
+        
+        # Use the similar projects from the analysis step (if provided)
+        similar_projects = request.similar_projects if request.similar_projects else []
+        
+        # User-selected items - use EXACTLY as provided
+        portfolio_links_used = request.selected_portfolio_urls
+        feedback_urls_used = [item.get("url", "") for item in request.selected_feedback_items if item.get("url")]
+        
+        # Check if user selected an existing proposal text
+        if request.selected_proposal_text:
+            # USE THE SELECTED PROPOSAL EXACTLY AS-IS
+            # Compile: proposal text + portfolio URLs + feedback URLs
+            logger.info(f"[GenerateWithSelectionsAPI] Using user-selected proposal text EXACTLY as-is")
+            
+            proposal_text = request.selected_proposal_text.strip()
+            
+            # Append portfolio URLs if selected
+            if portfolio_links_used:
+                proposal_text += "\n\n---\nPortfolio:"
+                for url in portfolio_links_used:
+                    proposal_text += f"\n{url}"
+            
+            # Append feedback URLs if selected
+            if feedback_urls_used:
+                proposal_text += "\n\nClient Feedback:"
+                for url in feedback_urls_used:
+                    proposal_text += f"\n{url}"
+        else:
+            # Generate new proposal with AI using selected items
+            # Extract feedback texts for prompt context
+            selected_feedback_texts = []
+            for item in request.selected_feedback_items:
+                if item.get("text"):
+                    selected_feedback_texts.append({
+                        "url": item.get("url", ""),
+                        "text": item.get("text", ""),
+                        "company": item.get("project_company", "")
+                    })
+            
+            # Build prompt with EXACT user selections
+            prompt = prompt_engine.build_proposal_prompt_with_selections(
+                job_data=job_data,
+                similar_projects=similar_projects,
+                selected_portfolio_urls=portfolio_links_used,
+                selected_feedback_items=selected_feedback_texts,
+                style=request.proposal_style,
+                tone=request.tone,
+                max_words=request.max_word_count,
+                include_timeline=request.include_timeline,
+                timeline_duration=request.timeline_duration
+            )
+            
+            # Generate proposal
+            max_tokens = int(request.max_word_count * 1.5) + 100
+            
+            proposal_text = openai_service.generate_text(
+                prompt=prompt,
+                max_tokens=max_tokens,
+                temperature=0.7
+            )
+        
+        word_count = len(proposal_text.split())
+        
+        logger.info(f"[GenerateWithSelectionsAPI] Final proposal has {word_count} words")
+        
+        # Score quality
+        references = {
+            "portfolio_links_used": portfolio_links_used,
+            "feedback_urls_used": feedback_urls_used,
+            "projects_referenced": similar_projects
+        }
+        
+        quality_score = prompt_engine.score_proposal_quality(proposal_text, job_data, references)
+        
+        improvement_suggestions = None
+        if quality_score.get("overall_score", 1.0) < 0.85:
+            improvement_suggestions = _generate_improvement_suggestions(quality_score)
+        
+        logger.info(f"✓ [GenerateWithSelectionsAPI] Proposal generation complete!")
+        
+        return ProposalResponse(
+            success=True,
+            job_title=request.job_title,
+            company_name=request.company_name,
+            generated_proposal=proposal_text,
+            word_count=word_count,
+            proposal_style=request.proposal_style,
+            proposal_tone=request.tone,
+            similar_projects=similar_projects,
+            previous_proposals_insights=None,
+            portfolio_links_used=portfolio_links_used,
+            feedback_urls_used=feedback_urls_used,
+            insights=None,
+            confidence_score=quality_score.get("overall_score", 0.85),
+            improvement_suggestions=improvement_suggestions,
+            metadata={
+                "similar_projects_used": len(similar_projects),
+                "user_selected_portfolio_count": len(portfolio_links_used),
+                "user_selected_feedback_count": len(feedback_urls_used),
+                "quality_score_details": quality_score
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"[GenerateWithSelectionsAPI] Error generating proposal: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate proposal: {str(e)}")
