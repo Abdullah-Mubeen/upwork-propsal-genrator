@@ -157,8 +157,8 @@ class RetrievalPipeline:
         Prioritizes projects with feedback and proven effectiveness while
         keeping filters flexible to find relevant matches.
         
-        CRITICAL: Now extracts CLIENT INTENTS (what they actually want done)
-        in addition to platform detection.
+        CRITICAL: Now uses LLM-based semantic industry detection when needed,
+        and extracts CLIENT INTENTS (what they actually want done).
         """
         from app.utils.metadata_extractor import MetadataExtractor
         
@@ -247,10 +247,14 @@ class RetrievalPipeline:
         WordPress job = WordPress projects ONLY (same for Shopify, etc.)
         NEVER mix competing platforms (WordPress ≠ Shopify)
         
+        ENHANCED: Now also considers INDUSTRY matching for better relevance.
+        A media company job should match media industry projects first.
+        
         URGENT/AD-HOC: When job is urgent, prioritize past urgent projects first
         (they show you can handle time-sensitive work)
         """
         platform_matched = []  # Projects matching the detected platform
+        industry_matched = []  # Projects matching the industry
         urgent_matched = []    # Urgent/ad-hoc projects (when job is urgent)
         skill_matched = []     # Projects matching skills (fallback) - but NOT competing platforms
         
@@ -267,6 +271,9 @@ class RetrievalPipeline:
         
         excluded_platforms = competing_platforms.get(criteria.platform, []) if criteria.platform else []
         
+        # Get target industry from criteria (normalized to lowercase)
+        target_industry = criteria.industries[0].lower() if criteria.industries else None
+        
         for job in jobs:
             # Completed projects preferred if specified (case-insensitive)
             if criteria.completed_only and job.get("project_status", "").lower() != "completed":
@@ -274,11 +281,22 @@ class RetrievalPipeline:
             
             job_platform = self._detect_job_platform(job)
             job_is_urgent = job.get("urgent_adhoc", False)
+            job_industry = (job.get("industry") or "").lower()
             
             # CRITICAL: EXCLUDE competing platforms
             if criteria.platform and job_platform in excluded_platforms:
                 logger.debug(f"  ✗ Excluding {job.get('company_name')} - platform {job_platform} conflicts with {criteria.platform}")
                 continue
+            
+            # Check INDUSTRY match (for better semantic relevance)
+            industry_match = False
+            if target_industry and target_industry != "general":
+                if job_industry == target_industry:
+                    industry_match = True
+                # Also check industry_tags if available
+                job_industry_tags = [t.lower() for t in job.get("industry_tags", [])]
+                if target_industry in job_industry_tags:
+                    industry_match = True
             
             # CRITICAL: Platform matching - highest priority
             if criteria.platform:
@@ -287,6 +305,10 @@ class RetrievalPipeline:
                     if criteria.urgent_adhoc and job_is_urgent:
                         urgent_matched.append(job)
                         logger.debug(f"  ⚡ URGENT match: {job.get('company_name')} ({job_platform}) - past urgent project!")
+                    elif industry_match:
+                        # Platform + Industry match = BEST match (prepend)
+                        platform_matched.insert(0, job)
+                        logger.debug(f"  ✓✓ Platform+Industry match: {job.get('company_name')} ({job_platform}, {job_industry})")
                     else:
                         platform_matched.append(job)
                         logger.debug(f"  ✓ Platform match: {job.get('company_name')} ({job_platform})")
@@ -296,10 +318,19 @@ class RetrievalPipeline:
                     if criteria.urgent_adhoc and job_is_urgent:
                         urgent_matched.append(job)
                         logger.debug(f"  ⚡ URGENT related match: {job.get('company_name')} ({job_platform})")
+                    elif industry_match:
+                        platform_matched.insert(0, job)
+                        logger.debug(f"  ✓✓ Related platform+Industry match: {job.get('company_name')} ({job_platform}, {job_industry})")
                     else:
                         platform_matched.append(job)
                         logger.debug(f"  ✓ Related platform match: {job.get('company_name')} ({job_platform} related to {criteria.platform})")
                     continue
+            
+            # INDUSTRY matching (when platform doesn't match but industry does)
+            if industry_match and job_platform not in excluded_platforms:
+                industry_matched.append(job)
+                logger.debug(f"  🏢 Industry match: {job.get('company_name')} (industry: {job_industry})")
+                continue
             
             # Skills filter (soft - at least some overlap) - but ONLY if not a competing platform
             if criteria.skills and job_platform not in excluded_platforms:
@@ -310,8 +341,9 @@ class RetrievalPipeline:
         
         # PRIORITY ORDER:
         # 1. Urgent projects (when job is urgent) - shows you can handle time pressure
-        # 2. Platform-matched projects  
-        # 3. Skill-matched projects
+        # 2. Platform-matched projects (includes platform+industry matches at front)
+        # 3. Industry-matched projects (semantic relevance even without platform match)
+        # 4. Skill-matched projects
         
         if urgent_matched:
             logger.info(f"  ⚡ Found {len(urgent_matched)} URGENT projects matching platform: {criteria.platform}")
@@ -322,6 +354,11 @@ class RetrievalPipeline:
         if platform_matched:
             logger.info(f"  → Found {len(platform_matched)} projects matching platform: {criteria.platform}")
             return platform_matched
+        
+        # Industry-matched projects (even without platform match - semantic relevance)
+        if industry_matched:
+            logger.info(f"  🏢 Found {len(industry_matched)} projects matching industry: {target_industry}")
+            return industry_matched
         
         # Fallback to skill-matched projects (already filtered to exclude competing platforms)
         if skill_matched:

@@ -690,3 +690,121 @@ Respond in JSON format."""
         except Exception as e:
             logger.error(f"Error extracting proposal insights: {str(e)}")
             return {"error": str(e)}
+
+    # ===================== SEMANTIC INDUSTRY & INTENT DETECTION =====================
+    
+    def detect_industry_and_intent(self, job_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        LLM-based semantic industry and intent detection.
+        
+        Uses GPT to intelligently understand the TRUE industry and user intent
+        from job description, skills, and contextual references (e.g., "like TMZ" = media).
+        
+        This solves the problem of static keyword matching missing contextual references
+        like brand names (TMZ, JustJared, WWD, Variety = media/entertainment).
+        
+        Args:
+            job_data: Job data with job_description, job_title, skills_required
+            
+        Returns:
+            Dictionary with:
+            - industry: Primary detected industry
+            - industry_confidence: Confidence score (0-1)
+            - secondary_industries: Related industries
+            - user_intents: What the client wants done
+            - context_brands: Reference brands/websites mentioned
+            - reasoning: Why this industry was detected
+        """
+        job_desc = job_data.get("job_description", "")
+        job_title = job_data.get("job_title", "")
+        skills = job_data.get("skills_required", [])
+        company_name = job_data.get("company_name", "")
+        task_type = job_data.get("task_type", "")
+        
+        prompt = f"""Analyze this job posting and determine the PRIMARY INDUSTRY and USER INTENT.
+
+JOB DETAILS:
+- Title: {job_title}
+- Company: {company_name}
+- Task Type: {task_type}
+- Skills Required: {', '.join(skills) if skills else 'Not specified'}
+- Description: {job_desc}
+
+CRITICAL ANALYSIS RULES:
+1. Look for BRAND/WEBSITE REFERENCES - if they mention "like TMZ, JustJared, WWD, Variety" → these are MEDIA/ENTERTAINMENT websites
+2. Look for INDUSTRY CONTEXT CLUES - "news site", "entertainment portal", "celebrity content" = media
+3. Don't just match keywords - understand the SEMANTIC MEANING
+4. Consider what type of BUSINESS would need this work
+
+INDUSTRY OPTIONS (pick the MOST SPECIFIC match):
+- media (news, entertainment, celebrity, gossip, journalism, TMZ-like, magazines)
+- e-commerce (online stores, product sales, shopping)
+- saas (software products, web apps, platforms)
+- healthcare (medical, health, clinics, telemedicine)
+- finance (banking, fintech, crypto, investments)
+- education (courses, learning, edtech, universities)
+- real_estate (property, rental, real estate agencies)
+- travel (tourism, booking, hotels, flights)
+- social (social networking, communities, forums)
+- technology (IT services, tech consulting)
+- manufacturing (industrial, logistics, factories)
+- professional_services (consulting, agencies, B2B services)
+- non_profit (charities, NGOs, foundations)
+- general (if truly none of the above fit)
+
+USER INTENT OPTIONS (what they actually want DONE):
+- website_redesign (redesign, refresh, makeover, new look)
+- new_website (build from scratch, create new site)
+- content_migration (migrate content, transfer, import/export)
+- membership_setup (subscriptions, paid content, member areas)
+- speed_optimization (performance, pagespeed, core web vitals)
+- seo_optimization (search ranking, keywords, organic traffic)
+- bug_fixes (fix issues, repair, broken functionality)
+- feature_addition (add features, enhance, integrate)
+- store_setup (e-commerce, online store, products)
+- rss_integration (RSS feeds, content syndication, auto-import)
+- content_management (blog, articles, CMS setup)
+
+Respond in this EXACT JSON format:
+{{
+    "industry": "primary industry from list above",
+    "industry_confidence": 0.95,
+    "secondary_industries": ["other", "relevant", "industries"],
+    "user_intents": ["primary_intent", "secondary_intent"],
+    "context_brands": ["any brands/websites they mentioned as examples"],
+    "reasoning": "Brief explanation of why you detected this industry"
+}}"""
+
+        try:
+            response = self.generate_text(
+                prompt=prompt,
+                system_message="You are an expert at classifying job postings by industry and understanding client intent. Always respond with valid JSON.",
+                temperature=0.3,  # Low temperature for consistent classification
+                max_tokens=500,
+                json_mode=True
+            )
+            
+            result = json.loads(response)
+            logger.info(f"[SemanticDetection] Industry: {result.get('industry')} (confidence: {result.get('industry_confidence')}) | Intents: {result.get('user_intents', [])[:2]}")
+            return result
+            
+        except json.JSONDecodeError as e:
+            logger.warning(f"[SemanticDetection] JSON parse error, using fallback: {e}")
+            return {
+                "industry": "general",
+                "industry_confidence": 0.5,
+                "secondary_industries": [],
+                "user_intents": [],
+                "context_brands": [],
+                "reasoning": "Fallback due to parsing error"
+            }
+        except Exception as e:
+            logger.error(f"[SemanticDetection] Error: {e}")
+            return {
+                "industry": "general",
+                "industry_confidence": 0.5,
+                "secondary_industries": [],
+                "user_intents": [],
+                "context_brands": [],
+                "reasoning": f"Error: {str(e)}"
+            }

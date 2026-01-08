@@ -163,6 +163,7 @@ async def generate_proposal(request: GenerateProposalRequest):
         
         # Initialize Pinecone service for semantic search
         from app.utils.pinecone_service import PineconeService
+        from app.utils.metadata_extractor import MetadataExtractor
         pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
         
         retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
@@ -177,6 +178,14 @@ async def generate_proposal(request: GenerateProposalRequest):
             "industry": request.industry or "general",
             "task_type": request.task_type or "other"
         }
+        
+        # Enhance industry detection using keyword+brand matching (fast, no API call)
+        # This catches cases like "similar to TMZ, JustJared" → media industry
+        if not request.industry or request.industry == "general":
+            context_result = MetadataExtractor.detect_industry_with_context(job_data)
+            if context_result.get("industry") != "general" and context_result.get("confidence", 0) >= 0.5:
+                job_data["industry"] = context_result["industry"]
+                logger.info(f"[ProposalAPI] Industry detected: '{context_result['industry']}' (brands: {context_result.get('detected_brands', [])})")
         
         # Step 1: Get historical jobs
         logger.info(f"[ProposalAPI] Step 1: Fetching historical job data...")

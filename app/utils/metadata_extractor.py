@@ -23,18 +23,47 @@ logger = logging.getLogger(__name__)
 class MetadataExtractor:
     """Extracts multi-dimensional metadata from job data"""
 
-    # Industry mapping for standardization
+    # Industry mapping for standardization - ENHANCED with brand references
+    # NOTE: This is used for fast keyword matching. For complex cases (like "similar to TMZ"),
+    # use the LLM-based detect_industry_semantic() method instead.
+    # IMPORTANT: Avoid short/generic words that match unintended contexts (e.g., "press" matches "WordPress")
     INDUSTRY_KEYWORDS = {
-        "saas": ["saas", "software as a service", "cloud", "subscription"],
-        "e-commerce": ["e-commerce", "ecommerce", "shopify", "woo commerce", "store"],
-        "healthcare": ["healthcare", "health", "medical", "hospital", "clinic", "telemedicine"],
-        "finance": ["finance", "financial", "banking", "fintech", "crypto"],
-        "education": ["education", "edtech", "learning", "course", "university"],
-        "real_estate": ["real estate", "realestate", "property", "rental"],
-        "manufacturing": ["manufacturing", "factory", "industrial", "logistics"],
-        "travel": ["travel", "tourism", "booking", "hotel", "flight"],
-        "social": ["social", "networking", "community", "forum"],
-        "media": ["media", "entertainment", "streaming", "video", "podcast"],
+        "saas": ["saas", "software as a service", "cloud platform", "subscription platform", "web platform", "dashboard app"],
+        "e-commerce": ["e-commerce", "ecommerce", "shopify", "woo commerce", "online store", "products", "cart", "checkout", "shop"],
+        "healthcare": ["healthcare", "health care", "medical", "hospital", "clinic", "telemedicine", "patient portal", "doctor"],
+        "finance": ["finance", "financial", "banking", "fintech", "crypto", "investment", "trading platform"],
+        "education": ["education", "edtech", "learning platform", "course platform", "university", "school", "student", "lms"],
+        "real_estate": ["real estate", "realestate", "property listing", "rental property", "real estate agent", "broker"],
+        "manufacturing": ["manufacturing", "factory", "industrial", "logistics", "warehouse", "supply chain"],
+        "travel": ["travel", "tourism", "booking", "hotel", "flight", "vacation", "resort"],
+        "social": ["social network", "social platform", "community", "forum", "members area", "social media marketing"],
+        # ENHANCED: Media industry with brand references and contextual keywords
+        # NOTE: Use specific terms, avoid generic words like "press" (matches WordPress)
+        "media": [
+            "media company", "entertainment", "streaming", "video platform", "podcast", "news site", "magazine",
+            "celebrity", "gossip", "journalism", "editorial content", "content site", "blog network",
+            "tmz", "justjared", "wwd", "variety", "hollywood reporter", "entertainment news",
+            "media outlet", "publishing company", "news articles", "newsroom", "breaking news"
+        ],
+        "technology": ["technology", "tech", "software", "it services", "consulting", "development"],
+        "professional_services": ["consulting", "agency", "b2b", "services", "professional"],
+        "non_profit": ["non-profit", "nonprofit", "charity", "ngo", "foundation", "donation"],
+    }
+    
+    # Brand-to-industry mapping for contextual detection
+    # When someone says "like X", we can infer the industry
+    BRAND_INDUSTRY_MAP = {
+        # Media/Entertainment brands
+        "tmz": "media", "justjared": "media", "wwd": "media", "variety": "media",
+        "buzzfeed": "media", "huffpost": "media", "cnn": "media", "bbc": "media",
+        "techcrunch": "media", "mashable": "media", "verge": "media", "engadget": "media",
+        "eonline": "media", "people": "media", "us weekly": "media", "entertainment weekly": "media",
+        # E-commerce brands
+        "amazon": "e-commerce", "shopify": "e-commerce", "etsy": "e-commerce", "ebay": "e-commerce",
+        # SaaS brands  
+        "salesforce": "saas", "hubspot": "saas", "slack": "saas", "notion": "saas",
+        # Social brands
+        "facebook": "social", "twitter": "social", "linkedin": "social", "reddit": "social",
     }
 
     # Complexity factors
@@ -63,15 +92,27 @@ class MetadataExtractor:
         "speed_optimization": ["speed up", "pagespeed", "core web vitals", "performance optimization", "load time", "site optimization", "gtmetrix", "lighthouse score", "website slow", "slow loading"],
         "seo_optimization": ["seo optimization", "search engine optimization", "google ranking", "keyword optimization", "organic traffic", "meta tags", "on-page seo"],
         
-        # Design/Development intents
-        "website_redesign": ["redesign website", "restyle website", "makeover", "new look", "refresh design", "modernize website", "update design"],
+        # Design/Development intents - ENHANCED for redesign detection
+        "website_redesign": [
+            "redesign website", "restyle website", "makeover", "new look", "refresh design", 
+            "modernize website", "update design", "update my existing", "more professional",
+            "unique layout", "similar to", "like tmz", "like variety", "like justjared",
+            "redesign", "professional look", "brand aligned", "brand consistency"
+        ],
         "new_website": ["build website", "create website", "new website", "from scratch", "brand new site", "develop website"],
         "bug_fixes": ["fix bug", "fix issue", "broken", "not working", "website issue", "website problem", "fix error", "repair"],
         "feature_addition": ["add feature", "new feature", "add functionality", "integrate", "custom feature", "enhancement", "extend"],
         
-        # Content/Blog intents
-        "content_management": ["blog posts", "articles", "content management", "cms setup", "publish content", "editorial"],
+        # Content/Blog intents - ENHANCED
+        "content_management": ["blog posts", "articles", "content management", "cms setup", "publish content", "editorial", "written articles", "add articles", "easy to add"],
         "form_setup": ["contact form", "web form", "form submission", "lead capture form", "cf7", "gravity forms", "formidable forms", "form plugin"],
+        
+        # RSS/Content Integration intents - NEW
+        "rss_integration": [
+            "rss integration", "rss feed", "youtube integration", "pull content", 
+            "content syndication", "auto import", "feed integration", "youtube feed",
+            "youtube content", "video feed", "content aggregation", "auto-publish"
+        ],
     }
 
     # RELATED TASK TYPES - Groups of task types that are semantically similar
@@ -94,14 +135,17 @@ class MetadataExtractor:
         "seo_optimization": ["seo", "optimization", "marketing"],
         
         # Development cluster - COMPLETE WEBSITE is a primary cluster
-        "website_redesign": ["redesign website", "restyle", "design", "redesign"],
+        "website_redesign": ["redesign website", "restyle", "design", "redesign", "complete website", "media website", "news site"],
         "new_website": ["complete website", "new website", "build", "build website", "website development", "develop website"],
         "bug_fixes": ["bug fixes", "fixes", "repair", "maintenance", "fix"],
         "feature_addition": ["enhance functionality", "integration", "custom development", "add feature"],
         
-        # Content cluster
-        "content_management": ["blogs webdesign", "content", "editorial", "blog"],
+        # Content cluster - ENHANCED
+        "content_management": ["blogs webdesign", "content", "editorial", "blog", "articles", "media", "news"],
         "form_setup": ["enhance functionality", "integration", "contact form"],
+        
+        # RSS/Integration cluster - NEW
+        "rss_integration": ["integration", "rss", "feed", "youtube", "content syndication", "auto import"],
     }
 
     @staticmethod
@@ -388,18 +432,101 @@ class MetadataExtractor:
 
         text = f"{industry} {job_desc} {company_name}".lower()
 
-        # Match against known industries
+        # Match against known industries (keyword-based)
         for industry_tag, keywords in MetadataExtractor.INDUSTRY_KEYWORDS.items():
             for keyword in keywords:
                 if keyword in text:
                     tags.add(industry_tag)
                     break
+        
+        # ENHANCED: Check for brand references (contextual detection)
+        # This catches cases like "similar to TMZ" which keyword matching misses
+        for brand, brand_industry in MetadataExtractor.BRAND_INDUSTRY_MAP.items():
+            if brand.lower() in text:
+                tags.add(brand_industry)
+                logger.debug(f"  Brand detection: '{brand}' → industry '{brand_industry}'")
 
         # Add raw industry if provided
         if industry and industry != "general":
             tags.add(industry)
 
         return list(tags) if tags else ["general"]
+    
+    @staticmethod
+    def detect_industry_with_context(job_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Enhanced industry detection using keyword + brand + contextual analysis.
+        
+        This method combines:
+        1. Keyword matching (fast)
+        2. Brand reference detection (contextual)
+        3. Scoring to find the BEST match, not just first match
+        
+        For complex cases where this isn't enough, use the LLM-based
+        OpenAIService.detect_industry_and_intent() method.
+        
+        Args:
+            job_data: Job data dictionary
+            
+        Returns:
+            Dict with industry, confidence, and detected brands
+        """
+        job_desc = job_data.get("job_description", "").lower()
+        job_title = job_data.get("job_title", "").lower()
+        company_name = job_data.get("company_name", "").lower()
+        skills = " ".join(s.lower() for s in job_data.get("skills_required", []))
+        
+        text = f"{job_title} {job_desc} {company_name} {skills}"
+        
+        industry_scores = {}
+        detected_brands = []
+        
+        # Score each industry by keyword matches
+        for industry_tag, keywords in MetadataExtractor.INDUSTRY_KEYWORDS.items():
+            score = 0
+            for keyword in keywords:
+                if keyword in text:
+                    # Weight longer keywords higher (more specific)
+                    score += len(keyword.split())
+            if score > 0:
+                industry_scores[industry_tag] = score
+        
+        # Check brand references (high-confidence signals)
+        for brand, brand_industry in MetadataExtractor.BRAND_INDUSTRY_MAP.items():
+            if brand.lower() in text:
+                detected_brands.append(brand)
+                # Brand match = strong signal (+5 to industry score)
+                industry_scores[brand_industry] = industry_scores.get(brand_industry, 0) + 5
+                logger.info(f"  Brand reference detected: '{brand}' → industry '{brand_industry}'")
+        
+        if not industry_scores:
+            return {
+                "industry": "general",
+                "confidence": 0.5,
+                "secondary_industries": [],
+                "detected_brands": [],
+                "method": "fallback"
+            }
+        
+        # Sort by score descending
+        sorted_industries = sorted(industry_scores.items(), key=lambda x: x[1], reverse=True)
+        primary_industry = sorted_industries[0][0]
+        primary_score = sorted_industries[0][1]
+        
+        # Calculate confidence based on score dominance
+        total_score = sum(industry_scores.values())
+        confidence = min(0.95, primary_score / total_score) if total_score > 0 else 0.5
+        
+        # Get secondary industries (any with score > 1)
+        secondary = [ind for ind, score in sorted_industries[1:4] if score > 1]
+        
+        return {
+            "industry": primary_industry,
+            "confidence": round(confidence, 2),
+            "secondary_industries": secondary,
+            "detected_brands": detected_brands,
+            "method": "keyword_brand_hybrid"
+        }
 
     @staticmethod
     def calculate_duration(job_data: Dict[str, Any]) -> Optional[int]:
