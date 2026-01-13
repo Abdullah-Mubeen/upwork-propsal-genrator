@@ -43,9 +43,10 @@ class RetrievalPipeline:
     # Platform keywords for smart detection
     # CRITICAL: More specific keywords should come first in each list
     PLATFORM_KEYWORDS = {
-        "wordpress": ["wordpress", "wp-admin", "elementor", "divi", "theme", "plugin", "gutenberg", "acf", "wp theme", "wp plugin"],
+        "wordpress": ["wordpress", "wp-admin", "elementor", "divi", "theme", "plugin", "gutenberg", "acf", "wp theme", "wp plugin", "geo directory", "geodirectory"],
         "shopify": ["shopify", "shopify theme", "shopify app", "shopify store", "liquid", "shopify plus"],
         "woocommerce": ["woocommerce", "woo commerce", "woo membership", "woomembership", "woo subscription", "woo-"],
+        "wix": ["wix", "wix site", "wix website", "wix editor"],
         "webflow": ["webflow"],
         "squarespace": ["squarespace"],
         "magento": ["magento", "adobe commerce"],
@@ -240,171 +241,94 @@ class RetrievalPipeline:
         criteria: FilterCriteria
     ) -> List[Dict[str, Any]]:
         """
-        STAGE 1: Fast metadata filtering.
-        
-        Applies smart filters to reduce search space while keeping good candidates.
-        CRITICAL: Platform matching is the HIGHEST priority filter.
-        WordPress job = WordPress projects ONLY (same for Shopify, etc.)
-        NEVER mix competing platforms (WordPress ≠ Shopify)
-        
-        ENHANCED: Now also considers INDUSTRY matching for better relevance.
-        A media company job should match media industry projects first.
-        
-        URGENT/AD-HOC: When job is urgent, prioritize past urgent projects first
-        (they show you can handle time-sensitive work)
+        STAGE 1: Fast metadata filtering with platform exclusion.
+        Priority: Urgent → Platform+Industry → Platform → Industry → Skills → Fallback
         """
-        platform_matched = []  # Projects matching the detected platform
-        industry_matched = []  # Projects matching the industry
-        urgent_matched = []    # Urgent/ad-hoc projects (when job is urgent)
-        skill_matched = []     # Projects matching skills (fallback) - but NOT competing platforms
+        # All CMS platforms are mutually exclusive
+        CMS_PLATFORMS = {"wordpress", "woocommerce", "shopify", "wix", "magento", "webflow", "squarespace"}
+        JS_FRAMEWORKS = {"react": {"angular", "vue"}, "angular": {"react", "vue"}, "vue": {"react", "angular"}}
         
-        # Define competing platforms that should NEVER be mixed
-        competing_platforms = {
-            "wordpress": ["shopify", "magento", "squarespace", "webflow", "wix"],
-            "woocommerce": ["shopify", "magento", "squarespace", "webflow", "wix"],
-            "shopify": ["wordpress", "woocommerce", "magento", "squarespace", "webflow", "wix"],
-            "magento": ["wordpress", "woocommerce", "shopify", "squarespace", "webflow"],
-            "react": ["angular", "vue"],
-            "angular": ["react", "vue"],
-            "vue": ["react", "angular"],
-        }
+        # Get excluded platforms
+        if criteria.platform in CMS_PLATFORMS:
+            excluded = CMS_PLATFORMS - {criteria.platform, "woocommerce" if criteria.platform == "wordpress" else criteria.platform}
+            if criteria.platform in ("wordpress", "woocommerce"):
+                excluded -= {"wordpress", "woocommerce"}  # WP and WooCommerce are related
+        else:
+            excluded = JS_FRAMEWORKS.get(criteria.platform, set())
         
-        excluded_platforms = competing_platforms.get(criteria.platform, []) if criteria.platform else []
-        
-        # Get target industry from criteria (normalized to lowercase)
-        target_industry = criteria.industries[0].lower() if criteria.industries else None
+        target_industry = (criteria.industries[0].lower() if criteria.industries else None)
+        results = {"urgent": [], "platform": [], "industry": [], "skills": []}
         
         for job in jobs:
-            # Completed projects preferred if specified (case-insensitive)
             if criteria.completed_only and job.get("project_status", "").lower() != "completed":
                 continue
             
             job_platform = self._detect_job_platform(job)
-            job_is_urgent = job.get("urgent_adhoc", False)
-            job_industry = (job.get("industry") or "").lower()
+            job_skills_text = " ".join(s.lower() for s in job.get("skills_required", []))
             
-            # CRITICAL: EXCLUDE competing platforms
-            if criteria.platform and job_platform in excluded_platforms:
-                logger.debug(f"  ✗ Excluding {job.get('company_name')} - platform {job_platform} conflicts with {criteria.platform}")
-                continue
-            
-            # Check INDUSTRY match (for better semantic relevance)
-            industry_match = False
-            if target_industry and target_industry != "general":
-                if job_industry == target_industry:
-                    industry_match = True
-                # Also check industry_tags if available
-                job_industry_tags = [t.lower() for t in job.get("industry_tags", [])]
-                if target_industry in job_industry_tags:
-                    industry_match = True
-            
-            # CRITICAL: Platform matching - highest priority
+            # CRITICAL: Skip if competing platform detected OR in skills
             if criteria.platform:
-                if job_platform == criteria.platform:
-                    # If job is urgent AND this past project was also urgent - EXTRA priority
-                    if criteria.urgent_adhoc and job_is_urgent:
-                        urgent_matched.append(job)
-                        logger.debug(f"  ⚡ URGENT match: {job.get('company_name')} ({job_platform}) - past urgent project!")
-                    elif industry_match:
-                        # Platform + Industry match = BEST match (prepend)
-                        platform_matched.insert(0, job)
-                        logger.debug(f"  ✓✓ Platform+Industry match: {job.get('company_name')} ({job_platform}, {job_industry})")
-                    else:
-                        platform_matched.append(job)
-                        logger.debug(f"  ✓ Platform match: {job.get('company_name')} ({job_platform})")
+                if job_platform in excluded:
+                    logger.debug(f"  ✗ Excluding {job.get('company_name')} - platform {job_platform} conflicts")
                     continue
-                # Check for related platforms (e.g., WooCommerce ↔ WordPress)
-                if self._are_platforms_related(criteria.platform, job_platform):
-                    if criteria.urgent_adhoc and job_is_urgent:
-                        urgent_matched.append(job)
-                        logger.debug(f"  ⚡ URGENT related match: {job.get('company_name')} ({job_platform})")
-                    elif industry_match:
-                        platform_matched.insert(0, job)
-                        logger.debug(f"  ✓✓ Related platform+Industry match: {job.get('company_name')} ({job_platform}, {job_industry})")
-                    else:
-                        platform_matched.append(job)
-                        logger.debug(f"  ✓ Related platform match: {job.get('company_name')} ({job_platform} related to {criteria.platform})")
+                if any(kw in job_skills_text for p in excluded for kw in self.PLATFORM_KEYWORDS.get(p, [p])):
+                    logger.debug(f"  ✗ Excluding {job.get('company_name')} - has competing platform skill")
                     continue
             
-            # INDUSTRY matching (when platform doesn't match but industry does)
-            if industry_match and job_platform not in excluded_platforms:
-                industry_matched.append(job)
-                logger.debug(f"  🏢 Industry match: {job.get('company_name')} (industry: {job_industry})")
-                continue
+            # Check matches
+            job_industry = (job.get("industry") or "").lower()
+            industry_match = target_industry and (job_industry == target_industry or 
+                            target_industry in [t.lower() for t in job.get("industry_tags", [])])
+            platform_match = (job_platform == criteria.platform or 
+                             self._are_platforms_related(criteria.platform, job_platform))
             
-            # Skills filter (soft - at least some overlap) - but ONLY if not a competing platform
-            if criteria.skills and job_platform not in excluded_platforms:
-                job_skills = set(s.lower() for s in job.get("skills_required", []))
-                query_skills = set(s.lower() for s in criteria.skills)
-                if job_skills & query_skills:  # Has overlap
-                    skill_matched.append(job)
+            # Categorize by priority
+            if criteria.platform and platform_match:
+                if criteria.urgent_adhoc and job.get("urgent_adhoc"):
+                    results["urgent"].append(job)
+                elif industry_match:
+                    results["platform"].insert(0, job)  # Platform+Industry at front
+                else:
+                    results["platform"].append(job)
+            elif industry_match and job_platform not in excluded:
+                results["industry"].append(job)
+            elif criteria.skills and job_platform not in excluded:
+                if set(s.lower() for s in job.get("skills_required", [])) & set(s.lower() for s in criteria.skills):
+                    results["skills"].append(job)
         
-        # PRIORITY ORDER:
-        # 1. Urgent projects (when job is urgent) - shows you can handle time pressure
-        # 2. Platform-matched projects (includes platform+industry matches at front)
-        # 3. Industry-matched projects (semantic relevance even without platform match)
-        # 4. Skill-matched projects
+        # Return by priority
+        for key in ["urgent", "platform", "industry", "skills"]:
+            if results[key]:
+                if key == "urgent":
+                    return results["urgent"] + [p for p in results["platform"] if p not in results["urgent"]]
+                logger.info(f"  → Found {len(results[key])} {key}-matched projects")
+                return results[key]
         
-        if urgent_matched:
-            logger.info(f"  ⚡ Found {len(urgent_matched)} URGENT projects matching platform: {criteria.platform}")
-            # Combine urgent matches first, then platform matches
-            combined = urgent_matched + [p for p in platform_matched if p not in urgent_matched]
-            return combined
-        
-        if platform_matched:
-            logger.info(f"  → Found {len(platform_matched)} projects matching platform: {criteria.platform}")
-            return platform_matched
-        
-        # Industry-matched projects (even without platform match - semantic relevance)
-        if industry_matched:
-            logger.info(f"  🏢 Found {len(industry_matched)} projects matching industry: {target_industry}")
-            return industry_matched
-        
-        # Fallback to skill-matched projects (already filtered to exclude competing platforms)
-        if skill_matched:
-            logger.info(f"  → No exact platform match, using {len(skill_matched)} skill-matched projects (excluded: {excluded_platforms})")
-            return skill_matched
-        
-        # Last resort: return all completed projects that are NOT competing platforms
-        logger.warning(f"  ⚠ No matching projects found, returning non-competing completed projects")
-        fallback = []
-        for job in jobs:
-            if job.get("project_status", "").lower() == "completed":
-                job_platform = self._detect_job_platform(job)
-                if job_platform not in excluded_platforms:
-                    fallback.append(job)
-        return fallback[:10]  # Limit to 10
+        # Fallback: non-competing completed projects
+        logger.warning(f"  ⚠ No matches, returning non-competing completed projects")
+        return [j for j in jobs if j.get("project_status", "").lower() == "completed" 
+                and self._detect_job_platform(j) not in excluded][:10]
     
     def _detect_job_platform(self, job: Dict[str, Any]) -> Optional[str]:
-        """
-        Detect platform from a historical job's data.
-        Uses scoring to find the BEST match, not just first match.
-        """
-        job_desc = job.get("job_description", "").lower()
-        job_title = job.get("job_title", "").lower()
+        """Detect platform from job data using weighted keyword scoring."""
+        text = f"{job.get('job_title', '')} {job.get('job_description', '')}".lower()
         skills = [s.lower() for s in job.get("skills_required", [])]
+        skills_text = " ".join(skills)
         
-        search_text = f"{job_title} {job_desc} {' '.join(skills)}"
-        
-        # Score each platform
-        platform_scores = {}
+        scores = {}
         for platform, keywords in self.PLATFORM_KEYWORDS.items():
-            score = 0
-            for keyword in keywords:
-                if keyword in skills:  # Skill match = highest weight
-                    score += 3
-                elif keyword in job_title:  # Title match = high weight
-                    score += 2
-                elif keyword in job_desc:  # Description match
-                    score += 1
-            if score > 0:
-                platform_scores[platform] = score
+            score = sum(
+                4 if kw in skills else 3 if kw in skills_text else 2 if kw in job.get("job_title", "").lower() else 1 if kw in text else 0
+                for kw in keywords
+            )
+            if score:
+                scores[platform] = score
         
-        if not platform_scores:
+        if not scores:
             return None
-        
-        # Return highest scoring platform
-        return max(platform_scores, key=platform_scores.get)
+        detected = max(scores, key=scores.get)
+        logger.debug(f"  Platform: {job.get('company_name', '?')} → {detected} (scores: {scores})")
+        return detected
     
     def _are_platforms_related(self, platform1: Optional[str], platform2: Optional[str]) -> bool:
         """
