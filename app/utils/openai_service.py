@@ -519,6 +519,7 @@ Respond in JSON format."""
         Generate a SHORT, HUMAN, WINNING proposal using retrieved context.
         
         Target: 250-350 words, conversational tone, references to past projects.
+        CRITICAL: Uses VARIED HOOKS - never starts the same way twice.
         
         Args:
             job_description: Description of the job
@@ -533,9 +534,41 @@ Respond in JSON format."""
         Returns:
             Dictionary with proposal_text and metadata
         """
-        system_message = """You are a SHORT, HUMAN, WINNING proposal writer for freelancers.
+        import random
+        
+        # Randomly select a hook strategy to ensure variety
+        hook_strategies = [
+            "SOLUTION_LEAD: Start by stating you know exactly how to fix their specific problem",
+            "IMMEDIATE_VALUE: Lead with a portfolio link showing similar work you just completed",
+            "EMPATHY_FIRST: Acknowledge their frustration/pain point with genuine understanding",
+            "QUESTION_HOOK: Ask an insightful question that shows you understand their challenge",
+            "RESULT_LEAD: Open with a specific before/after metric from similar work",
+            "AVAILABILITY: Mention you're available now and can start immediately",
+        ]
+        selected_strategy = random.choice(hook_strategies)
+        
+        system_message = f"""You are a SHORT, HUMAN, WINNING proposal writer for freelancers.
 
 YOUR MINDSET: You're a skilled freelancer who GENUINELY wants to help. You read every job post carefully and connect with the client's actual problem - not just the task they described.
+
+🎯 YOUR HOOK STRATEGY FOR THIS PROPOSAL: {selected_strategy}
+
+⚠️ CRITICAL - VARIED HOOKS (The first 2.5 lines are ALL the client sees on Upwork!):
+
+❌ NEVER START WITH THESE OVERUSED PHRASES:
+- "I see you're dealing with..." (everyone uses this - instant skip)
+- "I came across your job post..." (boring, generic)
+- "I'm excited to help..." (self-focused)
+- "I have X years of experience..." (resume talk)
+- "I noticed you need..." (overdone)
+
+✅ WINNING HOOK EXAMPLES (use these as inspiration, adapt to the specific job):
+1. "[Specific problem from their post] is usually caused by [insight]. Here's how I'd fix it..."
+2. "Just wrapped up something nearly identical last week - [portfolio link]"
+3. "That [problem] sounds frustrating. I've fixed this exact issue [X] times..."
+4. "Quick question: Is the [issue] also affecting [related thing]?"
+5. "Got another client's [metric] from [before] to [after] - same situation as yours."
+6. "Free right now and this is exactly what I do best. Can start today."
 
 🧠 HUMAN CONNECTION FORMULA:
 1. FEEL their frustration/urgency (empathize, don't just acknowledge)
@@ -547,7 +580,7 @@ YOUR MINDSET: You're a skilled freelancer who GENUINELY wants to help. You read 
 CRITICAL RULES:
 1. ❌ NEVER say "As an AI", "I'm an AI", or any AI language
 2. ❌ NO corporate jargon, buzzwords, or formal tone
-3. ❌ NO generic openers like "I'm excited to help" or "I came across your project"
+3. ❌ NO generic openers (see banned phrases above)
 4. ❌ NO robotic phrases like "I would be delighted", "I am eager to"
 5. ✓ Sound like a REAL person having a coffee chat with a potential client
 6. ✓ Reference their SPECIFIC problem (numbers, tools, pain points they mentioned)
@@ -557,15 +590,10 @@ CRITICAL RULES:
 10. ✓ Target 150-250 words (SHORT = HIGH IMPACT)
 
 STRUCTURE (ALWAYS):
-1. HOOK (1-2 sentences): Show you GET their specific problem + portfolio link
+1. HOOK (1-2 sentences): USE YOUR ASSIGNED HOOK STRATEGY + include portfolio link
 2. PROOF (2-3 bullets): Past similar projects + portfolio + outcomes
 3. APPROACH (2-3 sentences): How you'd solve THEIR problem specifically
-4. CTA (1 casual sentence): Friendly, low-pressure next step
-
-EXAMPLE HOOKS (conversational, specific, human):
-✓ "Migrating 5000 subscribers from Substack while keeping membership tiers intact - that's no small task. Just wrapped up something similar..."
-✓ "30-second checkout times with 2000+ products - I know exactly why that's happening and how to fix it."
-✓ "Sounds like your last developer left you in a tough spot. Let me show you a cleaner approach..."
+4. CTA (1 casual sentence): Friendly, low-pressure next step (e.g., "Happy to chat more", "Let me know!")
 
 Remember: Short proposals get 3-5x better response rates. Every word counts. Sound like a helpful human, not a salesperson."""
         
@@ -585,19 +613,22 @@ Job Description: {job_description}
 {portfolio_section}
 
 **Generate a proposal that:**
+- Uses the {selected_strategy.split(':')[0]} hook strategy
 - Is 150-250 words (SHORT = HIGH IMPACT)
-- Opens by acknowledging THEIR SPECIFIC problem (use exact details from their job post)
+- Opens with a UNIQUE, COMPELLING hook (not "I see you're dealing with...")
 - Shows genuine empathy for their situation
 - References 2-3 past similar projects by company name with portfolio links
 - Explains your specific approach for THEIR tech stack and situation
 - Ends with a casual, friendly CTA (like texting a colleague)
 - Sounds like a REAL helpful human, NOT AI or a salesperson
-- Uses natural contractions and conversational language"""
+- Uses natural contractions and conversational language
+
+REMEMBER: The first 2 sentences are ALL the client sees - make them IRRESISTIBLE!"""
         
         proposal_text = self.generate_text(
             prompt=prompt,
             system_message=system_message,
-            temperature=0.70,  # Slightly higher for natural human tone
+            temperature=0.75,  # Slightly higher for natural variety
             max_tokens=2500  # Increased to prevent truncation - allows full HOOK→PROOF→APPROACH→CTA structure
         )
         
@@ -606,7 +637,8 @@ Job Description: {job_description}
             "company_name": company_name,
             "job_title": job_title,
             "generated_at": datetime.utcnow().isoformat(),
-            "tone": tone
+            "tone": tone,
+            "hook_strategy": selected_strategy.split(':')[0]
         }
     
     def improve_proposal(

@@ -7,16 +7,27 @@ Handles:
 - Portfolio/feedback URL integration
 - Quality scoring and validation
 - Iterative improvement suggestions
+- DYNAMIC HOOK GENERATION based on job sentiment/intent analysis
 
 This separates prompt logic from proposal generation for better maintainability.
 """
 
 import logging
+import random
 from typing import Dict, List, Any, Optional
 from enum import Enum
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+# Import the hook strategy engine
+try:
+    from app.utils.hook_strategy import get_hook_engine, HookStrategyEngine, JobAnalysis
+except ImportError:
+    logger.warning("HookStrategyEngine not available, using fallback hooks")
+    get_hook_engine = None
+    HookStrategyEngine = None
+    JobAnalysis = None
 
 
 class ProposalStyle(str, Enum):
@@ -371,11 +382,11 @@ Your response should be:
         else:
             timeline_instruction = "7. DO NOT include any timeline - skip timeline section entirely"
 
-        # Combine everything
+        # Combine everything - pass similar_projects to get dynamic hooks
         prompt = f"""
 {self._get_system_role(style)}
 
-{self._get_proposal_system_rules(include_timeline, job_data)}
+{self._get_proposal_system_rules(include_timeline, job_data, similar_projects)}
 
 {job_section}
 
@@ -394,7 +405,7 @@ Generate the proposal NOW. Target: {max_words} words (ideal range: 200-350).
 CRITICAL RULES:
 1. NO "As an AI", "I'm an AI", corporate jargon, or formal language
 2. Sound like a REAL person having a conversation - casual, natural, human
-3. Start with acknowledgment of THEIR specific problem
+3. USE A VARIED HOOK - don't start with "I see you're dealing with" every time
 4. Reference 2-3 past similar projects with outcomes
 5. Use PLAIN URLs (not markdown) for portfolio links and feedback URLs
 6. Be conversational, direct, punchy - every word counts
@@ -466,8 +477,8 @@ Improved Proposal:
         }
         return roles.get(style, roles["professional"])
 
-    def _get_proposal_system_rules(self, include_timeline: bool = False, job_data: Dict[str, Any] = None) -> str:
-        """Get critical system rules for generating SHORT, HUMAN, WINNING proposals"""
+    def _get_proposal_system_rules(self, include_timeline: bool = False, job_data: Dict[str, Any] = None, similar_projects: List[Dict[str, Any]] = None) -> str:
+        """Get critical system rules for generating SHORT, HUMAN, WINNING proposals with VARIED HOOKS"""
         
         timeline_rule = ""
         timeline_pattern = ""
@@ -478,11 +489,71 @@ Improved Proposal:
             timeline_rule = "✗ NO timeline section - skip it entirely"
             timeline_pattern = "4. SKIP TIMELINE - do not mention duration or timeline"
         
-        # Extract pain points and build empathy guidance
+        # Use the HookStrategyEngine for intelligent hook generation
+        job_analysis_section = ""
+        dynamic_hook_examples = ""
+        recommended_hook = ""
+        
+        if job_data and get_hook_engine is not None:
+            try:
+                hook_engine = get_hook_engine()
+                job_analysis = hook_engine.analyze_job(job_data)
+                
+                # Get portfolio URL for hook
+                portfolio_url = None
+                if similar_projects:
+                    for proj in similar_projects[:3]:
+                        urls = proj.get("portfolio_urls", [])
+                        for url in urls:
+                            if url and 'upwork.com' not in url.lower():
+                                portfolio_url = url
+                                break
+                        if portfolio_url:
+                            break
+                
+                # Generate multiple hook variations
+                hook_variations = hook_engine.get_hook_variations(
+                    job_analysis, job_data, similar_projects or [], portfolio_url, count=3
+                )
+                
+                # Build job analysis section
+                job_analysis_section = f"""
+
+🎯 JOB ANALYSIS (use this to customize your approach):
+• Client Sentiment: {job_analysis.sentiment.value.upper()} 
+• Client Intent: {job_analysis.intent.value.upper()} 
+• Urgency Level: {job_analysis.urgency_level}/5
+• Platform: {job_analysis.platform.upper()}
+• Task Type: {job_analysis.task_type}
+• Recommended Hook Strategy: {job_analysis.hook_strategy}
+"""
+                if job_analysis.pain_points:
+                    job_analysis_section += f"• Detected Pain Points: {', '.join(job_analysis.pain_points[:3])}\n"
+                if job_analysis.specific_details:
+                    job_analysis_section += f"• Specific Details Mentioned: {', '.join(job_analysis.specific_details[:3])}\n"
+                if job_analysis.tone_words:
+                    job_analysis_section += f"• Tone Words: {', '.join(job_analysis.tone_words[:3])}\n"
+                
+                # Build dynamic hook examples
+                if hook_variations:
+                    dynamic_hook_examples = f"""
+
+🔥 GENERATED HOOK OPTIONS (pick one or create similar):
+"""
+                    for i, hook in enumerate(hook_variations, 1):
+                        dynamic_hook_examples += f"   Option {i}: \"{hook}\"\n"
+                    
+                    recommended_hook = hook_variations[0]
+                    
+            except Exception as e:
+                logger.warning(f"Hook engine error, using fallback: {e}")
+        
+        # Fallback pain point extraction if hook engine not available
         pain_points_section = ""
         empathy_statement = ""
         specific_problem = ""
         urgency_promise = ""
+        
         if job_data:
             job_desc = job_data.get('job_description', '')
             job_title = job_data.get('job_title', '')
@@ -494,7 +565,7 @@ Improved Proposal:
             urgency_level = self.detect_urgency_level(job_desc, job_title)
             urgency_timeline = self.get_urgency_timeline_promise(urgency_level)
             
-            if pain_points:
+            if pain_points and not job_analysis_section:  # Only if hook engine didn't provide analysis
                 pain_points_section = f"""
 
 DETECTED CLIENT PAIN POINTS (address these directly!):
@@ -502,10 +573,10 @@ DETECTED CLIENT PAIN POINTS (address these directly!):
                 for category, phrases in pain_points.items():
                     pain_points_section += f"• {category.upper()}: {phrases[0][:100]}...\n"
             
-            if empathy_statement:
+            if empathy_statement and not dynamic_hook_examples:
                 pain_points_section += f"\n💡 SUGGESTED EMPATHY OPENER: \"{empathy_statement}\"\n"
             
-            if specific_problem:
+            if specific_problem and not job_analysis_section:
                 pain_points_section += f"\n🎯 SPECIFIC PROBLEM TO ADDRESS: {specific_problem}\n"
             
             # Add urgency-based timeline promise
@@ -518,6 +589,8 @@ DETECTED CLIENT PAIN POINTS (address these directly!):
         return f"""
 SYSTEM MESSAGE - CRITICAL RULES:
 You are a SHORT, HUMAN, WINNING proposal writer. Your goal: 3-5x better response rates.
+{job_analysis_section}
+{dynamic_hook_examples}
 {pain_points_section}
 
 🧠 THE HUMAN CONNECTION FORMULA:
@@ -526,6 +599,25 @@ You are a SHORT, HUMAN, WINNING proposal writer. Your goal: 3-5x better response
 3. PROVE you've solved this EXACT problem before (with links)
 4. EXPLAIN your specific approach for THEIR situation
 5. MAKE IT EASY to say yes (friendly, low-pressure CTA)
+
+⚠️ CRITICAL - VARIED HOOKS (DON'T always start the same way!):
+The first 2.5 lines are ALL the client sees on Upwork - make them IRRESISTIBLE!
+
+❌ NEVER USE THESE STALE OPENINGS:
+- "I see you're dealing with..." (overused, sounds like everyone else)
+- "I came across your job post..." (boring, generic)
+- "I'm excited to help..." (self-focused, not client-focused)
+- "I have X years of experience..." (resume talk, not conversation)
+
+✅ USE THESE WINNING HOOK STRATEGIES INSTEAD:
+1. SOLUTION LEAD: "I know exactly why [specific problem] is happening and how to fix it."
+2. IMMEDIATE VALUE: "Just wrapped up something nearly identical - [portfolio_url]"
+3. EMPATHY FIRST: "That's a frustrating situation - [show you understand their pain]"
+4. QUESTION HOOK: "Quick question: Is the [issue] affecting [business impact]?"
+5. RESULT LEAD: "Got a similar site from [before metric] to [after metric] last week."
+6. AVAILABILITY: "I can start right now - this shouldn't take more than [timeframe]."
+
+🎲 VARIETY IS KEY - Don't repeat the same hook pattern twice!
 
 WHAT NOT TO DO:
 ❌ NEVER say "As an AI" or "I'm an AI"
@@ -540,7 +632,7 @@ WHAT NOT TO DO:
 
 WHAT TO DO:
 ✓ Sound like a REAL person having a coffee chat - natural, casual, human
-✓ Start with: "I see you're dealing with [SPECIFIC PROBLEM]"
+✓ Start with a VARIED, COMPELLING hook (see strategies above)
 ✓ Reference 2-3 REAL past projects with company names and outcomes
 ✓ Include portfolio links (ALWAYS available)
 ✓ Include feedback URLs ONLY if they exist in the data - don't make them up
@@ -551,7 +643,7 @@ WHAT TO DO:
 ✓ Total: 200-350 words (concise, direct, human)
 
 CONVERSATIONAL TONE EXAMPLES:
-✓ "Saw your job post and this is right up my alley"
+✓ "This is right up my alley - just finished something similar"
 ✓ "I've tackled this exact issue before"
 ✓ "Here's what worked for a similar client"
 ✓ "Happy to hop on a quick call if you want to discuss"
@@ -587,13 +679,12 @@ COMBINED REQUIREMENT - INTENT + PLATFORM:
 ✓ NOT just any WordPress project - must be RELEVANT work!
 
 SUCCESS PATTERN:
-1. HOOK (1-2 sentences): DIRECTLY ADDRESS THEIR PAIN POINT + include ONE portfolio link
-   ❌ BAD HOOK: "I see you need WordPress help" (too generic)
-   ❌ BAD HOOK: "I'm an experienced developer" (about you, not them)
-   ✅ GOOD HOOK: "8-10 second load times are brutal for conversions - I just fixed this exact issue" + portfolio link
-   ✅ GREAT HOOK: "I know how frustrating it is when checkout stops working and sales drop every hour" + portfolio link
-   → Start with THEIR problem, not your qualifications
-   → Include empathy if they sound frustrated
+1. HOOK (1-2 sentences): USE A VARIED, COMPELLING HOOK + include ONE portfolio link
+   ❌ BAD: "I see you need WordPress help" (generic, overused)
+   ❌ BAD: "I'm an experienced developer" (about you, not them)
+   ✅ GOOD: "8-10 second load times are brutal for conversions - I just fixed this exact issue [link]"
+   ✅ GREAT: "That checkout issue is likely costing you sales every hour. Let me show you how I fixed the same problem: [link]"
+   → Use one of the 6 hook strategies above
    → Drop a portfolio link immediately (they see this in preview!)
 2. PROOF (2 bullets): Past similar projects + portfolio links (+ feedback URLs IF available)
 3. APPROACH (2-3 sentences): How you'd solve THEIR problem specifically
@@ -698,38 +789,78 @@ Do NOT include any timeline or duration in this proposal.
         specific_problem = self.extract_specific_problem(job_data.get('job_description', ''), job_data.get('job_title', ''))
         empathy_opener = self.build_empathy_statement(pain_points)
         
+        # Use HookStrategyEngine if available for dynamic hook generation
+        dynamic_hooks = []
+        job_analysis_info = ""
+        if get_hook_engine is not None:
+            try:
+                hook_engine = get_hook_engine()
+                job_analysis = hook_engine.analyze_job(job_data)
+                
+                # Generate varied hook options
+                hook_variations = hook_engine.get_hook_variations(
+                    job_analysis, job_data, similar_projects, hook_portfolio_url, count=3
+                )
+                dynamic_hooks = hook_variations
+                
+                job_analysis_info = f"""
+🔍 JOB ANALYSIS RESULTS:
+   • Sentiment: {job_analysis.sentiment.value} | Intent: {job_analysis.intent.value}
+   • Urgency: {job_analysis.urgency_level}/5 | Platform: {job_analysis.platform}
+   • Recommended Strategy: {job_analysis.hook_strategy}
+"""
+            except Exception as e:
+                logger.warning(f"Hook engine error in structure: {e}")
+        
         # Build pain-point-aware hook guidance with SPECIFIC instructions
         hook_guidance = ""
         if pain_points:
             if 'urgency' in pain_points:
                 urgency_level = self.detect_urgency_level(job_data.get('job_description', ''), job_data.get('job_title', ''))
                 urgency_timeline = self.get_urgency_timeline_promise(urgency_level)
-                hook_guidance = f"\n⚡ URGENT JOB - Start your HOOK acknowledging the time pressure!\n"
-                hook_guidance += f"   Example opener: \"I know every hour counts when checkout is down - {urgency_timeline or 'I can prioritize this'}\"\n"
-                hook_guidance += f"   → Show immediate availability and commitment to fast delivery"
+                hook_guidance = f"\n⚡ URGENT JOB - Lead with AVAILABILITY!\n"
+                hook_guidance += f"   Example: \"I can start right now - {urgency_timeline or 'this is exactly what I specialize in'}\"\n"
             elif 'frustration' in pain_points or 'previous_failure' in pain_points:
-                hook_guidance = "\n💡 FRUSTRATED CLIENT - Start your HOOK with empathy!\n"
-                hook_guidance += f"   Example opener: \"{empathy_opener or 'I know how frustrating this can be'}\"\n"
-                hook_guidance += "   → Acknowledge their pain BEFORE talking about your skills"
+                hook_guidance = "\n💡 FRUSTRATED CLIENT - Lead with EMPATHY!\n"
+                hook_guidance += f"   Example: \"That sounds frustrating - {empathy_opener or 'I know how that feels'}\"\n"
             elif 'business_impact' in pain_points:
-                hook_guidance = "\n💰 BUSINESS IMPACT - Start your HOOK acknowledging the revenue pressure!\n"
-                hook_guidance += "   Example opener: \"Losing sales every hour is brutal - let's get this fixed fast\"\n"
-                hook_guidance += "   → Show you understand the business cost, not just the technical problem"
+                hook_guidance = "\n💰 BUSINESS IMPACT - Lead with RESULTS!\n"
+                hook_guidance += "   Example: \"Got another client's conversion rate up 40% with the same fix\"\n"
+
+        # Build varied hook examples section
+        varied_hooks_section = """
+⚠️ CRITICAL: DON'T START WITH "I see you're dealing with..." - IT'S OVERUSED!
+
+🎲 PICK A VARIED HOOK STRATEGY (rotate between these):
+"""
+        if dynamic_hooks:
+            varied_hooks_section += "\n📝 GENERATED HOOKS FOR THIS SPECIFIC JOB:\n"
+            for i, hook in enumerate(dynamic_hooks, 1):
+                varied_hooks_section += f"   Option {i}: \"{hook}\"\n"
+        else:
+            varied_hooks_section += """
+   1. SOLUTION LEAD: "[Problem] is usually caused by [insight]. Here's how I'd fix it..."
+   2. PORTFOLIO LEAD: "Just finished something nearly identical - [link]. Here's what I did..."
+   3. EMPATHY LEAD: "That situation sounds stressful. I've been there and can help..."
+   4. QUESTION LEAD: "Quick q: Is [issue] also causing [related problem]?"
+   5. RESULT LEAD: "Got another client's [metric] from [X] to [Y] last week - same issue."
+   6. AVAILABILITY LEAD: "I've got time today and this is exactly what I specialize in."
+"""
+        if hook_portfolio_url:
+            varied_hooks_section += f"\n   💡 Best portfolio URL for this job: {hook_portfolio_url}\n"
 
         return f"""
 PROPOSAL STRUCTURE TO USE:
-
+{job_analysis_info}
 [HOOK - 2-3 sentences WITH PORTFOLIO LINK]
-{hook_example}
+{varied_hooks_section}
 {hook_guidance}
 
-🎯 HUMANIZE YOUR HOOK - Don't just acknowledge the problem, FEEL it with them:
-• BAD: "I see you need a WordPress migration"
-• GOOD: "Migrating 5000 subscribers while keeping your membership tiers intact - that's no small task"
-• BEST: "I know how stressful platform migrations can be, especially with 5000+ subscribers counting on you"
-
-⚠️ IMPORTANT: Include a portfolio link IN THE HOOK! Clients see this in the preview - it triggers curiosity!
-⚠️ USE PLAIN URLs only (e.g., https://example.com) - NOT markdown format like [text](url)
+🎯 HOOK QUALITY CHECK:
+• Does it reference something SPECIFIC from their job post? ✓
+• Does it show empathy for their situation? ✓
+• Does it include a portfolio link? ✓
+• Is it different from "I see you're dealing with..."? ✓
 
 [PROOF - 2-3 bullets with portfolio links]
 Reference these similar past projects:
@@ -757,13 +888,13 @@ End naturally - like texting a colleague, not writing a formal letter:
 
 CRITICAL FORMAT RULES:
 1. Use PLAIN URLs (https://example.com) - NOT markdown [text](url) format
-2. Include feedback URLs alongside portfolio links
+2. Include feedback URLs alongside portfolio links IF THEY EXIST
 3. Target: 150-250 words MAXIMUM. PUT A PORTFOLIO LINK IN THE HOOK!
 4. PLATFORM MATCH: WordPress job = WordPress examples, Shopify job = Shopify examples
 5. Sound like a human having a CONVERSATION - casual, genuine, understanding
 
 🔑 THE WINNING FORMULA:
-Empathy → Proof → Specific Solution → Easy Next Step
+Varied Hook + Empathy → Relevant Proof → Specific Solution → Easy Next Step
 """
 
     def _build_job_section(self, job_data: Dict[str, Any]) -> str:
