@@ -766,6 +766,11 @@ class JobDataProcessor:
                     except:
                         skills = []
                 
+                # Get deliverables from chunk (for deliverables_portfolio) or job_data
+                deliverables = chunk.get("deliverables") or job_data.get("deliverables", [])
+                if isinstance(deliverables, str):
+                    deliverables = [deliverables] if deliverables else []
+                
                 metadata = {
                     "contract_id": contract_id,
                     "chunk_id": chunk_id,
@@ -781,6 +786,8 @@ class JobDataProcessor:
                     "portfolio_url": job_data.get("portfolio_url", ""),
                     "client_feedback_url": str(job_data.get("client_feedback_url", "")),
                     "client_feedback_text": job_data.get("client_feedback_text", ""),
+                    "deliverables": deliverables,  # What was built
+                    "outcomes": chunk.get("outcomes") or job_data.get("outcomes", ""),  # Key result
                     "created_at": str(job_data.get("created_at", ""))
                 }
                 
