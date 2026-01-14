@@ -674,6 +674,24 @@
                             <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
+                        <!-- DELIVERABLES - What was actually built -->
+                        <div class="border-t border-neutral-200 pt-5">
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Deliverables (What You Built) *</label>
+                            <p class="text-xs text-neutral-500 mb-3">List specific things you delivered - helps match similar projects</p>
+                            <div class="flex gap-2 mb-3">
+                                <input type="text" id="deliverable-input" placeholder="e.g., Custom dashboard, Payment integration, Content migration" class="input-field flex-1">
+                                <button type="button" onclick="addDeliverable()" class="btn-secondary">Add</button>
+                            </div>
+                            <div id="deliverables-container" class="flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <!-- OUTCOMES - Key result achieved -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Key Outcome (Optional)</label>
+                            <input type="text" name="outcomes" placeholder="e.g., Client can now track inventory in real-time, 40% faster page load" class="input-field">
+                            <p class="text-xs text-neutral-500 mt-1">One-line result that shows the impact</p>
+                        </div>
+
                         <!-- Job Description -->
                         <div>
                             <label class="block text-sm font-600 text-neutral-700 mb-2">Job Description *</label>
@@ -824,6 +842,7 @@
         
         let currentSkills = [];
         let currentPortfolios = [];
+        let currentDeliverables = [];
         let selectedImage = null;
         let extractedOCRText = '';
         
@@ -838,6 +857,7 @@
             setupForm();
             setupSkillInput();
             setupPortfolioInput();
+            setupDeliverableInput();
             setupEntriesView();
             loadStats();
             loadFilterOptions(); // Load task types and platforms from database
@@ -947,6 +967,7 @@
             const data = Object.fromEntries(formData);
             data.skills = currentSkills;
             data.portfolios = currentPortfolios;
+            data.deliverables = currentDeliverables;
             localStorage.setItem('training_form_draft', JSON.stringify(data));
         }
 
@@ -965,6 +986,9 @@
                     } else if (key === 'portfolios') {
                         currentPortfolios = data.portfolios || [];
                         renderPortfolios();
+                    } else if (key === 'deliverables') {
+                        currentDeliverables = data.deliverables || [];
+                        renderDeliverables();
                     } else if (key === 'feedbackMode') {
                         // Skip feedbackMode as it's no longer used
                     } else {
@@ -1011,6 +1035,8 @@
                 end_date: formData.get('end_date') || null,
                 urgent_adhoc: formData.get('urgent_adhoc') === 'on',
                 portfolio_urls: currentPortfolios,
+                deliverables: currentDeliverables,
+                outcomes: formData.get('outcomes')?.trim() || null,
                 client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
                 client_feedback_url: formData.get('client_feedback_url')?.trim() || null
             };
@@ -1033,8 +1059,10 @@
                     form.reset();
                     currentSkills = [];
                     currentPortfolios = [];
+                    currentDeliverables = [];
                     renderSkills();
                     renderPortfolios();
+                    renderDeliverables();
                     localStorage.removeItem('training_form_draft');
                     
                     // Reset edit mode
@@ -1101,8 +1129,10 @@
             form.reset();
             currentSkills = [];
             currentPortfolios = [];
+            currentDeliverables = [];
             renderSkills();
             renderPortfolios();
+            renderDeliverables();
             localStorage.removeItem('training_form_draft');
         }
 
@@ -1188,7 +1218,42 @@
             }).join('');
         }
 
-        // === FEEDBACK ===
+        // === DELIVERABLES ===
+        function setupDeliverableInput() {
+            document.getElementById('deliverable-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addDeliverable();
+                }
+            });
+        }
+
+        function addDeliverable() {
+            const input = document.getElementById('deliverable-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const items = text.split(',').map(s => s.trim()).filter(s => s && !currentDeliverables.includes(s));
+            currentDeliverables.push(...items);
+            renderDeliverables();
+            input.value = '';
+            input.focus();
+        }
+
+        function removeDeliverable(item) {
+            currentDeliverables = currentDeliverables.filter(d => d !== item);
+            renderDeliverables();
+        }
+
+        function renderDeliverables() {
+            document.getElementById('deliverables-container').innerHTML = currentDeliverables.map(item => `
+                <div class="skill-tag" style="background: #059669;">
+                    ${item}
+                    <button type="button" onclick="removeDeliverable('${item}')">×</button>
+                </div>
+            `).join('');
+        }
+
         // === STATS ===
         async function loadStats() {
             try {
@@ -1497,6 +1562,11 @@
                 // Portfolios
                 currentPortfolios = entry.portfolio_urls || [];
                 renderPortfolios();
+                
+                // Deliverables & Outcomes
+                currentDeliverables = entry.deliverables || [];
+                renderDeliverables();
+                form.elements['outcomes'].value = entry.outcomes || '';
                 
                 // Set edit mode
                 document.getElementById('editing-contract-id').value = contractId;

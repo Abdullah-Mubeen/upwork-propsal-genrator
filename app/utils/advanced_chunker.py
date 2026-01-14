@@ -257,29 +257,39 @@ class DeliverablesPortfolioChunker:
     """
     Creates DELIVERABLES_PORTFOLIO chunk.
     
-    Purpose: Reference past work and portfolio examples
-    Contains: Portfolio Links, Project Deliverables
-    Use Case: "Show portfolio work from similar React projects"
+    Purpose: Reference past work, deliverables, and portfolio examples
+    Contains: Deliverables, Outcomes, Portfolio Links
+    Use Case: "Find projects where I built membership systems with content migration"
     """
 
     @staticmethod
     def extract(job_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Extract deliverables portfolio chunk"""
+        """Extract deliverables portfolio chunk - CRITICAL for matching what was built"""
         job_id = job_data.get("contract_id", "unknown")
         portfolio_urls = job_data.get("portfolio_urls", [])
+        deliverables = job_data.get("deliverables", [])
+        outcomes = job_data.get("outcomes", "")
         
-        # Only create if there are portfolio links
-        if not portfolio_urls:
+        # Create chunk if we have deliverables OR portfolio links
+        if not deliverables and not portfolio_urls:
             return None
 
-        links_str = "\n".join([f"• {url}" for url in portfolio_urls])
+        # Build deliverables section
+        deliverables_str = ""
+        if deliverables:
+            deliverables_str = "What Was Built:\n" + "\n".join([f"• {d}" for d in deliverables])
         
-        portfolio_text = f"""Portfolio & Past Work:
+        # Build outcomes section
+        outcomes_str = f"\nKey Outcome: {outcomes}" if outcomes else ""
+        
+        # Build portfolio section
+        portfolio_str = ""
+        if portfolio_urls:
+            portfolio_str = "\n\nPortfolio References:\n" + "\n".join([f"• {url}" for url in portfolio_urls])
+        
+        portfolio_text = f"""Project Deliverables & Portfolio:
 
-Project References:
-{links_str}
-
-These portfolio links showcase relevant work and past project deliverables for authenticity and credibility reference."""
+{deliverables_str}{outcomes_str}{portfolio_str}"""
 
         metadata = EnhancedMetadata(
             job_id=job_id,
@@ -289,8 +299,10 @@ These portfolio links showcase relevant work and past project deliverables for a
 
         return {
             "chunk_type": ChunkTypeEnum.DELIVERABLES_PORTFOLIO.value,
-            "text": portfolio_text,
+            "text": portfolio_text.strip(),
             "metadata": metadata.to_dict(),
+            "deliverables": deliverables,  # Store for Pinecone metadata
+            "outcomes": outcomes,
             "length": len(portfolio_text),
             "created_at": datetime.utcnow().isoformat()
         }

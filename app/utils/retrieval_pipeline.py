@@ -130,12 +130,12 @@ class RetrievalPipeline:
                     "contract_id": p.get("contract_id"),
                     "company": p.get("company_name"),
                     "title": p.get("job_title"),
-                    "task_type": p.get("task_type"),  # Include task type for matching validation
+                    "task_type": p.get("task_type"),
                     "industry": p.get("industry"),
                     "skills": p.get("skills_required", []),
+                    "deliverables": p.get("deliverables", []),  # What was built
+                    "outcomes": p.get("outcomes", ""),  # Key result
                     "similarity_score": score,
-                    "effectiveness": p.get("proposal_effectiveness_score"),
-                    "satisfaction": p.get("client_satisfaction"),
                     "portfolio_urls": p.get("portfolio_urls", []),
                     "client_feedback_url": p.get("client_feedback_url"),
                 }
@@ -723,10 +723,12 @@ class RetrievalPipeline:
                     "company": job.get("company_name"),
                     "industry": job.get("industry"),
                     "skills": job.get("skills_required", []),
+                    "deliverables": job.get("deliverables", []),  # What was actually built
+                    "outcomes": job.get("outcomes", ""),  # Key result achieved
                     "feedback": (job.get("client_feedback_text") or 
                                job.get("client_feedback", ""))[:200],  # First 200 chars
                     "feedback_url": job.get("client_feedback_url"),
-                    "effectiveness": job.get("proposal_effectiveness_score")
+                    "portfolio_urls": job.get("portfolio_urls", [])
                 })
                 success_count += 1
 

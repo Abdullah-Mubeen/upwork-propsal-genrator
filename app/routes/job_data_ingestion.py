@@ -326,6 +326,8 @@ async def get_job_data(contract_id: str):
             task_type=job_data.get("task_type"),
             platform=job_data.get("platform"),
             urgent_adhoc=job_data.get("urgent_adhoc", False),
+            deliverables=job_data.get("deliverables", []),
+            outcomes=job_data.get("outcomes"),
             created_at=job_data.get("created_at", datetime.utcnow().isoformat()),
             updated_at=job_data.get("updated_at"),
             chunks_count=job_data.get("chunks_count"),
@@ -482,7 +484,7 @@ async def update_job_data(contract_id: str, update_data: UpdateJobDataRequest):
         )
         
         # Check if content changed - if so, regenerate chunks/embeddings
-        content_fields = ["job_description", "your_proposal_text", "skills_required"]
+        content_fields = ["job_description", "your_proposal_text", "skills_required", "deliverables", "outcomes", "client_feedback_text"]
         content_changed = any(f in update_dict for f in content_fields)
         
         if content_changed:

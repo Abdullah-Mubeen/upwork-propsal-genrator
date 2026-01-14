@@ -138,44 +138,15 @@ class JobDataUploadRequest(BaseModel):
         description="Whether this was an urgent/adhoc project"
     )
     
-    # ===== NEW: Proposal tracking & analytics =====
-    proposal_status: Optional[str] = Field(
-        "submitted",
-        description="Status of the proposal: draft, submitted, accepted, rejected"
+    # ===== DELIVERABLES & OUTCOMES (Critical for matching) =====
+    deliverables: List[str] = Field(
+        ...,
+        min_length=1,
+        description="What was actually built/delivered (e.g., 'Custom dashboard', 'Payment integration') - REQUIRED"
     )
-    proposal_effectiveness_score: Optional[float] = Field(
+    outcomes: Optional[str] = Field(
         None,
-        description="Effectiveness score 0-1 based on client feedback (automated)"
-    )
-    client_satisfaction: Optional[float] = Field(
-        None,
-        description="Client satisfaction 1-5 scale extracted from feedback"
-    )
-    
-    # ===== NEW: Contextual project info =====
-    project_duration_days: Optional[int] = Field(
-        None,
-        description="Project duration in days (auto-calculated from dates)"
-    )
-    estimated_budget: Optional[float] = Field(
-        None,
-        description="Estimated budget for the project in USD"
-    )
-    
-    # ===== NEW: Retrieval optimization =====
-    industry_tags: Optional[List[str]] = Field(
-        default_factory=list,
-        description="Industry classification tags (SaaS, E-commerce, Healthcare, etc.)"
-    )
-    task_complexity: Optional[str] = Field(
-        "medium",
-        description="Task complexity level: low, medium, high"
-    )
-    
-    # ===== NEW: Reusable sections =====
-    reusable_sections: Optional[List[str]] = Field(
-        default_factory=list,
-        description="Proposal sections that worked well and can be reused"
+        description="Key result/outcome achieved (e.g., 'Client can now track inventory in real-time')"
     )
     
     @validator("skills_required", pre=True)
@@ -279,19 +250,9 @@ class UpdateJobDataRequest(BaseModel):
     platform: Optional[str] = Field(None, description="Platform/technology (WordPress, Shopify, React, etc.)")
     urgent_adhoc: Optional[bool] = Field(None)
     
-    # ===== NEW: Proposal tracking fields =====
-    proposal_status: Optional[str] = Field(None, description="Status of the proposal")
-    proposal_effectiveness_score: Optional[float] = Field(None, description="Effectiveness score 0-1")
-    client_satisfaction: Optional[float] = Field(None, description="Client satisfaction 1-5")
-    
-    # ===== NEW: Project context fields =====
-    project_duration_days: Optional[int] = Field(None, description="Project duration in days")
-    estimated_budget: Optional[float] = Field(None, description="Estimated budget in USD")
-    
-    # ===== NEW: Retrieval optimization fields =====
-    industry_tags: Optional[List[str]] = Field(None, description="Industry classification tags")
-    task_complexity: Optional[str] = Field(None, description="Task complexity: low, medium, high")
-    reusable_sections: Optional[List[str]] = Field(None, description="Reusable proposal sections")
+    # ===== DELIVERABLES & OUTCOMES =====
+    deliverables: Optional[List[str]] = Field(None, description="What was built/delivered")
+    outcomes: Optional[str] = Field(None, description="Key result achieved")
     
     @validator("skills_required", pre=True, always=True)
     def validate_skills(cls, v):
@@ -373,6 +334,8 @@ class JobDataDetailResponse(JobDataResponse):
     task_type: Optional[str] = Field(None, description="Type of task/project")
     platform: Optional[str] = Field(None, description="Platform/technology")
     urgent_adhoc: bool
+    deliverables: Optional[List[str]] = Field(None, description="What was built/delivered")
+    outcomes: Optional[str] = Field(None, description="Key result achieved")
     chunks_count: Optional[int] = Field(None, description="Number of chunks created")
     embedded_chunks_count: Optional[int] = Field(None, description="Number of embedded chunks")
 

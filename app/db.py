@@ -325,6 +325,9 @@ class DatabaseManager:
                     "is_completed": metadata.get("is_completed", False),
                     "duration_days": metadata.get("duration_days"),
                     "project_status": chunk.get("project_status", ""),
+                    # NEW: Deliverables for matching what was actually built
+                    "deliverables": chunk.get("deliverables", []),
+                    "outcomes": chunk.get("outcomes", ""),
                     "created_at": datetime.utcnow(),
                     "embedding_status": "pending"
                 }
