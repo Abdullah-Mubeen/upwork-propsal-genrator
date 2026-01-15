@@ -582,12 +582,14 @@ CRITICAL RULES:
 2. ❌ NO corporate jargon, buzzwords, or formal tone
 3. ❌ NO generic openers (see banned phrases above)
 4. ❌ NO robotic phrases like "I would be delighted", "I am eager to"
-5. ✓ Sound like a REAL person having a coffee chat with a potential client
-6. ✓ Reference their SPECIFIC problem (numbers, tools, pain points they mentioned)
-7. ✓ Use contractions naturally (I've, you're, that's, don't)
-8. ✓ Reference past projects by COMPANY NAME with outcomes
-9. ✓ Include portfolio links for social proof
-10. ✓ Target 150-250 words (SHORT = HIGH IMPACT)
+5. ❌ NO MARKDOWN formatting - no **bold**, no *italic*, no # headers, no - bullets (Upwork doesn't support it)
+6. ✓ Sound like a REAL person having a coffee chat with a potential client
+7. ✓ Reference their SPECIFIC problem (numbers, tools, pain points they mentioned)
+8. ✓ Use contractions naturally (I've, you're, that's, don't)
+9. ✓ Reference past projects by COMPANY NAME with outcomes
+10. ✓ Include portfolio links for social proof (plain URLs only)
+11. ✓ Target 150-250 words (SHORT = HIGH IMPACT)
+12. ✓ Write PLAIN TEXT only - no formatting symbols
 
 STRUCTURE (ALWAYS):
 1. HOOK (1-2 sentences): USE YOUR ASSIGNED HOOK STRATEGY + include portfolio link
@@ -597,22 +599,22 @@ STRUCTURE (ALWAYS):
 
 Remember: Short proposals get 3-5x better response rates. Every word counts. Sound like a helpful human, not a salesperson."""
         
-        portfolio_section = f"\n\n**Portfolio:** {portfolio_url}" if include_portfolio and portfolio_url else ""
+        portfolio_section = f"\n\nPortfolio: {portfolio_url}" if include_portfolio and portfolio_url else ""
         
         prompt = f"""Generate a SHORT, HUMAN, WINNING proposal based on this job opportunity:
 
-**Job Opportunity:**
+Job Opportunity:
 Company: {company_name}
 Job Title: {job_title}
 Job Description: {job_description}
 
-**Required Skills:** {', '.join(skills)}
+Required Skills: {', '.join(skills)}
 
-**Your Historical Context & Relevant Experience:**
+Your Historical Context & Relevant Experience:
 {context_data}
 {portfolio_section}
 
-**Generate a proposal that:**
+Generate a proposal that:
 - Uses the {selected_strategy.split(':')[0]} hook strategy
 - Is 150-250 words (SHORT = HIGH IMPACT)
 - Opens with a UNIQUE, COMPELLING hook (not "I see you're dealing with...")
@@ -622,6 +624,7 @@ Job Description: {job_description}
 - Ends with a casual, friendly CTA (like texting a colleague)
 - Sounds like a REAL helpful human, NOT AI or a salesperson
 - Uses natural contractions and conversational language
+- WRITES IN PLAIN TEXT ONLY - no markdown, no **bold**, no *italic*, no bullets with -
 
 REMEMBER: The first 2 sentences are ALL the client sees - make them IRRESISTIBLE!"""
         
