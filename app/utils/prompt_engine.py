@@ -414,6 +414,7 @@ CRITICAL RULES:
 9. AIM FOR 200-350 words (balanced length - not too short, not overwhelming)
 10. PLATFORM MATCH: WordPress job = WordPress examples ONLY, Shopify job = Shopify examples ONLY
 11. NO robotic phrases like "I am eager to", "I would be delighted" - talk like a real human
+12. NO MARKDOWN - no **bold**, no *italic*, no # headers, no - bullets. Write PLAIN TEXT only (Upwork doesn't support markdown)
 """
         return prompt
 
@@ -888,10 +889,12 @@ End naturally - like texting a colleague, not writing a formal letter:
 
 CRITICAL FORMAT RULES:
 1. Use PLAIN URLs (https://example.com) - NOT markdown [text](url) format
-2. Include feedback URLs alongside portfolio links IF THEY EXIST
-3. Target: 150-250 words MAXIMUM. PUT A PORTFOLIO LINK IN THE HOOK!
-4. PLATFORM MATCH: WordPress job = WordPress examples, Shopify job = Shopify examples
-5. Sound like a human having a CONVERSATION - casual, genuine, understanding
+2. NO MARKDOWN at all - no **bold**, no *italic*, no # headers, no bullet points with -
+3. Include feedback URLs alongside portfolio links IF THEY EXIST
+4. Target: 150-250 words MAXIMUM. PUT A PORTFOLIO LINK IN THE HOOK!
+5. PLATFORM MATCH: WordPress job = WordPress examples, Shopify job = Shopify examples
+6. Sound like a human having a CONVERSATION - casual, genuine, understanding
+7. Write as PLAIN TEXT - Upwork does not support markdown formatting
 
 🔑 THE WINNING FORMULA:
 Varied Hook + Empathy → Relevant Proof → Specific Solution → Easy Next Step
@@ -986,8 +989,8 @@ JOB DESCRIPTION:
             
             projects_added += 1
                 
-            # Format: Company name, TASK TYPE, specific outcome, link
-            section += f"{projects_added}. **{company}**"
+            # Format: Company name, TASK TYPE, specific outcome, link (NO MARKDOWN)
+            section += f"{projects_added}. {company}"
             
             # Add task type - CRITICAL for AI to know what work was done
             if task_type:

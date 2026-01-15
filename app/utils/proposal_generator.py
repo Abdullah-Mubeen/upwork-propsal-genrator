@@ -121,6 +121,9 @@ class ProposalGenerator:
             raise Exception("Proposal generation failed - no response from OpenAI")
 
         proposal_text = proposal_result.get("proposal_text", "")
+        
+        # Strip any markdown formatting (Upwork doesn't support it)
+        proposal_text = self._strip_markdown(proposal_text)
 
         # Step 4: Extract portfolio and feedback references used
         references = self._extract_references(
@@ -169,6 +172,38 @@ class ProposalGenerator:
 
         return result
 
+    def _strip_markdown(self, text: str) -> str:
+        """
+        Strip markdown formatting from text since Upwork doesn't support it.
+        
+        Removes:
+        - **bold** and __bold__
+        - *italic* and _italic_
+        - # headers
+        - - bullet points (at line start)
+        - [text](url) markdown links (converts to just text + url)
+        """
+        import re
+        
+        # Remove bold: **text** or __text__
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'__(.+?)__', r'\1', text)
+        
+        # Remove italic: *text* or _text_ (but not URLs with underscores)
+        text = re.sub(r'(?<!\S)\*([^*\n]+)\*(?!\S)', r'\1', text)
+        text = re.sub(r'(?<!\S)_([^_\n]+)_(?!\S)', r'\1', text)
+        
+        # Remove # headers (at line start)
+        text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+        
+        # Convert markdown links [text](url) to "text: url" or just keep both
+        text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1 (\2)', text)
+        
+        # Remove bullet points at line start (- item) but keep the text
+        text = re.sub(r'^[\-\*]\s+', '', text, flags=re.MULTILINE)
+        
+        return text.strip()
+
     def _get_system_message_for_winning_proposal(self, style: str, tone: str) -> str:
         """
         Get the system message that enforces SHORT, HUMAN, WINNING proposal generation.
@@ -182,11 +217,12 @@ CRITICAL RULES:
 1. ❌ NEVER say "As an AI", "I'm an AI", "artificial intelligence", etc.
 2. ❌ NO corporate jargon, buzzwords, or formal tone
 3. ❌ NO generic openings like "I'm excited to help"
-4. ✓ Sound like a REAL person who understands their specific problem
-5. ✓ Write conversational, direct, punchy language
-6. ✓ Reference past projects by COMPANY NAME with outcomes
-7. ✓ Include portfolio links and client feedback for social proof
-8. ✓ Target 250-350 words (SHORT = HIGH IMPACT)
+4. ❌ NO MARKDOWN - no **bold**, no *italic*, no # headers, no - bullets (Upwork doesn't support it)
+5. ✓ Sound like a REAL person who understands their specific problem
+6. ✓ Write conversational, direct, punchy language - PLAIN TEXT only
+7. ✓ Reference past projects by COMPANY NAME with outcomes
+8. ✓ Include portfolio links and client feedback for social proof
+9. ✓ Target 250-350 words (SHORT = HIGH IMPACT)
 
 STRUCTURE (ALWAYS):
 1. HOOK (2 sentences): "I see you're dealing with [their specific problem]..."
