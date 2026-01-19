@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="image.png" >
     <!-- Disable caching for development -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -427,16 +428,7 @@
                         <div>
                             <label class="block text-sm font-medium text-neutral-700 mb-2">Task Type</label>
                             <select id="task_type" class="input-field" required>
-                                <option value="">Select...</option>
-                                <option value="complete website">Complete Website</option>
-                                <option value="enhance functionality">Enhance Functionality</option>
-                                <option value="redesign website">Redesign Website</option>
-                                <option value="bug fixes">Bug Fixes</option>
-                                <option value="speed optimization">Speed Optimization</option>
-                                <option value="layout fixing">Layout Fixing</option>
-                                <option value="seo">SEO</option>
-                                <option value="consultation">Consultation</option>
-                                <option value="other">Other</option>
+                                <option value="">Loading...</option>
                             </select>
                         </div>
 
@@ -595,12 +587,60 @@
         // Local: 'http://127.0.0.1:8000/api/proposals'
         // Production: 'https://ml.genproposals.com/api/proposals'
         const API_BASE = 'https://ml.genproposals.com/api/proposals';
+        const API_JOB_DATA_BASE = 'https://ml.genproposals.com/api/job-data';
         
         let currentSkills = [];
         let includeTimeline = false;
         let isEditMode = false;
         let originalProposalText = '';
         let lastRequestData = null;
+
+        // Load task types from database on page load
+        document.addEventListener('DOMContentLoaded', loadTaskTypes);
+
+        // Fetch task types from database
+        async function loadTaskTypes() {
+            const taskSelect = document.getElementById('task_type');
+            try {
+                const response = await axios.get(`${API_JOB_DATA_BASE}/stats/filter-options`);
+                const { task_types } = response.data;
+                
+                // Default task types to always include
+                const defaultTaskTypes = [
+                    'complete website', 'enhance functionality', 'redesign website',
+                    'bug fixes', 'speed optimization', 'layout fixing', 'seo',
+                    'consultation', 'ai_ml', 'backend_api', 'frontend', 'mobile_app'
+                ];
+                
+                // Merge database task types with defaults, remove duplicates, sort
+                const allTaskTypes = [...new Set([...defaultTaskTypes, ...task_types])].sort();
+                
+                // Format display name (capitalize, replace underscores)
+                const formatName = (t) => t.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                
+                taskSelect.innerHTML = '<option value="">Select...</option>' + 
+                    allTaskTypes.map(t => `<option value="${t}">${formatName(t)}</option>`).join('') +
+                    '<option value="other">Other</option>';
+                    
+            } catch (e) {
+                console.error('Error loading task types:', e);
+                // Fallback to default options
+                taskSelect.innerHTML = `
+                    <option value="">Select...</option>
+                    <option value="complete website">Complete Website</option>
+                    <option value="enhance functionality">Enhance Functionality</option>
+                    <option value="redesign website">Redesign Website</option>
+                    <option value="bug fixes">Bug Fixes</option>
+                    <option value="speed optimization">Speed Optimization</option>
+                    <option value="layout fixing">Layout Fixing</option>
+                    <option value="seo">SEO</option>
+                    <option value="consultation">Consultation</option>
+                    <option value="ai_ml">AI/ML</option>
+                    <option value="backend_api">Backend API</option>
+                    <option value="other">Other</option>
+                `;
+            }
+        }
 
         // Toast notification
         function showToast(message) {

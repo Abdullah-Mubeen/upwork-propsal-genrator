@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <title>Training Platform | Proposal Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -872,11 +873,19 @@
                 
                 // Populate task type dropdown in form
                 const taskSelect = document.getElementById('task-type-select');
-                const defaultTaskTypes = ['development', 'design', 'writing', 'marketing', 'consulting', 'support'];
+                const defaultTaskTypes = [
+                    'complete website', 'enhance functionality', 'redesign website',
+                    'bug fixes', 'speed optimization', 'layout fixing', 'seo',
+                    'consultation', 'ai_ml', 'backend_api', 'frontend', 'mobile_app',
+                    'development', 'design', 'writing', 'marketing', 'support'
+                ];
                 const allTaskTypes = [...new Set([...defaultTaskTypes, ...task_types])].sort();
                 
+                // Format display name (capitalize, replace underscores with spaces)
+                const formatName = (t) => t.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                
                 taskSelect.innerHTML = '<option value="">Select...</option>' + 
-                    allTaskTypes.map(t => `<option value="${t}">${t.charAt(0).toUpperCase() + t.slice(1)}</option>`).join('') +
+                    allTaskTypes.map(t => `<option value="${t}">${formatName(t)}</option>`).join('') +
                     '<option value="other">Other (Custom)</option>';
                 
                 // Populate platform dropdown in form
@@ -900,12 +909,20 @@
             const taskSelect = document.getElementById('task-type-select');
             taskSelect.innerHTML = `
                 <option value="">Select...</option>
-                <option value="development">Development</option>
+                <option value="ai_ml">AI/ML</option>
+                <option value="backend_api">Backend API</option>
+                <option value="bug fixes">Bug Fixes</option>
+                <option value="complete website">Complete Website</option>
+                <option value="consultation">Consultation</option>
                 <option value="design">Design</option>
-                <option value="writing">Writing</option>
-                <option value="marketing">Marketing</option>
-                <option value="consulting">Consulting</option>
-                <option value="support">Support</option>
+                <option value="development">Development</option>
+                <option value="enhance functionality">Enhance Functionality</option>
+                <option value="frontend">Frontend</option>
+                <option value="layout fixing">Layout Fixing</option>
+                <option value="mobile_app">Mobile App</option>
+                <option value="redesign website">Redesign Website</option>
+                <option value="seo">SEO</option>
+                <option value="speed optimization">Speed Optimization</option>
                 <option value="other">Other</option>
             `;
             
