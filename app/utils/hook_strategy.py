@@ -40,6 +40,8 @@ class JobSentiment(str, Enum):
     COLLABORATIVE = "collaborative" # Looking for ongoing partner
     CASUAL = "casual"               # Relaxed, simple request
     PROFESSIONAL = "professional"   # Formal, enterprise-level
+    AI_TECHNICAL = "ai_technical"   # AI/ML focused, wants technical depth
+    AI_BUILDER = "ai_builder"       # Wants someone who has BUILT AI systems
 
 
 class JobIntent(str, Enum):
@@ -126,6 +128,37 @@ class HookStrategyEngine:
             "This is literally 80% of my work. Here's my latest: {portfolio_url}",
             "I specialize in {task_type} - it's what I do best.",
         ],
+        # ============== AI/ML SPECIFIC HOOKS (PROVEN WINNERS) ==============
+        "ai_capability_claim": [
+            "I Built an AI System That {ai_result}—Now I'm Ready to Build Yours.",
+            "I've already built exactly this: {ai_system_name}. It's in production right now.",
+            "Your {domain} documents become {output} instantly. No manual work. I've already architected exactly this for production clients.",
+            "I built a system that {ai_capability} in {time_saved}. Same approach works perfectly for your {domain}.",
+        ],
+        "ai_proof_stack": [
+            "What I've Actually Built:\n{ai_project_proof}",
+            "Here's what I've shipped to production:\n{ai_project_proof}",
+            "My AI systems are live right now:\n{ai_project_proof}",
+            "This is my specialty. Here's proof:\n{ai_project_proof}",
+        ],
+        "ai_tech_mirror": [
+            "Your stack (LangChain + {llm_provider} + FastAPI) is exactly what I use daily.",
+            "{tech_stack} — I've built production systems with this exact stack.",
+            "RAG + {document_type} parsing + {output_type} generation? I shipped this last month.",
+            "LangChain, Pinecone, {llm_provider}—this is literally my daily toolkit.",
+        ],
+        "ai_transformation": [
+            "{time_before} → {time_after} per {task}. That's what my AI system delivers.",
+            "Cuts {task} from {time_before} → {time_after}. I've built this exact pipeline.",
+            "Your {manual_process} becomes {automated_process}. I've done this for {similar_domain}.",
+            "{painful_process} becomes {simple_process} with the system I'll build you.",
+        ],
+        "ai_specificity": [
+            "PDF parsing + OCR + AI interpretation? I built an Adaptive OCR Engine that handles exactly this.",
+            "Document → structured data → AI generation → formatted output. This is my exact production pipeline.",
+            "Messy PDFs, scanned documents, handwritten notes—my system handles all of it.",
+            "Text extraction + LLM interpretation + cost calculation + PDF generation. I've built each piece.",
+        ],
     }
 
     # Sentiment-based hook strategy selection
@@ -138,6 +171,9 @@ class HookStrategyEngine:
         JobSentiment.COLLABORATIVE: ["question_hook", "specific_insight", "empathy_first"],
         JobSentiment.CASUAL: ["immediate_value", "availability_lead", "social_proof"],
         JobSentiment.PROFESSIONAL: ["result_lead", "specific_insight", "social_proof"],
+        # AI/ML specific strategies - these WORK for AI jobs
+        JobSentiment.AI_TECHNICAL: ["ai_tech_mirror", "ai_specificity", "ai_proof_stack"],
+        JobSentiment.AI_BUILDER: ["ai_capability_claim", "ai_proof_stack", "ai_transformation"],
     }
 
     # Urgency detection patterns
@@ -157,7 +193,33 @@ class HookStrategyEngine:
         JobSentiment.BUSINESS_FOCUS: ["revenue", "conversions", "sales", "roi", "customers", "business", "growth", "profit", "traffic"],
         JobSentiment.COLLABORATIVE: ["partner", "long-term", "ongoing", "team", "collaborate", "work together", "relationship"],
         JobSentiment.CASUAL: ["simple", "easy", "quick", "small", "minor", "straightforward", "basic"],
+        # AI/ML specific sentiment detection - CRITICAL for AI jobs
+        JobSentiment.AI_TECHNICAL: [
+            "langchain", "llamaindex", "rag", "retrieval", "embedding", "vector", "pinecone", "chromadb",
+            "llm", "gpt", "openai", "anthropic", "claude", "prompt engineering", "fine-tuning",
+            "ocr", "document processing", "pdf parsing", "text extraction", "nlp",
+        ],
+        JobSentiment.AI_BUILDER: [
+            "ai tool", "ai system", "ai platform", "build ai", "create ai", "develop ai",
+            "automation", "automate", "generate", "generator", "ai-powered", "machine learning",
+            "content generation", "proposal generator", "document analyzer", "intelligent",
+            "similar projects", "proven experience", "portfolio", "built before",
+        ],
     }
+    
+    # AI/ML keywords for comprehensive detection
+    AI_ML_KEYWORDS = [
+        "openai", "gpt", "gpt-4", "gpt-3", "chatgpt", "claude", "anthropic", "llm", "large language model",
+        "ai model", "ai api", "ai integration", "machine learning", "deep learning", "neural network",
+        "langchain", "llamaindex", "rag", "retrieval augmented", "embedding", "vector database", 
+        "pinecone", "chromadb", "weaviate", "huggingface", "transformers", "pytorch", "tensorflow",
+        "computer vision", "ocr", "nlp", "natural language processing", "text generation",
+        "content generation", "ai-powered", "automated content", "ai automation",
+        "document processing", "pdf parsing", "text extraction", "document analyzer",
+        "n8n", "make.com", "zapier automation", "stability ai", "dall-e", "midjourney",
+        "image generation", "deepseek", "ai agent", "ai assistant", "chatbot", "conversational ai",
+        "fine-tuning", "prompt engineering", "unstructured", "llamaparse", "docling",
+    ]
 
     def __init__(self):
         """Initialize hook strategy engine"""
@@ -327,6 +389,16 @@ class HookStrategyEngine:
         """Detect the primary sentiment/mood from job text"""
         sentiment_scores = {}
         
+        # CRITICAL: Check for AI/ML job FIRST - these take precedence
+        ai_score = sum(1 for kw in self.AI_ML_KEYWORDS if kw in text)
+        if ai_score >= 3:  # Strong AI signal
+            # Determine if it's technical-focused or builder-focused
+            builder_words = ["build", "create", "develop", "tool", "system", "platform", "generator", "automate"]
+            builder_score = sum(1 for w in builder_words if w in text)
+            if builder_score >= 2:
+                return JobSentiment.AI_BUILDER
+            return JobSentiment.AI_TECHNICAL
+        
         for sentiment, patterns in self.SENTIMENT_PATTERNS.items():
             score = sum(1 for p in patterns if p in text)
             if score > 0:
@@ -430,7 +502,23 @@ class HookStrategyEngine:
         return tone_words[:5]
 
     def _detect_platform(self, text: str, skills: List[str]) -> str:
-        """Detect the primary platform/technology"""
+        """Detect the primary platform/technology - AI/ML jobs take priority"""
+        combined = f"{text} {' '.join(skills)}".lower()
+        
+        # AI/ML detection takes priority over platforms
+        ai_keywords = [
+            "langchain", "llamaindex", "llama-index", "rag", "retrieval augmented",
+            "vector database", "pinecone", "weaviate", "chroma", "embeddings",
+            "llm", "large language model", "gpt-4", "gpt-3", "claude", "gemini",
+            "openai", "anthropic", "ai agent", "ai assistant", "chatbot",
+            "natural language", "nlp", "machine learning", "ml model",
+            "neural network", "deep learning", "transformer", "fine-tuning",
+            "prompt engineering", "ai integration", "ai-powered", "ai tool"
+        ]
+        
+        if any(kw in combined for kw in ai_keywords):
+            return "ai_ml"
+        
         platforms = {
             "wordpress": ["wordpress", "wp", "elementor", "divi", "wpbakery", "geo directory", "geodirectory"],
             "shopify": ["shopify", "liquid", "gempages", "shopify store"],
@@ -440,8 +528,6 @@ class HookStrategyEngine:
             "squarespace": ["squarespace"],
             "custom": ["react", "node", "python", "django", "flask", "next.js"],
         }
-        
-        combined = f"{text} {' '.join(skills)}".lower()
         
         for platform, indicators in platforms.items():
             if any(ind in combined for ind in indicators):
@@ -520,7 +606,185 @@ class HookStrategyEngine:
             "reason": likely_cause,
         }
         
+        # Add AI-specific context if this is an AI/ML job
+        if job_analysis.sentiment in (JobSentiment.AI_TECHNICAL, JobSentiment.AI_BUILDER):
+            ai_context = self._build_ai_context(job_analysis, job_data, similar_projects)
+            context.update(ai_context)
+        
         return context
+    
+    def _build_ai_context(
+        self,
+        job_analysis: JobAnalysis,
+        job_data: Dict[str, Any],
+        similar_projects: List[Dict[str, Any]]
+    ) -> Dict[str, str]:
+        """Build AI-specific context for AI/ML job hooks"""
+        job_desc = job_data.get("job_description", "").lower()
+        
+        # Detect domain (plumbing, legal, medical, etc.)
+        domain = self._detect_ai_domain(job_desc)
+        
+        # Detect document type being processed
+        document_type = self._detect_document_type(job_desc)
+        
+        # Detect output type
+        output_type = self._detect_output_type(job_desc)
+        
+        # Detect LLM provider mentioned
+        llm_provider = self._detect_llm_provider(job_desc)
+        
+        # Detect tech stack
+        tech_stack = self._extract_ai_tech_stack(job_desc)
+        
+        # Build AI project proof from similar projects
+        ai_project_proof = self._build_ai_project_proof(similar_projects)
+        
+        # Detect what's being transformed
+        manual_process = self._detect_manual_process(job_desc)
+        automated_process = self._detect_automated_process(job_desc)
+        
+        return {
+            "domain": domain,
+            "document_type": document_type,
+            "output_type": output_type,
+            "output": f"professional {output_type}s",
+            "llm_provider": llm_provider,
+            "tech_stack": tech_stack,
+            "ai_project_proof": ai_project_proof,
+            "ai_system_name": "AI Proposal Generator",
+            "ai_result": "Turns Documents Into Proposals in 10 Seconds",
+            "ai_capability": "generates professional proposals from raw documents",
+            "time_saved": "10 seconds",
+            "time_before": "20+ minutes",
+            "time_after": "10 seconds",
+            "task": "proposal",
+            "manual_process": manual_process,
+            "automated_process": automated_process,
+            "painful_process": f"Manual {manual_process}",
+            "simple_process": f"instant {automated_process}",
+            "similar_domain": domain,
+        }
+    
+    def _detect_ai_domain(self, text: str) -> str:
+        """Detect the business domain for AI application"""
+        domains = {
+            "plumbing": ["plumbing", "plumber", "pipe", "fixture", "drainage"],
+            "construction": ["construction", "building", "contractor", "blueprint"],
+            "legal": ["legal", "law", "contract", "attorney", "lawyer"],
+            "medical": ["medical", "healthcare", "patient", "diagnosis"],
+            "real estate": ["real estate", "property", "listing", "mortgage"],
+            "finance": ["finance", "banking", "loan", "investment"],
+            "insurance": ["insurance", "claim", "policy", "coverage"],
+            "e-commerce": ["e-commerce", "product", "inventory", "orders"],
+        }
+        
+        for domain, keywords in domains.items():
+            if any(kw in text for kw in keywords):
+                return domain
+        return "documents"
+    
+    def _detect_document_type(self, text: str) -> str:
+        """Detect the type of document being processed"""
+        doc_types = {
+            "PDF": ["pdf", "document"],
+            "blueprints": ["blueprint", "plan", "drawing", "schematic"],
+            "contracts": ["contract", "agreement", "legal document"],
+            "invoices": ["invoice", "receipt", "billing"],
+            "forms": ["form", "application", "questionnaire"],
+        }
+        
+        for doc_type, keywords in doc_types.items():
+            if any(kw in text for kw in keywords):
+                return doc_type
+        return "documents"
+    
+    def _detect_output_type(self, text: str) -> str:
+        """Detect what output the AI should generate"""
+        outputs = {
+            "proposal": ["proposal", "estimate", "quote", "bid"],
+            "report": ["report", "analysis", "summary"],
+            "content": ["content", "article", "blog", "copy"],
+            "response": ["response", "reply", "answer"],
+        }
+        
+        for output, keywords in outputs.items():
+            if any(kw in text for kw in keywords):
+                return output
+        return "output"
+    
+    def _detect_llm_provider(self, text: str) -> str:
+        """Detect which LLM provider is mentioned"""
+        providers = {
+            "OpenAI": ["openai", "gpt-4", "gpt-3", "chatgpt"],
+            "Anthropic": ["anthropic", "claude"],
+            "Google": ["gemini", "palm", "bard"],
+            "Grok": ["grok", "xai"],
+        }
+        
+        for provider, keywords in providers.items():
+            if any(kw in text for kw in keywords):
+                return provider
+        return "OpenAI"
+    
+    def _extract_ai_tech_stack(self, text: str) -> str:
+        """Extract the AI tech stack mentioned"""
+        techs = []
+        tech_keywords = {
+            "LangChain": ["langchain"],
+            "LlamaIndex": ["llamaindex", "llama-index"],
+            "FastAPI": ["fastapi"],
+            "React": ["react"],
+            "Pinecone": ["pinecone"],
+            "OpenAI": ["openai", "gpt"],
+        }
+        
+        for tech, keywords in tech_keywords.items():
+            if any(kw in text for kw in keywords):
+                techs.append(tech)
+        
+        return " + ".join(techs[:4]) if techs else "LangChain + OpenAI + FastAPI"
+    
+    def _build_ai_project_proof(self, similar_projects: List[Dict[str, Any]]) -> str:
+        """Build proof text from similar AI projects"""
+        if not similar_projects:
+            return """• AI Proposal Generator — Generates proposals in 10 seconds using RAG + GPT-4o
+• Adaptive OCR Engine — Reads messy PDFs, scanned docs, handwritten text
+Tech: LangChain + Pinecone + FastAPI + MongoDB"""
+        
+        proof_lines = []
+        for proj in similar_projects[:2]:
+            title = proj.get("job_title", "AI Project")
+            # Truncate title if too long
+            if len(title) > 50:
+                title = title[:47] + "..."
+            
+            skills = proj.get("skills_required", [])[:4]
+            skills_str = ", ".join(skills) if skills else "AI/ML"
+            
+            proof_lines.append(f"• {title}\n  Tech: {skills_str}")
+        
+        return "\n".join(proof_lines)
+    
+    def _detect_manual_process(self, text: str) -> str:
+        """Detect what manual process is being automated"""
+        if "proposal" in text or "estimate" in text:
+            return "proposal writing"
+        if "extract" in text or "parse" in text:
+            return "data extraction"
+        if "content" in text or "article" in text:
+            return "content creation"
+        return "document processing"
+    
+    def _detect_automated_process(self, text: str) -> str:
+        """Detect what automated process will replace manual work"""
+        if "proposal" in text or "estimate" in text:
+            return "AI-generated proposals"
+        if "extract" in text or "parse" in text:
+            return "automated extraction"
+        if "content" in text or "article" in text:
+            return "AI content generation"
+        return "automated processing"
 
     def _extract_main_problem(self, job_desc: str, analysis: JobAnalysis) -> str:
         """Extract the main problem being described"""

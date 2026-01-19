@@ -57,6 +57,19 @@ class RetrievalPipeline:
         "angular": ["angular", "angularjs"],
         "html_css": ["static site", "landing page"],  # Removed html/css as they're too generic
     }
+    
+    # AI/ML keywords for detecting AI-focused jobs
+    # These take precedence over platform detection when found
+    AI_ML_KEYWORDS = [
+        "openai", "gpt", "gpt-4", "gpt-3", "chatgpt", "claude", "anthropic", "llm", "large language model",
+        "ai model", "ai api", "ai integration", "machine learning", "deep learning", "neural network",
+        "langchain", "rag", "retrieval augmented", "embedding", "vector database", "pinecone", "chromadb",
+        "huggingface", "transformers", "pytorch", "tensorflow", "computer vision", "ocr", "nlp",
+        "natural language processing", "text generation", "content generation", "ai-powered",
+        "automated content", "ai automation", "n8n", "make.com", "zapier automation",
+        "stability ai", "dall-e", "midjourney", "image generation", "deepseek", "anthropic",
+        "ai agent", "ai assistant", "chatbot", "conversational ai", "fine-tuning", "prompt engineering"
+    ]
 
     def __init__(self, db=None, pinecone_service=None):
         """
@@ -197,16 +210,64 @@ class RetrievalPipeline:
             urgent_adhoc=urgency if urgency else None  # Prioritize urgent projects when job is urgent
         )
     
+    def _is_ai_ml_job(self, job_data: Dict[str, Any]) -> Tuple[bool, int]:
+        """
+        Check if this is primarily an AI/ML job.
+        
+        Returns:
+            Tuple of (is_ai_job, ai_score) - True with score if AI keywords found prominently
+        """
+        job_desc = job_data.get("job_description", "").lower()
+        job_title = job_data.get("job_title", "").lower()
+        skills = [s.lower() for s in job_data.get("skills_required", [])]
+        task_type = job_data.get("task_type", "").lower()
+        
+        # If task_type is explicitly ai_ml, it's an AI job
+        if task_type == "ai_ml":
+            return True, 100
+        
+        # Combine all text for searching
+        search_text = f"{job_title} {job_desc} {' '.join(skills)}"
+        
+        # Count AI/ML keyword matches
+        ai_score = 0
+        matched_keywords = []
+        for keyword in self.AI_ML_KEYWORDS:
+            if keyword in search_text:
+                ai_score += 3  # Base score for finding the keyword
+                matched_keywords.append(keyword)
+                # Extra weight for title matches (very specific)
+                if keyword in job_title:
+                    ai_score += 5
+                # Extra weight for skill matches
+                if keyword in skills:
+                    ai_score += 3
+        
+        # Threshold: if we found 3+ AI keywords or score > 10, it's an AI job
+        is_ai_job = ai_score >= 10 or len(matched_keywords) >= 3
+        
+        if is_ai_job:
+            logger.info(f"  → AI/ML job detected (score: {ai_score}, keywords: {matched_keywords[:5]})")
+        
+        return is_ai_job, ai_score
+    
     def _detect_platform(self, job_data: Dict[str, Any]) -> Optional[str]:
         """
         Detect the primary platform from job description and skills.
         
-        This is CRITICAL for ensuring WordPress jobs get WordPress examples,
-        Shopify jobs get Shopify examples, etc.
+        CRITICAL: AI/ML jobs take precedence over platform detection.
+        This ensures AI content generation jobs don't get matched to WordPress
+        just because they mention "publish to WordPress".
         
         Returns:
-            Platform name (lowercase) or None if not detected
+            Platform name (lowercase), "ai_ml" for AI jobs, or None if not detected
         """
+        # FIRST: Check if this is an AI/ML job - takes precedence
+        is_ai_job, ai_score = self._is_ai_ml_job(job_data)
+        if is_ai_job:
+            logger.info(f"  → Detected as AI/ML job (score: {ai_score}) - prioritizing AI projects")
+            return "ai_ml"
+        
         job_desc = job_data.get("job_description", "").lower()
         job_title = job_data.get("job_title", "").lower()
         skills = [s.lower() for s in job_data.get("skills_required", [])]
@@ -234,7 +295,6 @@ class RetrievalPipeline:
         detected = max(platform_scores, key=platform_scores.get)
         logger.debug(f"  Platform scores: {platform_scores} → Selected: {detected}")
         return detected
-
     def _metadata_filter(
         self,
         jobs: List[Dict[str, Any]],
@@ -242,11 +302,19 @@ class RetrievalPipeline:
     ) -> List[Dict[str, Any]]:
         """
         STAGE 1: Fast metadata filtering with platform exclusion.
-        Priority: Urgent → Platform+Industry → Platform → Industry → Skills → Fallback
+        Priority: AI/ML → Urgent → Platform+Industry → Platform → Industry → Skills → Fallback
+        
+        CRITICAL: AI/ML jobs are now handled specially - they match based on task_type
+        and AI-related skills, not CMS platforms.
         """
         # All CMS platforms are mutually exclusive
         CMS_PLATFORMS = {"wordpress", "woocommerce", "shopify", "wix", "magento", "webflow", "squarespace"}
         JS_FRAMEWORKS = {"react": {"angular", "vue"}, "angular": {"react", "vue"}, "vue": {"react", "angular"}}
+        
+        # SPECIAL HANDLING FOR AI/ML JOBS
+        if criteria.platform == "ai_ml":
+            logger.info("  → AI/ML filtering mode - prioritizing AI projects")
+            return self._filter_ai_ml_jobs(jobs, criteria)
         
         # Get excluded platforms
         if criteria.platform in CMS_PLATFORMS:
@@ -309,8 +377,78 @@ class RetrievalPipeline:
         return [j for j in jobs if j.get("project_status", "").lower() == "completed" 
                 and self._detect_job_platform(j) not in excluded][:10]
     
+    def _filter_ai_ml_jobs(
+        self,
+        jobs: List[Dict[str, Any]],
+        criteria: FilterCriteria
+    ) -> List[Dict[str, Any]]:
+        """
+        Special filtering for AI/ML jobs.
+        
+        Prioritizes:
+        1. Jobs with task_type = 'ai_ml'
+        2. Jobs with AI-related skills (openai, langchain, etc.)
+        3. Backend/automation jobs as fallback
+        
+        CRITICAL: Excludes pure CMS jobs (WordPress themes, Shopify stores, etc.)
+        """
+        CMS_PLATFORMS = {"wordpress", "woocommerce", "shopify", "wix", "magento", "webflow", "squarespace"}
+        
+        ai_ml_jobs = []
+        backend_jobs = []
+        
+        for job in jobs:
+            if criteria.completed_only and job.get("project_status", "").lower() != "completed":
+                continue
+            
+            job_task_type = (job.get("task_type") or "").lower()
+            job_platform = self._detect_job_platform(job)
+            
+            # Skip pure CMS jobs for AI/ML matching
+            if job_platform in CMS_PLATFORMS:
+                # Unless they also have AI skills
+                job_skills = [s.lower() for s in job.get("skills_required", [])]
+                has_ai_skills = any(kw in " ".join(job_skills) for kw in ["openai", "gpt", "ai", "llm", "langchain", "automation"])
+                if not has_ai_skills:
+                    continue
+            
+            # Check if it's an AI/ML job
+            is_ai_job, ai_score = self._is_ai_ml_job(job)
+            
+            if job_task_type == "ai_ml" or is_ai_job:
+                ai_ml_jobs.append((job, ai_score))
+            elif job_task_type in ("backend_api", "automation", "full_stack"):
+                # Backend/automation as secondary matches
+                backend_jobs.append(job)
+        
+        # Sort AI/ML jobs by their AI score
+        ai_ml_jobs.sort(key=lambda x: x[1], reverse=True)
+        ai_ml_results = [job for job, score in ai_ml_jobs]
+        
+        if ai_ml_results:
+            logger.info(f"  → Found {len(ai_ml_results)} AI/ML matched projects")
+            return ai_ml_results
+        
+        if backend_jobs:
+            logger.info(f"  → Found {len(backend_jobs)} backend/automation projects as fallback")
+            return backend_jobs
+        
+        # Last fallback: any non-CMS completed projects
+        logger.warning(f"  ⚠ No AI/ML matches, returning non-CMS completed projects")
+        return [j for j in jobs if j.get("project_status", "").lower() == "completed" 
+                and self._detect_job_platform(j) not in CMS_PLATFORMS][:10]
+    
     def _detect_job_platform(self, job: Dict[str, Any]) -> Optional[str]:
-        """Detect platform from job data using weighted keyword scoring."""
+        """
+        Detect platform from job data using weighted keyword scoring.
+        
+        ENHANCED: Now also detects AI/ML jobs as a "platform" type.
+        """
+        # First check if it's an AI/ML job
+        is_ai_job, ai_score = self._is_ai_ml_job(job)
+        if is_ai_job:
+            return "ai_ml"
+        
         text = f"{job.get('job_title', '')} {job.get('job_description', '')}".lower()
         skills = [s.lower() for s in job.get("skills_required", [])]
         skills_text = " ".join(skills)
@@ -337,6 +475,11 @@ class RetrievalPipeline:
         """
         if not platform1 or not platform2:
             return False
+        
+        # AI/ML is related to backend technologies
+        if platform1 == "ai_ml" or platform2 == "ai_ml":
+            backend_related = ["python", "fastapi", "node", "backend", "automation"]
+            return platform1 in backend_related or platform2 in backend_related
         
         # Define related platforms (bi-directional relationships)
         related_platforms = {
