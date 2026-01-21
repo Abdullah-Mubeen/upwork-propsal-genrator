@@ -407,10 +407,16 @@
                 <h1 class="text-lg font-semibold text-neutral-900">Proposal Generator</h1>
                 <p class="text-xs text-neutral-500">AI-powered winning proposals</p>
             </div>
-            <a href="training.html" class="btn-secondary inline-flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-                Training Platform
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="history.html" class="btn-secondary inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    History
+                </a>
+                <a href="training.html" class="btn-secondary inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                    Training
+                </a>
+            </div>
         </div>
     </header>
 
@@ -524,8 +530,12 @@
                                     <span id="edit-btn-text">Edit</span>
                                 </button>
                                 <span class="text-neutral-300">|</span>
-                                <button onclick="copyToClipboard()" class="action-btn action-btn-primary" title="Copy">
+                                <button onclick="copyToClipboard()" class="action-btn" title="Copy">
                                     Copy
+                                </button>
+                                <span class="text-neutral-300">|</span>
+                                <button onclick="saveAndSend()" id="save-send-btn" class="action-btn action-btn-primary" title="Save & Track">
+                                    📤 Save & Send
                                 </button>
                             </div>
                         </div>
@@ -586,7 +596,7 @@
         // CHANGE THIS TO TEST LOCALLY vs PRODUCTION
         // Local: 'http://127.0.0.1:8000/api/proposals'
         // Production: 'https://ml.genproposals.com/api/proposals'
-        const API_BASE = 'https://ml.genproposals.com/api/proposals';
+        const API_BASE = 'https://ml.genproposals.com/proposals';
         const API_JOB_DATA_BASE = 'https://ml.genproposals.com/api/job-data';
         
         let currentSkills = [];
@@ -594,6 +604,8 @@
         let isEditMode = false;
         let originalProposalText = '';
         let lastRequestData = null;
+        let lastGeneratedResult = null;  // Store full result for saving
+        let proposalSaved = false;  // Track if current proposal was saved
 
         // Load task types from database on page load
         document.addEventListener('DOMContentLoaded', loadTaskTypes);
@@ -701,11 +713,79 @@
             catch { return url; }
         }
 
+        // Save proposal and track outcome
+        async function saveAndSend() {
+            if (!lastGeneratedResult || !lastRequestData) {
+                showToast('Generate a proposal first');
+                return;
+            }
+            
+            if (proposalSaved) {
+                showToast('Already saved! Check History →');
+                return;
+            }
+            
+            const btn = document.getElementById('save-send-btn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = 'Saving...';
+            
+            try {
+                // Get current proposal text (might be edited)
+                const proposalText = document.getElementById('proposal-text').innerText;
+                const wordCount = proposalText.trim().split(/\s+/).filter(w => w.length > 0).length;
+                
+                const saveData = {
+                    job_title: lastRequestData.job_title,
+                    company_name: lastRequestData.company_name,
+                    job_description: lastRequestData.job_description,
+                    proposal_text: proposalText,
+                    skills_required: lastRequestData.skills_required,
+                    industry: lastRequestData.industry || 'general',
+                    task_type: lastRequestData.task_type || 'other',
+                    word_count: wordCount,
+                    similar_projects_used: (lastGeneratedResult.similar_projects || []).map(p => p.contract_id).filter(Boolean),
+                    portfolio_links_used: lastGeneratedResult.portfolio_links_used || [],
+                    confidence_score: lastGeneratedResult.confidence_score || 0
+                };
+                
+                const res = await axios.post(`${API_BASE}/save`, saveData);
+                
+                proposalSaved = true;
+                btn.innerHTML = '✓ Saved';
+                btn.classList.remove('action-btn-primary');
+                btn.style.background = '#059669';  // Green
+                
+                showToast(`Saved! Track outcome in History`);
+                
+                // Show link to history
+                setTimeout(() => {
+                    btn.innerHTML = '<a href="history.html" style="color:white">View History →</a>';
+                }, 1500);
+                
+            } catch (err) {
+                showToast('Error: ' + (err.response?.data?.detail || err.message));
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
         function resetForm() {
             document.getElementById('result-state').classList.add('hidden');
             document.getElementById('empty-state').classList.remove('hidden');
             isEditMode = false;
             originalProposalText = '';
+            proposalSaved = false;
+            lastGeneratedResult = null;
+            
+            // Reset save button
+            const saveBtn = document.getElementById('save-send-btn');
+            if (saveBtn) {
+                saveBtn.innerHTML = '📤 Save & Send';
+                saveBtn.disabled = false;
+                saveBtn.style.background = '';
+                saveBtn.classList.add('action-btn-primary');
+            }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -865,6 +945,17 @@
             try {
                 const res = await axios.post(`${API_BASE}/generate`, data);
                 const result = res.data;
+
+                // Store full result for saving
+                lastGeneratedResult = result;
+                proposalSaved = false;
+                
+                // Reset save button
+                const saveBtn = document.getElementById('save-send-btn');
+                saveBtn.innerHTML = '📤 Save & Send';
+                saveBtn.disabled = false;
+                saveBtn.style.background = '';
+                saveBtn.classList.add('action-btn-primary');
 
                 document.getElementById('proposal-text').innerText = result.generated_proposal;
                 document.getElementById('word-count').innerText = result.word_count;

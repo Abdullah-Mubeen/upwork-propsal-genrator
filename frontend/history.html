@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="image.png">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>Proposal History | Track Outcomes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background: #fafafa; min-height: 100vh; }
+
+        /* Input styling */
+        .input-field {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 14px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            width: 100%;
+        }
+        .input-field:hover { border-color: #d4d4d4; }
+        .input-field:focus { outline: none; border-color: #171717; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
+
+        /* Status badges */
+        .badge { 
+            display: inline-flex; 
+            align-items: center; 
+            padding: 3px 8px; 
+            border-radius: 4px; 
+            font-size: 11px; 
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .badge-sent { background: #fef3c7; color: #92400e; }
+        .badge-viewed { background: #dbeafe; color: #1e40af; }
+        .badge-discussed { background: #ede9fe; color: #6d28d9; }
+        .badge-hired { background: #d1fae5; color: #065f46; }
+        .badge-rejected { background: #f3f4f6; color: #6b7280; }
+
+        /* Stat cards */
+        .stat-card { 
+            background: #fff; 
+            border: 1px solid #e5e5e5; 
+            border-radius: 8px; 
+            padding: 16px; 
+        }
+        .stat-value { font-size: 28px; font-weight: 600; color: #171717; }
+        .stat-label { font-size: 12px; color: #737373; margin-top: 2px; }
+
+        /* Proposal row */
+        .proposal-row { 
+            background: #fff; 
+            border: 1px solid #e5e5e5; 
+            border-radius: 8px; 
+            padding: 14px 18px; 
+            margin-bottom: 8px; 
+            transition: border-color 0.15s; 
+        }
+        .proposal-row:hover { border-color: #d4d4d4; }
+
+        /* Buttons */
+        .btn-primary {
+            background: #171717;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-primary:hover { background: #262626; }
+        .btn-primary:disabled { background: #a3a3a3; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: #fff;
+            color: #171717;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-weight: 500;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-secondary:hover { background: #fafafa; border-color: #d4d4d4; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* Filter tabs */
+        .filter-tab { 
+            padding: 8px 14px; 
+            font-size: 13px; 
+            font-weight: 500; 
+            color: #737373; 
+            border-radius: 6px;
+            cursor: pointer; 
+            transition: all 0.15s; 
+        }
+        .filter-tab:hover { color: #171717; background: #f5f5f5; }
+        .filter-tab.active { color: #171717; background: #f0f0f0; }
+
+        /* Modal */
+        .modal-backdrop { 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.4); 
+            z-index: 100; 
+            display: none; 
+            align-items: center; 
+            justify-content: center;
+            backdrop-filter: blur(2px);
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal { 
+            background: #fff; 
+            border-radius: 12px; 
+            max-width: 380px; 
+            width: 90%; 
+            max-height: 90vh; 
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        /* Outcome options */
+        .outcome-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-bottom: 8px;
+        }
+        .outcome-option:last-child { margin-bottom: 0; }
+        .outcome-option:hover { border-color: #d4d4d4; background: #fafafa; }
+        .outcome-option.selected { border-color: #171717; background: #fafafa; }
+        .outcome-option .icon { font-size: 16px; width: 24px; text-align: center; }
+        .outcome-option .label { font-size: 13px; font-weight: 500; color: #171717; }
+        .outcome-option .desc { font-size: 11px; color: #737373; }
+
+        /* Toast */
+        .toast { 
+            position: fixed; 
+            bottom: 24px; 
+            right: 24px; 
+            background: #171717; 
+            color: #fff; 
+            padding: 12px 16px; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            font-weight: 500;
+            opacity: 0; 
+            transform: translateY(8px); 
+            transition: all 0.2s; 
+            z-index: 200; 
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 60px 20px; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="border-b border-neutral-200 bg-white">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-semibold text-neutral-900">Proposal History</h1>
+                <p class="text-xs text-neutral-500">Track outcomes & conversion</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="btn-secondary inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                    Generate
+                </a>
+                <a href="training.html" class="btn-secondary">Training</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-8">
+        <!-- Stats -->
+        <div class="grid grid-cols-4 gap-4 mb-8">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-sent">-</div>
+                <div class="stat-label">Sent</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-viewed">-</div>
+                <div class="stat-label">Viewed <span class="text-neutral-400" id="stat-view-rate"></span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-green-600" id="stat-hired">-</div>
+                <div class="stat-label">Hired <span class="text-neutral-400" id="stat-hire-rate"></span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-conversion">-</div>
+                <div class="stat-label">Conversion</div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="flex items-center gap-2 mb-6">
+            <button class="filter-tab active" data-filter="">All</button>
+            <button class="filter-tab" data-filter="sent">Pending</button>
+            <button class="filter-tab" data-filter="viewed">Viewed</button>
+            <button class="filter-tab" data-filter="hired">Hired</button>
+            <button class="filter-tab" data-filter="rejected">Rejected</button>
+        </div>
+
+        <!-- Proposals List -->
+        <div id="proposals-container">
+            <div class="empty-state">
+                <p class="text-neutral-400 text-sm">Loading...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Update Outcome Modal -->
+    <div id="outcome-modal" class="modal-backdrop">
+        <div class="modal">
+            <div class="p-5 border-b border-neutral-100">
+                <h3 class="font-semibold text-neutral-900">Update Outcome</h3>
+                <p class="text-sm text-neutral-500 mt-1 truncate" id="modal-job-title">-</p>
+            </div>
+            
+            <div class="p-5">
+                <p class="text-xs text-neutral-500 mb-3">What happened with this proposal?</p>
+                
+                <div id="outcome-options">
+                    <div class="outcome-option" data-outcome="viewed" onclick="selectOutcome('viewed')">
+                        <span class="icon">👀</span>
+                        <div>
+                            <div class="label">Viewed</div>
+                            <div class="desc">Client opened your proposal</div>
+                        </div>
+                    </div>
+                    
+                    <div class="outcome-option" data-outcome="discussed" onclick="selectOutcome('discussed')">
+                        <span class="icon">💬</span>
+                        <div>
+                            <div class="label">Discussion Started</div>
+                            <div class="desc">Client initiated a conversation</div>
+                        </div>
+                    </div>
+                    
+                    <div class="outcome-option" data-outcome="hired" onclick="selectOutcome('hired')">
+                        <span class="icon">🎉</span>
+                        <div>
+                            <div class="label">Hired</div>
+                            <div class="desc">You got the job!</div>
+                        </div>
+                    </div>
+                    
+                    <div class="outcome-option" data-outcome="rejected" onclick="selectOutcome('rejected')">
+                        <span class="icon">✕</span>
+                        <div>
+                            <div class="label">Rejected</div>
+                            <div class="desc">Job closed or no response</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-neutral-100 flex justify-end gap-2">
+                <button onclick="closeModal()" class="btn-secondary btn-sm">Cancel</button>
+                <button onclick="submitOutcome()" class="btn-primary btn-sm" id="submit-btn" disabled>Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Proposal Modal -->
+    <div id="view-modal" class="modal-backdrop">
+        <div class="modal" style="max-width: 540px;">
+            <div class="p-5 border-b border-neutral-100 flex justify-between items-start">
+                <div class="min-w-0 flex-1 pr-4">
+                    <h3 class="font-semibold text-neutral-900 truncate" id="view-job-title">-</h3>
+                    <p class="text-sm text-neutral-500" id="view-company">-</p>
+                </div>
+                <span id="view-badge" class="badge badge-sent">sent</span>
+            </div>
+            <div class="p-5">
+                <div class="bg-neutral-50 rounded-lg p-4 text-sm text-neutral-700 whitespace-pre-wrap max-h-64 overflow-y-auto" id="view-proposal-text">-</div>
+                
+                <div class="mt-4 pt-4 border-t border-neutral-100 grid grid-cols-3 gap-4 text-xs text-neutral-500">
+                    <div><span class="block text-neutral-400">Sent</span><span id="view-sent-at">-</span></div>
+                    <div><span class="block text-neutral-400">Words</span><span id="view-word-count">-</span></div>
+                    <div><span class="block text-neutral-400">Skills</span><span id="view-skills" class="truncate block">-</span></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-neutral-100 flex justify-end gap-2">
+                <button onclick="closeViewModal()" class="btn-secondary btn-sm">Close</button>
+                <button onclick="copyProposalText()" class="btn-primary btn-sm">Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Use relative URL when served from same origin, absolute otherwise
+        const API_BASE = 'https://ml.genproposals.com/api/proposals';
+        
+        let currentFilter = '';
+        let currentProposalId = null;
+        let selectedOutcome = null;
+        let proposals = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadProposals();
+            setupFilterTabs();
+        });
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        async function loadStats() {
+            try {
+                const res = await axios.get(`${API_BASE}/stats`);
+                const s = res.data;
+                
+                document.getElementById('stat-sent').textContent = s.total_sent || 0;
+                document.getElementById('stat-viewed').textContent = s.total_viewed || 0;
+                document.getElementById('stat-hired').textContent = s.total_hired || 0;
+                document.getElementById('stat-conversion').textContent = (s.hire_rate || 0) + '%';
+                
+                document.getElementById('stat-view-rate').textContent = s.view_rate ? `(${s.view_rate}%)` : '';
+                document.getElementById('stat-hire-rate').textContent = s.hire_rate ? `(${s.hire_rate}%)` : '';
+            } catch (e) {
+                console.error('Error loading stats:', e);
+            }
+        }
+
+        async function loadProposals(filter = '') {
+            const container = document.getElementById('proposals-container');
+            
+            try {
+                const url = filter ? `${API_BASE}/history?outcome=${filter}` : `${API_BASE}/history`;
+                const res = await axios.get(url);
+                proposals = res.data.items || [];
+                
+                if (proposals.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <p class="text-neutral-400 mb-4">No proposals yet</p>
+                            <a href="index.html" class="btn-primary">Generate Proposal</a>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = proposals.map(renderProposalRow).join('');
+                
+            } catch (e) {
+                console.error('Error loading proposals:', e);
+                container.innerHTML = `<div class="empty-state"><p class="text-neutral-400">Error loading data</p></div>`;
+            }
+        }
+
+        function renderProposalRow(p) {
+            const date = new Date(p.sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const skills = (p.skills_required || []).slice(0, 3).join(' · ');
+            const outcome = p.outcome || 'sent';
+            
+            // Determine badge based on outcome + discussion_initiated
+            let badgeClass = 'badge-' + outcome;
+            let badgeText = outcome;
+            
+            if (outcome === 'viewed' && p.discussion_initiated) {
+                badgeClass = 'badge-discussed';
+                badgeText = 'discussed';
+            }
+            
+            // Show update button for non-final states
+            const canUpdate = outcome === 'sent' || outcome === 'viewed';
+            
+            return `
+                <div class="proposal-row">
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-medium text-neutral-900 truncate">${p.job_title || 'Untitled'}</span>
+                                <span class="badge ${badgeClass}">${badgeText}</span>
+                            </div>
+                            <div class="text-xs text-neutral-500">
+                                ${p.company_name || 'Company'} · ${p.word_count || 0} words · ${date}
+                                ${skills ? ` · <span class="text-neutral-400">${skills}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <button onclick="viewProposal('${p.proposal_id}')" class="btn-secondary btn-sm">View</button>
+                            ${canUpdate ? `<button onclick="openOutcomeModal('${p.proposal_id}', '${(p.job_title || '').replace(/'/g, "\\'")}')" class="btn-primary btn-sm">Update</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function setupFilterTabs() {
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentFilter = tab.dataset.filter;
+                    loadProposals(currentFilter);
+                });
+            });
+        }
+
+        // ==================== OUTCOME MODAL ====================
+        
+        function openOutcomeModal(proposalId, jobTitle) {
+            currentProposalId = proposalId;
+            selectedOutcome = null;
+            
+            document.getElementById('modal-job-title').textContent = jobTitle || 'Proposal';
+            document.getElementById('submit-btn').disabled = true;
+            
+            // Reset selections
+            document.querySelectorAll('.outcome-option').forEach(o => o.classList.remove('selected'));
+            
+            document.getElementById('outcome-modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('outcome-modal').classList.remove('show');
+            currentProposalId = null;
+            selectedOutcome = null;
+        }
+
+        function selectOutcome(outcome) {
+            selectedOutcome = outcome;
+            
+            // Update visual selection
+            document.querySelectorAll('.outcome-option').forEach(o => {
+                o.classList.toggle('selected', o.dataset.outcome === outcome);
+            });
+            
+            document.getElementById('submit-btn').disabled = false;
+        }
+
+        async function submitOutcome() {
+            if (!selectedOutcome || !currentProposalId) return;
+            
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            
+            try {
+                // Map frontend outcomes to backend API
+                // Backend accepts: sent, viewed, hired, rejected
+                // Frontend has: viewed, discussed, hired, rejected
+                
+                let apiOutcome = selectedOutcome;
+                let discussionInitiated = false;
+                
+                if (selectedOutcome === 'discussed') {
+                    // "Discussed" means viewed + discussion_initiated = true
+                    apiOutcome = 'viewed';
+                    discussionInitiated = true;
+                }
+                
+                const data = {
+                    outcome: apiOutcome,
+                    discussion_initiated: discussionInitiated,
+                    rejection_reason: null
+                };
+                
+                await axios.patch(`${API_BASE}/${currentProposalId}/outcome`, data);
+                
+                // Success messages
+                const messages = {
+                    viewed: '✓ Marked as viewed',
+                    discussed: '✓ Discussion validates your approach!',
+                    hired: '🎉 Congratulations!',
+                    rejected: '✓ Marked as rejected'
+                };
+                
+                showToast(messages[selectedOutcome] || '✓ Updated');
+                closeModal();
+                loadStats();
+                loadProposals(currentFilter);
+                
+            } catch (e) {
+                showToast('Error: ' + (e.response?.data?.detail || e.message));
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save';
+            }
+        }
+
+        // ==================== VIEW MODAL ====================
+
+        async function viewProposal(proposalId) {
+            try {
+                const res = await axios.get(`${API_BASE}/${proposalId}`);
+                const p = res.data.proposal;
+                
+                document.getElementById('view-job-title').textContent = p.job_title || 'Untitled';
+                document.getElementById('view-company').textContent = p.company_name || '-';
+                document.getElementById('view-proposal-text').textContent = p.proposal_text || '-';
+                document.getElementById('view-sent-at').textContent = p.sent_at ? new Date(p.sent_at).toLocaleDateString() : '-';
+                document.getElementById('view-word-count').textContent = p.word_count || 0;
+                document.getElementById('view-skills').textContent = (p.skills_required || []).join(', ') || '-';
+                
+                const badge = document.getElementById('view-badge');
+                const outcome = p.outcome || 'sent';
+                
+                if (outcome === 'viewed' && p.discussion_initiated) {
+                    badge.className = 'badge badge-discussed';
+                    badge.textContent = 'discussed';
+                } else {
+                    badge.className = `badge badge-${outcome}`;
+                    badge.textContent = outcome;
+                }
+                
+                document.getElementById('view-modal').classList.add('show');
+                
+            } catch (e) {
+                showToast('Error loading proposal');
+            }
+        }
+
+        function closeViewModal() {
+            document.getElementById('view-modal').classList.remove('show');
+        }
+
+        function copyProposalText() {
+            const text = document.getElementById('view-proposal-text').textContent;
+            navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
+        }
+
+        // Close modals on backdrop click
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) backdrop.classList.remove('show');
+            });
+        });
+
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('show'));
+            }
+        });
+    </script>
+</body>
+</html>

@@ -6,6 +6,11 @@ Single endpoint for intelligent proposal generation based on:
 - Historical project data
 - Portfolio links and feedback
 - Previous successful proposals
+
+Includes Outcome Tracking:
+- Save sent proposals
+- Track outcomes (viewed/hired)
+- Conversion analytics
 """
 
 import logging
@@ -13,6 +18,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
+from enum import Enum
 
 from app.utils.retrieval_pipeline import RetrievalPipeline
 from app.utils.openai_service import OpenAIService
@@ -24,6 +30,16 @@ logger = logging.getLogger(__name__)
 
 # Initialize router
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
+
+
+# ===================== ENUMS =====================
+
+class ProposalOutcome(str, Enum):
+    """Outcome of a sent proposal"""
+    SENT = "sent"
+    VIEWED = "viewed"
+    HIRED = "hired"
+    REJECTED = "rejected"
 
 
 # ===================== REQUEST/RESPONSE MODELS =====================
@@ -418,3 +434,327 @@ def _generate_improvement_suggestions(quality_score: Dict[str, Any]) -> List[str
         suggestions.append("Add references to 2-3 similar successful projects")
     
     return suggestions
+
+
+# ===================== OUTCOME TRACKING MODELS =====================
+
+class SaveProposalRequest(BaseModel):
+    """Request to save a sent proposal for outcome tracking"""
+    job_title: str = Field(..., description="Job title")
+    company_name: str = Field(..., description="Company name")
+    job_description: str = Field(..., description="Full job description")
+    proposal_text: str = Field(..., description="The proposal text that was sent")
+    skills_required: List[str] = Field(default_factory=list, description="Skills required for the job")
+    industry: Optional[str] = Field("general", description="Industry")
+    task_type: Optional[str] = Field("other", description="Task type")
+    word_count: Optional[int] = Field(0, description="Word count")
+    similar_projects_used: Optional[List[str]] = Field(default_factory=list, description="IDs of similar projects used")
+    portfolio_links_used: Optional[List[str]] = Field(default_factory=list, description="Portfolio links included")
+    confidence_score: Optional[float] = Field(0.0, description="AI confidence score")
+
+
+class SaveProposalResponse(BaseModel):
+    """Response after saving a proposal"""
+    success: bool
+    proposal_id: str = Field(..., description="Unique proposal ID for tracking")
+    message: str
+    sent_at: str
+
+
+class UpdateOutcomeRequest(BaseModel):
+    """Request to update proposal outcome"""
+    outcome: ProposalOutcome = Field(..., description="New outcome: viewed, hired, or rejected")
+    discussion_initiated: bool = Field(False, description="Did client start a discussion? (validates Message-Market Fit)")
+    rejection_reason: Optional[str] = Field(None, description="Reason if rejected (budget, timing, etc.)")
+
+
+class UpdateOutcomeResponse(BaseModel):
+    """Response after updating outcome"""
+    success: bool
+    proposal_id: str
+    outcome: str
+    discussion_initiated: bool
+    message: str
+
+
+class ProposalHistoryItem(BaseModel):
+    """Single item in proposal history"""
+    proposal_id: str
+    job_title: str
+    company_name: str
+    outcome: str
+    sent_at: str
+    viewed_at: Optional[str] = None
+    hired_at: Optional[str] = None
+    discussion_initiated: bool
+    word_count: int
+    skills_required: List[str]
+
+
+class ProposalHistoryResponse(BaseModel):
+    """Response with proposal history"""
+    success: bool
+    total: int
+    items: List[ProposalHistoryItem]
+    stats: Dict[str, Any]
+
+
+class ConversionStatsResponse(BaseModel):
+    """Response with conversion statistics"""
+    success: bool
+    total_sent: int
+    total_viewed: int
+    total_hired: int
+    total_discussions: int
+    view_rate: float = Field(..., description="% of proposals that were viewed")
+    hire_rate: float = Field(..., description="% of proposals that led to hire")
+    discussion_rate: float = Field(..., description="% that started discussions")
+    message_market_fit: float = Field(..., description="% of viewed that started discussions (validates Hook+Approach)")
+    view_to_hire_rate: float = Field(..., description="% of viewed that got hired")
+
+
+# ===================== OUTCOME TRACKING ENDPOINTS =====================
+
+@router.post(
+    "/save",
+    response_model=SaveProposalResponse,
+    status_code=201,
+    summary="Save a sent proposal for outcome tracking"
+)
+async def save_sent_proposal(request: SaveProposalRequest):
+    """
+    Save a proposal that you've sent to a client.
+    
+    This enables tracking the outcome (viewed → hired) and learning from
+    which proposals work best for future AI improvements.
+    
+    **Outcome Flow:**
+    1. `sent` - Initial status when saved
+    2. `viewed` - Client opened/viewed the proposal  
+    3. `hired` - Client hired you! 🎉
+    4. `rejected` - Client passed (track reason for learning)
+    
+    **Why track 'viewed'?**
+    A viewed proposal validates your Hook and Approach worked.
+    Even if not hired (budget/timing), the proposal text is proven effective.
+    """
+    try:
+        db = get_db()
+        
+        result = db.save_sent_proposal({
+            "job_title": request.job_title,
+            "company_name": request.company_name,
+            "job_description": request.job_description,
+            "proposal_text": request.proposal_text,
+            "skills_required": request.skills_required,
+            "industry": request.industry,
+            "task_type": request.task_type,
+            "word_count": request.word_count,
+            "similar_projects_used": request.similar_projects_used,
+            "portfolio_links_used": request.portfolio_links_used,
+            "confidence_score": request.confidence_score
+        })
+        
+        return SaveProposalResponse(
+            success=True,
+            proposal_id=result["proposal_id"],
+            message="Proposal saved! Update the outcome when client views or hires.",
+            sent_at=result["sent_at"]
+        )
+        
+    except Exception as e:
+        logger.error(f"Error saving proposal: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch(
+    "/{proposal_id}/outcome",
+    response_model=UpdateOutcomeResponse,
+    summary="Update proposal outcome (viewed/hired/rejected)"
+)
+async def update_proposal_outcome(proposal_id: str, request: UpdateOutcomeRequest):
+    """
+    Update the outcome of a sent proposal.
+    
+    **Outcomes:**
+    - `viewed` - Client viewed your proposal (Hook worked! ✅)
+    - `hired` - You got the job! 🎉
+    - `rejected` - Client passed (provide reason for AI learning)
+    
+    **Discussion Initiated:**
+    Set to `true` if client started a chat/message. This validates:
+    - Hook was strong enough to click
+    - Approach was professional
+    - Pain point addressed correctly
+    
+    Even if not hired (budget/timing), these proposals have proven
+    **Message-Market Fit** and should be weighted highly by AI.
+    """
+    try:
+        db = get_db()
+        
+        result = db.update_proposal_outcome(
+            proposal_id=proposal_id,
+            outcome=request.outcome.value,
+            discussion_initiated=request.discussion_initiated,
+            rejection_reason=request.rejection_reason
+        )
+        
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
+        
+        outcome_messages = {
+            "viewed": "Great! Client viewed your proposal - Hook worked! 🎯",
+            "hired": "Congratulations! You got the job! 🎉",
+            "rejected": "Noted. We'll learn from this for better future proposals."
+        }
+        
+        return UpdateOutcomeResponse(
+            success=True,
+            proposal_id=proposal_id,
+            outcome=result["outcome"],
+            discussion_initiated=result["discussion_initiated"],
+            message=outcome_messages.get(result["outcome"], "Outcome updated")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating outcome: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/history",
+    response_model=ProposalHistoryResponse,
+    summary="Get sent proposals history with outcomes"
+)
+async def get_proposal_history(
+    skip: int = 0,
+    limit: int = 50,
+    outcome: Optional[str] = None
+):
+    """
+    Get history of all sent proposals with their outcomes.
+    
+    Filter by outcome:
+    - `sent` - Waiting for response
+    - `viewed` - Client viewed (Message-Market Fit validated)
+    - `hired` - Converted to job
+    - `rejected` - Client passed
+    
+    Use this to:
+    1. Track your proposal performance
+    2. Update outcomes when you hear back
+    3. Identify winning proposal patterns
+    """
+    try:
+        db = get_db()
+        
+        proposals = db.get_sent_proposals(skip=skip, limit=limit, outcome_filter=outcome)
+        stats = db.get_proposal_conversion_stats()
+        
+        items = []
+        for p in proposals:
+            items.append(ProposalHistoryItem(
+                proposal_id=p["proposal_id"],
+                job_title=p.get("job_title", ""),
+                company_name=p.get("company_name", ""),
+                outcome=p.get("outcome", "sent"),
+                sent_at=p.get("sent_at", datetime.utcnow()).isoformat() if p.get("sent_at") else "",
+                viewed_at=p.get("viewed_at").isoformat() if p.get("viewed_at") else None,
+                hired_at=p.get("hired_at").isoformat() if p.get("hired_at") else None,
+                discussion_initiated=p.get("discussion_initiated", False),
+                word_count=p.get("word_count", 0),
+                skills_required=p.get("skills_required", [])
+            ))
+        
+        return ProposalHistoryResponse(
+            success=True,
+            total=len(items),
+            items=items,
+            stats=stats
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/stats",
+    response_model=ConversionStatsResponse,
+    summary="Get proposal conversion statistics"
+)
+async def get_conversion_stats():
+    """
+    Get conversion statistics for all sent proposals.
+    
+    **Key Metrics:**
+    - `view_rate` - % of proposals clients opened
+    - `hire_rate` - % that converted to jobs
+    - `message_market_fit` - % of viewed that started discussions
+    - `view_to_hire_rate` - Conversion from view to hire
+    
+    **Message-Market Fit** is crucial:
+    If a client views and starts a discussion, your proposal text works.
+    Not closing (budget/timing) is a logistics issue, not communication.
+    """
+    try:
+        db = get_db()
+        stats = db.get_proposal_conversion_stats()
+        
+        return ConversionStatsResponse(
+            success=True,
+            **stats
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/{proposal_id}",
+    summary="Get a single sent proposal by ID"
+)
+async def get_sent_proposal(proposal_id: str):
+    """Get details of a specific sent proposal"""
+    try:
+        db = get_db()
+        proposal = db.get_sent_proposal(proposal_id)
+        
+        if not proposal:
+            raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
+        
+        # Format dates
+        for date_field in ["sent_at", "viewed_at", "hired_at", "outcome_updated_at", "created_at"]:
+            if proposal.get(date_field):
+                proposal[date_field] = proposal[date_field].isoformat()
+        
+        return {"success": True, "proposal": proposal}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting proposal: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete(
+    "/clear-all",
+    summary="Delete all sent proposals (for testing)"
+)
+async def clear_all_proposals():
+    """Delete all sent proposals from database"""
+    try:
+        db = get_db()
+        result = db.db["sent_proposals"].delete_many({})
+        return {
+            "success": True,
+            "deleted_count": result.deleted_count,
+            "message": f"Deleted {result.deleted_count} proposals"
+        }
+    except Exception as e:
+        logger.error(f"Error clearing proposals: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
