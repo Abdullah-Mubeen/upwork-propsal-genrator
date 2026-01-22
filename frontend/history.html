@@ -183,7 +183,10 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
                     Generate
                 </a>
-                <a href="training.html" class="btn-secondary">Training</a>
+                <a href="training.html" class="btn-secondary inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                    Training
+                </a>
             </div>
         </div>
     </header>
@@ -310,7 +313,7 @@
 
     <script>
         // Use relative URL when served from same origin, absolute otherwise
-        const API_BASE = 'https://ml.genproposals.com/api/proposals';
+        const API_BASE = 'http://127.0.0.1:8000/api/proposals';
         
         let currentFilter = '';
         let currentProposalId = null;
@@ -407,6 +410,7 @@
                         <div class="flex items-center gap-2 flex-shrink-0">
                             <button onclick="viewProposal('${p.proposal_id}')" class="btn-secondary btn-sm">View</button>
                             ${canUpdate ? `<button onclick="openOutcomeModal('${p.proposal_id}', '${(p.job_title || '').replace(/'/g, "\\'")}')" class="btn-primary btn-sm">Update</button>` : ''}
+                            <button onclick="deleteProposal('${p.proposal_id}', '${(p.job_title || '').replace(/'/g, "\\'")}')" class="btn-secondary btn-sm" style="color:#dc2626" title="Delete">✕</button>
                         </div>
                     </div>
                 </div>
@@ -545,6 +549,21 @@
         function copyProposalText() {
             const text = document.getElementById('view-proposal-text').textContent;
             navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
+        }
+
+        // ==================== DELETE ====================
+
+        async function deleteProposal(proposalId, jobTitle) {
+            if (!confirm(`Delete proposal for "${jobTitle}"?`)) return;
+            
+            try {
+                await axios.delete(`${API_BASE}/${proposalId}`);
+                showToast('✓ Deleted');
+                loadStats();
+                loadProposals(currentFilter);
+            } catch (e) {
+                showToast('Error: ' + (e.response?.data?.detail || e.message));
+            }
         }
 
         // Close modals on backdrop click

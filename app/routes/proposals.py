@@ -742,6 +742,31 @@ async def get_sent_proposal(proposal_id: str):
 
 
 @router.delete(
+    "/{proposal_id}",
+    summary="Delete a single sent proposal"
+)
+async def delete_proposal(proposal_id: str):
+    """Delete a specific sent proposal by ID"""
+    try:
+        db = get_db()
+        result = db.db["sent_proposals"].delete_one({"proposal_id": proposal_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
+        
+        return {
+            "success": True,
+            "proposal_id": proposal_id,
+            "message": "Proposal deleted"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting proposal: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete(
     "/clear-all",
     summary="Delete all sent proposals (for testing)"
 )
