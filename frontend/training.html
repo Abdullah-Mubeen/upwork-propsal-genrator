@@ -1115,6 +1115,13 @@
                             <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
+                        <!-- Temporary Link -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Temporary Link (Optional)</label>
+                            <input type="url" id="temporary-link-input" name="temporary_link" placeholder="https://..." class="input-field">
+                            <p class="text-xs text-neutral-500 mt-1">Add a temporary URL for additional resources</p>
+                        </div>
+
                         <!-- DELIVERABLES - What was actually built -->
                         <div class="border-t border-neutral-200 pt-5">
                             <label class="block text-sm font-600 text-neutral-700 mb-2">Deliverables (What You Built) *</label>
@@ -1287,6 +1294,7 @@
         
         let currentSkills = [];
         let currentPortfolios = [];
+        let currentTemporaryLink = '';
         let currentDeliverables = [];
         let selectedImage = null;
         let extractedOCRText = '';
@@ -1496,6 +1504,7 @@
                 end_date: formData.get('end_date') || null,
                 urgent_adhoc: formData.get('urgent_adhoc') === 'on',
                 portfolio_urls: currentPortfolios,
+                temporary_link: formData.get('temporary_link')?.trim() || null,
                 deliverables: currentDeliverables,
                 outcomes: formData.get('outcomes')?.trim() || null,
                 client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
@@ -1520,6 +1529,7 @@
                     form.reset();
                     currentSkills = [];
                     currentPortfolios = [];
+                    currentTemporaryLink = '';
                     currentDeliverables = [];
                     renderSkills();
                     renderPortfolios();
@@ -2027,6 +2037,9 @@
                 currentPortfolios = entry.portfolio_urls || [];
                 renderPortfolios();
                 
+                // Temporary Link
+                document.getElementById('temporary-link-input').value = entry.temporary_link || '';
+                
                 // Deliverables & Outcomes
                 currentDeliverables = entry.deliverables || [];
                 renderDeliverables();
@@ -2419,6 +2432,17 @@
                         <div class="flex gap-2 mt-3">
                             <input type="url" id="review-portfolio-input" placeholder="https://..." class="review-field-input flex-1" onkeypress="if(event.key==='Enter'){event.preventDefault();addReviewPortfolio();}">
                             <button onclick="addReviewPortfolio()" class="btn-secondary text-xs">Add</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Temporary Link -->
+                    <div class="review-section">
+                        <div class="review-field" onclick="editReviewField(this, 'temporary_link', 'url')">
+                            <div class="review-section-title" style="margin-bottom:4px">Temporary Link</div>
+                            <div class="review-field-value ${!getValue('temporary_link') ? 'empty' : ''}">
+                                ${getValue('temporary_link') ? `<a href="${escapeHtml(getValue('temporary_link'))}" target="_blank" class="text-blue-600 hover:underline">${truncateUrl(getValue('temporary_link'))}</a>` : 'No temporary link'}
+                            </div>
+                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </div>
                     </div>
                     

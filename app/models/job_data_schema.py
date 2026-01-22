@@ -109,6 +109,10 @@ class JobDataUploadRequest(BaseModel):
         default_factory=list,
         description="List of portfolio or past work URLs"
     )
+    temporary_link: Optional[str] = Field(
+        None,
+        description="Temporary link/URL for additional resources"
+    )
     client_feedback_url: HttpUrl = Field(
         ...,
         description="URL to client feedback (required)"
@@ -284,7 +288,7 @@ class JobDataResponse(BaseModel):
     contract_id: str = Field(..., description="Unique contract ID")
     company_name: str = Field(..., description="Company name")
     job_title: str = Field(..., description="Job title/position")
-    industry: str = Field(..., description="Industry sector")
+    industry: Optional[str] = Field(None, description="Industry sector")
     skills_required: Optional[List[str]] = Field(None, description="Required skills")
     task_type: Optional[str] = Field(None, description="Type of task/project")
     platform: Optional[str] = Field(None, description="Platform/technology")
@@ -329,6 +333,7 @@ class JobDataDetailResponse(JobDataResponse):
     end_date: Optional[str] = None
     portfolio_url: Optional[str] = None
     portfolio_urls: Optional[List[str]] = Field(None, description="List of portfolio URLs")
+    temporary_link: Optional[str] = Field(None, description="Temporary link/URL for additional resources")
     client_feedback_url: Optional[str] = None
     client_feedback_text: Optional[str] = None
     task_type: Optional[str] = Field(None, description="Type of task/project")

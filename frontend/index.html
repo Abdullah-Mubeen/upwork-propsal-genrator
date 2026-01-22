@@ -552,6 +552,21 @@
                         <div id="proposal-text" class="proposal-body"></div>
                     </div>
 
+                    <!-- Temporary Link Input -->
+                    <div class="info-section" style="padding: 12px 16px;">
+                        <div class="flex items-center gap-3">
+                            <label class="text-xs font-medium text-neutral-600 whitespace-nowrap">Temporary Link</label>
+                            <input 
+                                type="url" 
+                                id="temporary-link-input"
+                                placeholder="https://upwork.com/job/... (optional)"
+                                class="input-field text-sm"
+                                style="padding: 8px 12px;"
+                            />
+                        </div>
+                        <p class="text-xs text-neutral-400 mt-1">Add a URL to reference later (e.g., job posting link)</p>
+                    </div>
+
                     <!-- Quick Adjustments -->
                     <div class="flex flex-wrap items-center gap-2 px-1">
                         <span class="text-xs text-neutral-400">Adjust:</span>
@@ -746,7 +761,8 @@
                     word_count: wordCount,
                     similar_projects_used: (lastGeneratedResult.similar_projects || []).map(p => p.contract_id).filter(Boolean),
                     portfolio_links_used: lastGeneratedResult.portfolio_links_used || [],
-                    confidence_score: lastGeneratedResult.confidence_score || 0
+                    confidence_score: lastGeneratedResult.confidence_score || 0,
+                    temporary_link: document.getElementById('temporary-link-input').value.trim() || null
                 };
                 
                 const res = await axios.post(`${API_BASE}/save`, saveData);
@@ -777,6 +793,10 @@
             originalProposalText = '';
             proposalSaved = false;
             lastGeneratedResult = null;
+            
+            // Clear temporary link input
+            const tempLinkInput = document.getElementById('temporary-link-input');
+            if (tempLinkInput) tempLinkInput.value = '';
             
             // Reset save button
             const saveBtn = document.getElementById('save-send-btn');

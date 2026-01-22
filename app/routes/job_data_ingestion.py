@@ -321,6 +321,7 @@ async def get_job_data(contract_id: str):
             end_date=job_data.get("end_date"),
             portfolio_url=job_data.get("portfolio_url"),
             portfolio_urls=job_data.get("portfolio_urls"),
+            temporary_link=job_data.get("temporary_link"),
             client_feedback_url=job_data.get("client_feedback_url"),
             client_feedback_text=job_data.get("client_feedback_text"),
             task_type=job_data.get("task_type"),
