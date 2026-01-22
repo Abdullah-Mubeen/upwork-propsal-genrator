@@ -526,6 +526,380 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* ========== REVIEW MODE ========== */
+        .review-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(250, 250, 250, 0.98);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow-y: auto;
+        }
+
+        .review-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .review-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .review-header {
+            position: sticky;
+            top: 0;
+            background: rgba(250, 250, 250, 0.95);
+            backdrop-filter: blur(8px);
+            padding: 16px 0;
+            margin-bottom: 20px;
+            z-index: 10;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .review-progress {
+            height: 3px;
+            background: #e5e5e5;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .review-progress-bar {
+            height: 100%;
+            background: #171717;
+            transition: width 0.3s ease;
+        }
+
+        .review-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 1px solid #e5e5e5;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            color: #525252;
+        }
+
+        .review-nav-btn:hover:not(:disabled) {
+            background: #171717;
+            color: #fff;
+            border-color: #171717;
+        }
+
+        .review-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .review-card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+            animation: reviewSlideIn 0.3s ease;
+        }
+
+        @keyframes reviewSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .review-section {
+            padding: 20px 24px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .review-section:last-child {
+            border-bottom: none;
+        }
+
+        .review-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #a3a3a3;
+            margin-bottom: 10px;
+        }
+
+        .review-field {
+            position: relative;
+            padding: 10px 12px;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            margin: -10px -12px;
+        }
+
+        .review-field:hover {
+            background: #fafafa;
+        }
+
+        .review-field.editing {
+            background: #f5f5f5;
+            cursor: default;
+        }
+
+        .review-field-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: #737373;
+            margin-bottom: 4px;
+        }
+
+        .review-field-value {
+            font-size: 14px;
+            color: #171717;
+            line-height: 1.5;
+        }
+
+        .review-field-value.empty {
+            color: #a3a3a3;
+            font-style: italic;
+        }
+
+        .review-field-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d4d4d4;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fff;
+            transition: border-color 0.15s;
+        }
+
+        .review-field-input:focus {
+            outline: none;
+            border-color: #171717;
+        }
+
+        .review-edit-icon {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.15s;
+            color: #a3a3a3;
+        }
+
+        .review-field:hover .review-edit-icon {
+            opacity: 1;
+        }
+
+        .review-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .review-skill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #525252;
+            transition: all 0.15s;
+        }
+
+        .review-skill:hover {
+            background: #171717;
+            color: #fff;
+        }
+
+        .review-skill button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 2px;
+            color: inherit;
+            opacity: 0.6;
+        }
+
+        .review-skill button:hover {
+            opacity: 1;
+        }
+
+        .review-text-block {
+            background: #fafafa;
+            border-radius: 10px;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #404040;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .review-text-block.editing {
+            padding: 0;
+            background: transparent;
+        }
+
+        .review-text-block textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 16px;
+            border: 1px solid #d4d4d4;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.7;
+            resize: vertical;
+            background: #fff;
+        }
+
+        .review-text-block textarea:focus {
+            outline: none;
+            border-color: #171717;
+        }
+
+        .review-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .review-meta-item {
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .review-meta-item:hover {
+            background: #f0f0f0;
+        }
+
+        .review-actions {
+            position: sticky;
+            bottom: 0;
+            background: rgba(250, 250, 250, 0.95);
+            backdrop-filter: blur(8px);
+            padding: 16px 0;
+            border-top: 1px solid #e5e5e5;
+            margin-top: 20px;
+        }
+
+        .review-kbd {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            height: 22px;
+            padding: 0 6px;
+            background: #f5f5f5;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #737373;
+        }
+
+        .review-two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .review-two-col {
+                grid-template-columns: 1fr;
+            }
+            .review-meta-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .review-delete-btn {
+            color: #dc2626;
+            font-size: 13px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+
+        .review-delete-btn:hover {
+            background: #fef2f2;
+        }
+
+        .review-badge {
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .review-badge-success { background: #dcfce7; color: #166534; }
+        .review-badge-info { background: #dbeafe; color: #1e40af; }
+        .review-badge-warning { background: #fef3c7; color: #92400e; }
+        .review-badge-muted { background: #f5f5f5; color: #525252; }
+
+        .review-url-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #2563eb;
+            text-decoration: none;
+            font-size: 13px;
+            padding: 6px 10px;
+            background: #eff6ff;
+            border-radius: 6px;
+            margin: 2px;
+            transition: all 0.15s;
+        }
+
+        .review-url-link:hover {
+            background: #dbeafe;
+        }
+
+        .review-empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #737373;
+        }
+
+        .review-jump-input {
+            width: 60px;
+            padding: 6px 10px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .review-jump-input:focus {
+            outline: none;
+            border-color: #171717;
+        }
     </style>
 </head>
 <body>
@@ -540,6 +914,72 @@
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
+
+    <!-- Review Mode Overlay -->
+    <div class="review-overlay" id="review-overlay">
+        <div class="review-container">
+            <!-- Review Header -->
+            <div class="review-header">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <button onclick="closeReviewMode()" class="review-nav-btn" title="Close (Esc)">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                        <div>
+                            <h2 class="text-base font-semibold text-neutral-900">Review Mode</h2>
+                            <p class="text-xs text-neutral-500">Click any field to edit • Arrow keys to navigate</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 text-sm text-neutral-600">
+                            <span>Jump to</span>
+                            <input type="number" id="review-jump" class="review-jump-input" min="1" onchange="jumpToEntry(this.value)">
+                            <span>of <span id="review-total">0</span></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="reviewPrev()" id="review-prev-btn" class="review-nav-btn" title="Previous (←)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+                            </button>
+                            <div class="text-sm font-medium text-neutral-700 min-w-[60px] text-center">
+                                <span id="review-current">1</span> / <span id="review-count">0</span>
+                            </div>
+                            <button onclick="reviewNext()" id="review-next-btn" class="review-nav-btn" title="Next (→)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-progress">
+                    <div class="review-progress-bar" id="review-progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Review Content -->
+            <div id="review-content">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Review Actions Footer -->
+            <div class="review-actions">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4 text-xs text-neutral-500">
+                        <span><span class="review-kbd">←</span> <span class="review-kbd">→</span> Navigate</span>
+                        <span><span class="review-kbd">Esc</span> Close</span>
+                        <span><span class="review-kbd">S</span> Save changes</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="deleteCurrentReviewEntry()" class="review-delete-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline mr-1"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                            Delete Entry
+                        </button>
+                        <button onclick="saveReviewChanges()" id="review-save-btn" class="btn-primary" disabled>
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Header -->
     <header class="border-b border-neutral-200 bg-white sticky top-0 z-50 backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98);">
@@ -792,8 +1232,8 @@
         <!-- Entries Tab -->
         <div id="tab-entries" class="tab-content">
             <div class="card">
-                <!-- Search -->
-                <div class="p-4 border-b border-neutral-200 flex flex-wrap gap-3">
+                <!-- Search & Review Button -->
+                <div class="p-4 border-b border-neutral-200 flex flex-wrap gap-3 items-center">
                     <input type="text" id="search-input" placeholder="Search by company or title..." class="input-field flex-1 min-w-48">
                     <select id="platform-filter" class="input-field w-40">
                         <option value="">All Platforms</option>
@@ -801,6 +1241,10 @@
                     <select id="task-type-filter" class="input-field w-44">
                         <option value="">All Task Types</option>
                     </select>
+                    <button onclick="openReviewMode()" class="btn-primary flex items-center gap-2" title="Review all entries with keyboard navigation">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Review All
+                    </button>
                 </div>
 
                 <!-- Table -->
@@ -839,7 +1283,7 @@
         // CHANGE THIS TO TEST LOCALLY vs PRODUCTION
         // Local: 'http://127.0.0.1:8000/api/job-data'
         // Production: 'https://ml.genproposals.com/api/job-data'
-        const API_BASE = 'https://ml.genproposals.com/api/job-data';
+        const API_BASE = 'https://ml.genproposals.com/api/job-dat';
         
         let currentSkills = [];
         let currentPortfolios = [];
@@ -1495,7 +1939,7 @@
             if (!page.length) {
                 tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-neutral-500">No entries found</td></tr>`;
             } else {
-                tbody.innerHTML = page.map(e => `
+                tbody.innerHTML = page.map((e, idx) => `
                     <tr class="border-b border-neutral-200 table-row">
                         <td class="px-4 py-3">
                             <p class="font-medium text-neutral-900">${e.company_name}</p>
@@ -1509,6 +1953,9 @@
                             <span class="badge badge-muted capitalize">${e.task_type || '-'}</span>
                         </td>
                         <td class="px-4 py-3 flex gap-2">
+                            <button onclick="openReviewAt(${start + idx})" class="btn-secondary text-xs py-1 px-3" title="Quick review">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline -mt-0.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
                             <button onclick="editEntry('${e.contract_id}')" class="btn-secondary text-xs py-1 px-3">Edit</button>
                             <button onclick="deleteEntry('${e.contract_id}', '${e.company_name}')" class="btn-danger">Delete</button>
                         </td>
@@ -1648,6 +2095,684 @@
                 clearTimeout(timer);
                 timer = setTimeout(() => fn(...args), delay);
             };
+        }
+
+        // ========== REVIEW MODE ==========
+        let reviewIndex = 0;
+        let reviewData = [];
+        let reviewChanges = {}; // Track pending changes
+        let reviewCurrentEntry = null;
+        let reviewFullDataCache = {}; // Cache full entry data
+
+        async function openReviewMode() {
+            if (!entriesData.length) {
+                showToast('No entries to review');
+                return;
+            }
+            
+            reviewData = [...entriesData]; // Use filtered data
+            reviewIndex = 0;
+            reviewChanges = {};
+            reviewFullDataCache = {}; // Clear cache
+            
+            document.getElementById('review-total').textContent = reviewData.length;
+            document.getElementById('review-count').textContent = reviewData.length;
+            document.getElementById('review-jump').max = reviewData.length;
+            
+            document.getElementById('review-overlay').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            // Add keyboard listeners
+            document.addEventListener('keydown', handleReviewKeyboard);
+            
+            // Load first entry with full data
+            await loadAndRenderReviewEntry();
+        }
+
+        function closeReviewMode() {
+            if (Object.keys(reviewChanges).length > 0) {
+                if (!confirm('You have unsaved changes. Close anyway?')) return;
+            }
+            
+            document.getElementById('review-overlay').classList.remove('show');
+            document.body.style.overflow = '';
+            document.removeEventListener('keydown', handleReviewKeyboard);
+            reviewChanges = {};
+        }
+
+        // Open review at specific index (from table row click)
+        async function openReviewAt(idx) {
+            if (!entriesData.length) {
+                showToast('No entries to review');
+                return;
+            }
+            
+            reviewData = [...entriesData];
+            reviewIndex = Math.min(idx, reviewData.length - 1);
+            reviewChanges = {};
+            reviewFullDataCache = {}; // Clear cache
+            
+            document.getElementById('review-total').textContent = reviewData.length;
+            document.getElementById('review-count').textContent = reviewData.length;
+            document.getElementById('review-jump').max = reviewData.length;
+            
+            document.getElementById('review-overlay').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            document.addEventListener('keydown', handleReviewKeyboard);
+            
+            // Load entry with full data
+            await loadAndRenderReviewEntry();
+        }
+
+        // Fetch full entry data and render
+        async function loadAndRenderReviewEntry() {
+            const entry = reviewData[reviewIndex];
+            if (!entry) return;
+            
+            const contractId = entry.contract_id;
+            
+            // Show loading state
+            document.getElementById('review-content').innerHTML = `
+                <div class="review-card">
+                    <div class="review-section text-center py-12">
+                        <div class="loader mx-auto mb-4"></div>
+                        <p class="text-sm text-neutral-500">Loading entry data...</p>
+                    </div>
+                </div>
+            `;
+            
+            // Update navigation immediately
+            document.getElementById('review-current').textContent = reviewIndex + 1;
+            document.getElementById('review-jump').value = reviewIndex + 1;
+            document.getElementById('review-prev-btn').disabled = reviewIndex === 0;
+            document.getElementById('review-next-btn').disabled = reviewIndex === reviewData.length - 1;
+            
+            const progress = ((reviewIndex + 1) / reviewData.length) * 100;
+            document.getElementById('review-progress-bar').style.width = `${progress}%`;
+            
+            // Check cache first
+            if (reviewFullDataCache[contractId]) {
+                reviewCurrentEntry = reviewFullDataCache[contractId];
+                renderReviewEntry();
+                return;
+            }
+            
+            // Fetch full data from API
+            try {
+                const response = await axios.get(`${API_BASE}/${contractId}`);
+                const fullEntry = response.data;
+                
+                // Cache it
+                reviewFullDataCache[contractId] = fullEntry;
+                reviewCurrentEntry = fullEntry;
+                
+                renderReviewEntry();
+            } catch (e) {
+                console.error('Error loading entry:', e);
+                document.getElementById('review-content').innerHTML = `
+                    <div class="review-card">
+                        <div class="review-section text-center py-12">
+                            <p class="text-red-600 mb-2">Failed to load entry</p>
+                            <p class="text-sm text-neutral-500">${e.response?.data?.detail || e.message}</p>
+                            <button onclick="loadAndRenderReviewEntry()" class="btn-secondary mt-4">Retry</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function handleReviewKeyboard(e) {
+            // Don't navigate if typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                if (e.key === 'Escape') {
+                    e.target.blur();
+                }
+                return;
+            }
+            
+            switch(e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    reviewPrev();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    reviewNext();
+                    break;
+                case 'Escape':
+                    closeReviewMode();
+                    break;
+                case 's':
+                case 'S':
+                    if (!e.ctrlKey && !e.metaKey) {
+                        e.preventDefault();
+                        saveReviewChanges();
+                    }
+                    break;
+            }
+        }
+
+        async function reviewPrev() {
+            if (reviewIndex > 0) {
+                reviewIndex--;
+                await loadAndRenderReviewEntry();
+            }
+        }
+
+        async function reviewNext() {
+            if (reviewIndex < reviewData.length - 1) {
+                reviewIndex++;
+                await loadAndRenderReviewEntry();
+            }
+        }
+
+        async function jumpToEntry(num) {
+            const idx = parseInt(num) - 1;
+            if (idx >= 0 && idx < reviewData.length) {
+                reviewIndex = idx;
+                await loadAndRenderReviewEntry();
+            }
+        }
+
+        function renderReviewEntry() {
+            const entry = reviewCurrentEntry; // Use the full entry data now
+            if (!entry) return;
+            
+            reviewCurrentEntry = entry;
+            const contractId = entry.contract_id;
+            
+            // Update navigation
+            document.getElementById('review-current').textContent = reviewIndex + 1;
+            document.getElementById('review-jump').value = reviewIndex + 1;
+            document.getElementById('review-prev-btn').disabled = reviewIndex === 0;
+            document.getElementById('review-next-btn').disabled = reviewIndex === reviewData.length - 1;
+            
+            // Update progress bar
+            const progress = ((reviewIndex + 1) / reviewData.length) * 100;
+            document.getElementById('review-progress-bar').style.width = `${progress}%`;
+            
+            // Get any pending changes for this entry
+            const changes = reviewChanges[contractId] || {};
+            const getValue = (field) => changes[field] !== undefined ? changes[field] : entry[field];
+            
+            // Build status badge
+            const status = getValue('project_status') || 'unknown';
+            const statusBadge = {
+                'completed': '<span class="review-badge review-badge-success">Completed</span>',
+                'ongoing': '<span class="review-badge review-badge-info">Ongoing</span>',
+                'cancelled': '<span class="review-badge review-badge-warning">Cancelled</span>'
+            }[status] || '<span class="review-badge review-badge-muted">Unknown</span>';
+            
+            // Build skills HTML
+            const skills = getValue('skills_required') || [];
+            const skillsHtml = skills.length ? 
+                skills.map(s => `<span class="review-skill">${escapeHtml(s)}<button onclick="removeReviewSkill('${escapeHtml(s)}')" title="Remove">×</button></span>`).join('') :
+                '<span class="text-neutral-400 text-sm">No skills added</span>';
+            
+            // Build portfolio links
+            const portfolios = getValue('portfolio_urls') || [];
+            const portfolioHtml = portfolios.length ?
+                portfolios.map(url => `<a href="${escapeHtml(url)}" target="_blank" class="review-url-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>${truncateUrl(url)}</a>`).join('') :
+                '<span class="text-neutral-400 text-sm">No portfolio links</span>';
+            
+            // Build deliverables
+            const deliverables = getValue('deliverables') || [];
+            const deliverablesHtml = deliverables.length ?
+                deliverables.map(d => `<span class="review-skill">${escapeHtml(d)}<button onclick="removeReviewDeliverable('${escapeHtml(d)}')" title="Remove">×</button></span>`).join('') :
+                '<span class="text-neutral-400 text-sm">No deliverables listed</span>';
+            
+            document.getElementById('review-content').innerHTML = `
+                <div class="review-card" key="${contractId}">
+                    <!-- Header with Company & Status -->
+                    <div class="review-section bg-neutral-50">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="review-field" onclick="editReviewField(this, 'company_name', 'text')">
+                                    <div class="review-field-label">Company</div>
+                                    <div class="review-field-value text-lg font-semibold">${escapeHtml(getValue('company_name') || '')}</div>
+                                    <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </div>
+                                <div class="review-field mt-2" onclick="editReviewField(this, 'job_title', 'text')">
+                                    <div class="review-field-label">Job Title</div>
+                                    <div class="review-field-value">${escapeHtml(getValue('job_title') || '')}</div>
+                                    <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                ${statusBadge}
+                                <p class="text-xs text-neutral-400 mt-2">${contractId}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Meta Grid -->
+                    <div class="review-section">
+                        <div class="review-section-title">Details</div>
+                        <div class="review-meta-grid">
+                            <div class="review-meta-item" onclick="editReviewField(this, 'industry', 'text')">
+                                <div class="review-field-label">Industry</div>
+                                <div class="review-field-value ${!getValue('industry') ? 'empty' : ''}">${escapeHtml(getValue('industry')) || 'Not set'}</div>
+                            </div>
+                            <div class="review-meta-item" onclick="editReviewField(this, 'task_type', 'text')">
+                                <div class="review-field-label">Task Type</div>
+                                <div class="review-field-value ${!getValue('task_type') ? 'empty' : ''}">${escapeHtml(getValue('task_type')) || 'Not set'}</div>
+                            </div>
+                            <div class="review-meta-item" onclick="editReviewField(this, 'platform', 'text')">
+                                <div class="review-field-label">Platform</div>
+                                <div class="review-field-value ${!getValue('platform') ? 'empty' : ''}">${escapeHtml(getValue('platform')) || 'Not set'}</div>
+                            </div>
+                            <div class="review-meta-item" onclick="editReviewSelect(this, 'project_status')">
+                                <div class="review-field-label">Status</div>
+                                <div class="review-field-value">${escapeHtml(getValue('project_status')) || 'Not set'}</div>
+                            </div>
+                        </div>
+                        <div class="review-meta-grid mt-4">
+                            <div class="review-meta-item" onclick="editReviewField(this, 'start_date', 'date')">
+                                <div class="review-field-label">Start Date</div>
+                                <div class="review-field-value ${!getValue('start_date') ? 'empty' : ''}">${getValue('start_date') || 'Not set'}</div>
+                            </div>
+                            <div class="review-meta-item" onclick="editReviewField(this, 'end_date', 'date')">
+                                <div class="review-field-label">End Date</div>
+                                <div class="review-field-value ${!getValue('end_date') ? 'empty' : ''}">${getValue('end_date') || 'Not set'}</div>
+                            </div>
+                            <div class="review-meta-item col-span-2">
+                                <div class="review-field-label">Urgent/Adhoc</div>
+                                <label class="flex items-center gap-2 cursor-pointer mt-1">
+                                    <input type="checkbox" ${getValue('urgent_adhoc') ? 'checked' : ''} onchange="updateReviewChange('urgent_adhoc', this.checked)" class="w-4 h-4 rounded">
+                                    <span class="text-sm text-neutral-600">Yes, this was urgent</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Skills -->
+                    <div class="review-section">
+                        <div class="review-section-title">Skills Required</div>
+                        <div class="review-skills" id="review-skills-container">
+                            ${skillsHtml}
+                        </div>
+                        <div class="flex gap-2 mt-3">
+                            <input type="text" id="review-skill-input" placeholder="Add skill..." class="review-field-input flex-1" onkeypress="if(event.key==='Enter'){event.preventDefault();addReviewSkill();}">
+                            <button onclick="addReviewSkill()" class="btn-secondary text-xs">Add</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Deliverables -->
+                    <div class="review-section">
+                        <div class="review-section-title">Deliverables</div>
+                        <div class="review-skills" id="review-deliverables-container">
+                            ${deliverablesHtml}
+                        </div>
+                        <div class="flex gap-2 mt-3">
+                            <input type="text" id="review-deliverable-input" placeholder="Add deliverable..." class="review-field-input flex-1" onkeypress="if(event.key==='Enter'){event.preventDefault();addReviewDeliverable();}">
+                            <button onclick="addReviewDeliverable()" class="btn-secondary text-xs">Add</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Portfolio URLs -->
+                    <div class="review-section">
+                        <div class="review-section-title">Portfolio Links</div>
+                        <div class="flex flex-wrap" id="review-portfolio-container">
+                            ${portfolioHtml}
+                        </div>
+                        <div class="flex gap-2 mt-3">
+                            <input type="url" id="review-portfolio-input" placeholder="https://..." class="review-field-input flex-1" onkeypress="if(event.key==='Enter'){event.preventDefault();addReviewPortfolio();}">
+                            <button onclick="addReviewPortfolio()" class="btn-secondary text-xs">Add</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Two Column: Job Description & Proposal -->
+                    <div class="review-section">
+                        <div class="review-two-col">
+                            <div>
+                                <div class="review-section-title">Job Description</div>
+                                <div class="review-text-block" id="review-job-desc" onclick="editReviewTextarea(this, 'job_description')">
+                                    ${escapeHtml(getValue('job_description') || 'No description') || '<span class="text-neutral-400">No description</span>'}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="review-section-title">Your Proposal</div>
+                                <div class="review-text-block" id="review-proposal" onclick="editReviewTextarea(this, 'your_proposal_text')">
+                                    ${escapeHtml(getValue('your_proposal_text') || 'No proposal') || '<span class="text-neutral-400">No proposal</span>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Outcomes -->
+                    <div class="review-section">
+                        <div class="review-field" onclick="editReviewField(this, 'outcomes', 'text')">
+                            <div class="review-section-title" style="margin-bottom:4px">Key Outcome</div>
+                            <div class="review-field-value ${!getValue('outcomes') ? 'empty' : ''}">${escapeHtml(getValue('outcomes')) || 'No outcome recorded'}</div>
+                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </div>
+                    </div>
+                    
+                    <!-- Client Feedback -->
+                    <div class="review-section">
+                        <div class="review-section-title">Client Feedback</div>
+                        <div class="review-field mb-3" onclick="editReviewTextarea(this, 'client_feedback_text')">
+                            <div class="review-field-label">Feedback Text</div>
+                            <div class="review-field-value ${!getValue('client_feedback_text') ? 'empty' : ''}">${escapeHtml(getValue('client_feedback_text')) || 'No feedback text'}</div>
+                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </div>
+                        <div class="review-field" onclick="editReviewField(this, 'client_feedback_url', 'url')">
+                            <div class="review-field-label">Feedback URL</div>
+                            <div class="review-field-value ${!getValue('client_feedback_url') ? 'empty' : ''}">
+                                ${getValue('client_feedback_url') ? `<a href="${escapeHtml(getValue('client_feedback_url'))}" target="_blank" class="text-blue-600 hover:underline">${truncateUrl(getValue('client_feedback_url'))}</a>` : 'No feedback URL'}
+                            </div>
+                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            updateSaveButtonState();
+        }
+
+        function editReviewField(el, field, type = 'text') {
+            if (el.classList.contains('editing')) return;
+            
+            const valueEl = el.querySelector('.review-field-value');
+            const currentValue = getReviewValue(field) || '';
+            
+            el.classList.add('editing');
+            const originalHtml = valueEl.innerHTML;
+            
+            valueEl.innerHTML = `<input type="${type}" class="review-field-input" value="${escapeHtml(currentValue)}" onblur="saveReviewFieldEdit(this, '${field}')" onkeypress="if(event.key==='Enter'){this.blur();}">`;
+            valueEl.querySelector('input').focus();
+            valueEl.querySelector('input').select();
+        }
+
+        function editReviewSelect(el, field) {
+            if (el.classList.contains('editing')) return;
+            
+            const valueEl = el.querySelector('.review-field-value');
+            const currentValue = getReviewValue(field) || '';
+            
+            el.classList.add('editing');
+            
+            valueEl.innerHTML = `
+                <select class="review-field-input" onchange="saveReviewFieldEdit(this, '${field}')" onblur="saveReviewFieldEdit(this, '${field}')">
+                    <option value="">Select...</option>
+                    <option value="completed" ${currentValue === 'completed' ? 'selected' : ''}>Completed</option>
+                    <option value="ongoing" ${currentValue === 'ongoing' ? 'selected' : ''}>Ongoing</option>
+                    <option value="cancelled" ${currentValue === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                </select>
+            `;
+            valueEl.querySelector('select').focus();
+        }
+
+        function editReviewTextarea(el, field) {
+            if (el.classList.contains('editing')) return;
+            
+            const currentValue = getReviewValue(field) || '';
+            
+            el.classList.add('editing');
+            el.innerHTML = `<textarea class="review-field-input" style="min-height:150px;resize:vertical" onblur="saveReviewTextareaEdit(this, '${field}')">${escapeHtml(currentValue)}</textarea>`;
+            el.querySelector('textarea').focus();
+        }
+
+        function saveReviewFieldEdit(input, field) {
+            const value = input.value.trim();
+            updateReviewChange(field, value);
+            
+            // Re-render to show updated value
+            setTimeout(() => renderReviewEntry(), 50);
+        }
+
+        function saveReviewTextareaEdit(textarea, field) {
+            const value = textarea.value.trim();
+            updateReviewChange(field, value);
+            
+            setTimeout(() => renderReviewEntry(), 50);
+        }
+
+        function getReviewValue(field) {
+            const contractId = reviewCurrentEntry?.contract_id;
+            if (!contractId) return null;
+            
+            const changes = reviewChanges[contractId] || {};
+            return changes[field] !== undefined ? changes[field] : reviewCurrentEntry[field];
+        }
+
+        function updateReviewChange(field, value) {
+            const contractId = reviewCurrentEntry?.contract_id;
+            if (!contractId) return;
+            
+            if (!reviewChanges[contractId]) {
+                reviewChanges[contractId] = {};
+            }
+            
+            // Only track if different from original
+            if (value !== reviewCurrentEntry[field]) {
+                reviewChanges[contractId][field] = value;
+            } else {
+                delete reviewChanges[contractId][field];
+                if (Object.keys(reviewChanges[contractId]).length === 0) {
+                    delete reviewChanges[contractId];
+                }
+            }
+            
+            updateSaveButtonState();
+        }
+
+        function updateSaveButtonState() {
+            const hasChanges = Object.keys(reviewChanges).length > 0;
+            const btn = document.getElementById('review-save-btn');
+            btn.disabled = !hasChanges;
+            btn.textContent = hasChanges ? `Save Changes (${Object.keys(reviewChanges).length})` : 'Save Changes';
+        }
+
+        // Skills management in review mode
+        function addReviewSkill() {
+            const input = document.getElementById('review-skill-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const skills = getReviewValue('skills_required') || [];
+            const newSkills = text.split(',').map(s => s.trim()).filter(s => s && !skills.includes(s));
+            
+            if (newSkills.length) {
+                updateReviewChange('skills_required', [...skills, ...newSkills]);
+                renderReviewEntry();
+            }
+            input.value = '';
+        }
+
+        function removeReviewSkill(skill) {
+            const skills = getReviewValue('skills_required') || [];
+            updateReviewChange('skills_required', skills.filter(s => s !== skill));
+            renderReviewEntry();
+        }
+
+        // Deliverables management
+        function addReviewDeliverable() {
+            const input = document.getElementById('review-deliverable-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const items = getReviewValue('deliverables') || [];
+            const newItems = text.split(',').map(s => s.trim()).filter(s => s && !items.includes(s));
+            
+            if (newItems.length) {
+                updateReviewChange('deliverables', [...items, ...newItems]);
+                renderReviewEntry();
+            }
+            input.value = '';
+        }
+
+        function removeReviewDeliverable(item) {
+            const items = getReviewValue('deliverables') || [];
+            updateReviewChange('deliverables', items.filter(d => d !== item));
+            renderReviewEntry();
+        }
+
+        // Portfolio management
+        function addReviewPortfolio() {
+            const input = document.getElementById('review-portfolio-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            try {
+                new URL(text);
+                const urls = getReviewValue('portfolio_urls') || [];
+                if (!urls.includes(text)) {
+                    updateReviewChange('portfolio_urls', [...urls, text]);
+                    renderReviewEntry();
+                }
+                input.value = '';
+            } catch {
+                showToast('Please enter a valid URL');
+            }
+        }
+
+        function removeReviewPortfolio(url) {
+            const urls = getReviewValue('portfolio_urls') || [];
+            updateReviewChange('portfolio_urls', urls.filter(u => u !== url));
+            renderReviewEntry();
+        }
+
+        async function saveReviewChanges() {
+            const changeCount = Object.keys(reviewChanges).length;
+            if (!changeCount) return;
+            
+            showProgress('Saving changes...', `Updating ${changeCount} entries`);
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const [contractId, changes] of Object.entries(reviewChanges)) {
+                try {
+                    // Get original entry from cache (full data)
+                    const original = reviewFullDataCache[contractId] || reviewData.find(e => e.contract_id === contractId);
+                    if (!original) continue;
+                    
+                    // Only send changed fields (API supports partial update)
+                    // Clean up empty values that would fail validation
+                    const data = {};
+                    for (const [key, value] of Object.entries(changes)) {
+                        // Skip empty strings for fields with min_length validation
+                        if ((key === 'job_description' || key === 'your_proposal_text') && (!value || value.length < 10)) {
+                            continue;
+                        }
+                        // Skip empty arrays for skills (min_items=1)
+                        if (key === 'skills_required' && (!value || value.length === 0)) {
+                            continue;
+                        }
+                        // Skip empty strings for required string fields
+                        if ((key === 'company_name' || key === 'job_title') && !value) {
+                            continue;
+                        }
+                        // Add valid changes
+                        data[key] = value;
+                    }
+                    
+                    // Skip if no valid changes after filtering
+                    if (Object.keys(data).length === 0) {
+                        console.log(`Skipping ${contractId} - no valid changes`);
+                        continue;
+                    }
+                    
+                    await axios.put(`${API_BASE}/update/${contractId}`, data);
+                    
+                    // Update cache with merged data
+                    if (reviewFullDataCache[contractId]) {
+                        reviewFullDataCache[contractId] = { ...reviewFullDataCache[contractId], ...changes };
+                    }
+                    
+                    // Update local list data
+                    const idx = reviewData.findIndex(e => e.contract_id === contractId);
+                    if (idx !== -1) {
+                        reviewData[idx] = { ...reviewData[idx], ...changes };
+                    }
+                    const cacheIdx = allEntriesCache.findIndex(e => e.contract_id === contractId);
+                    if (cacheIdx !== -1) {
+                        allEntriesCache[cacheIdx] = { ...allEntriesCache[cacheIdx], ...changes };
+                    }
+                    
+                    // Update current entry if it's the one we just saved
+                    if (reviewCurrentEntry?.contract_id === contractId) {
+                        reviewCurrentEntry = { ...reviewCurrentEntry, ...changes };
+                    }
+                    
+                    successCount++;
+                } catch (e) {
+                    console.error(`Error updating ${contractId}:`, e);
+                    errorCount++;
+                }
+            }
+            
+            hideProgress();
+            reviewChanges = {};
+            updateSaveButtonState();
+            renderReviewEntry();
+            renderEntries(); // Update table too
+            
+            if (errorCount) {
+                showToast(`Saved ${successCount}, failed ${errorCount}`);
+            } else {
+                showToast(`Saved ${successCount} entries`);
+            }
+        }
+
+        async function deleteCurrentReviewEntry() {
+            const entry = reviewCurrentEntry;
+            if (!entry) return;
+            
+            if (!confirm(`Delete "${entry.company_name}" and all its data?`)) return;
+            
+            try {
+                await axios.delete(`${API_BASE}/delete/${entry.contract_id}`);
+                
+                // Remove from all caches
+                delete reviewFullDataCache[entry.contract_id];
+                delete reviewChanges[entry.contract_id];
+                reviewData = reviewData.filter(e => e.contract_id !== entry.contract_id);
+                allEntriesCache = allEntriesCache.filter(e => e.contract_id !== entry.contract_id);
+                entriesData = entriesData.filter(e => e.contract_id !== entry.contract_id);
+                
+                // Update counts
+                document.getElementById('review-total').textContent = reviewData.length;
+                document.getElementById('review-count').textContent = reviewData.length;
+                
+                if (reviewData.length === 0) {
+                    closeReviewMode();
+                    showToast('All entries deleted');
+                } else {
+                    if (reviewIndex >= reviewData.length) {
+                        reviewIndex = reviewData.length - 1;
+                    }
+                    // Load next/previous entry
+                    await loadAndRenderReviewEntry();
+                    showToast('Entry deleted');
+                }
+                
+                renderEntries();
+                loadStats();
+            } catch (e) {
+                alert('Error: ' + (e.response?.data?.detail || e.message));
+            }
+        }
+
+        // Helper functions
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function truncateUrl(url) {
+            if (!url) return '';
+            try {
+                const u = new URL(url);
+                const path = u.pathname.length > 20 ? u.pathname.substring(0, 20) + '...' : u.pathname;
+                return u.hostname + path;
+            } catch {
+                return url.length > 40 ? url.substring(0, 40) + '...' : url;
+            }
         }
     </script>
 </body>
