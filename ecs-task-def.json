@@ -78,6 +78,10 @@
         {
           "name": "MONGODB_DB_NAME",
           "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:MONGODB_DB_NAME::"
+        },
+        {
+          "name": "ADMIN_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:605600142754:secret:proposal-generator-secrets-ChXWoy:ADMIN_API_KEY::"
         }
       ]
     }
