@@ -8,20 +8,15 @@ API endpoints for:
 - Get chunks
 - Statistics
 - OCR text extraction
-
-Authentication:
-- All endpoints require API key via X-API-Key header
-- Use verify_api_key dependency for protected routes
 """
 import logging
 import base64
-from fastapi import APIRouter, HTTPException, Query, status, UploadFile, File, Depends
+from fastapi import APIRouter, HTTPException, Query, status, UploadFile, File
 from typing import List, Optional
 import io
 from datetime import datetime
 from PIL import Image
 
-from app.middleware.auth import verify_api_key
 from app.models.job_data_schema import (
     JobDataUploadRequest,
     UpdateJobDataRequest,
@@ -114,15 +109,10 @@ def get_processor() -> JobDataProcessor:
     responses={
         201: {"description": "Job data uploaded successfully"},
         400: {"model": ErrorResponse, "description": "Validation error"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def upload_job_data(
-    job_data: JobDataUploadRequest,
-    api_key: str = Depends(verify_api_key)
-):
+async def upload_job_data(job_data: JobDataUploadRequest):
     """
     Upload new job training data for proposal generation training
     
@@ -216,8 +206,6 @@ async def upload_job_data(
     summary="List all job data",
     responses={
         200: {"description": "Jobs retrieved"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
@@ -226,8 +214,7 @@ async def list_job_data(
     limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
     industry: Optional[str] = Query(None, description="Filter by industry"),
     status: Optional[str] = Query(None, description="Filter by project status"),
-    company: Optional[str] = Query(None, description="Search by company name"),
-    api_key: str = Depends(verify_api_key)
+    company: Optional[str] = Query(None, description="Search by company name")
 ):
     """
     List all job training data with optional filtering and pagination
@@ -302,16 +289,11 @@ async def list_job_data(
     summary="Get job data by contract ID",
     responses={
         200: {"description": "Job data retrieved"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         404: {"model": ErrorResponse, "description": "Job not found"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def get_job_data(
-    contract_id: str,
-    api_key: str = Depends(verify_api_key)
-):
+async def get_job_data(contract_id: str):
     """
     Retrieve detailed job data by contract ID
     
@@ -368,8 +350,6 @@ async def get_job_data(
     summary="Get chunks for a contract",
     responses={
         200: {"description": "Chunks retrieved"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         404: {"model": ErrorResponse, "description": "Contract not found"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
@@ -378,8 +358,7 @@ async def get_job_chunks(
     contract_id: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    chunk_type: Optional[str] = Query(None, description="Filter by chunk type"),
-    api_key: str = Depends(verify_api_key)
+    chunk_type: Optional[str] = Query(None, description="Filter by chunk type")
 ):
     """
     Get chunks created from a job
@@ -457,17 +436,11 @@ async def get_job_chunks(
     summary="Update job data by contract ID",
     responses={
         200: {"description": "Job updated successfully"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         404: {"model": ErrorResponse, "description": "Job not found"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def update_job_data(
-    contract_id: str,
-    update_data: UpdateJobDataRequest,
-    api_key: str = Depends(verify_api_key)
-):
+async def update_job_data(contract_id: str, update_data: UpdateJobDataRequest):
     """
     Update existing job data entry.
     
@@ -589,16 +562,11 @@ async def update_job_data(
     summary="Delete job data by contract ID",
     responses={
         200: {"description": "Job deleted"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         404: {"model": ErrorResponse, "description": "Job not found"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def delete_job_data(
-    contract_id: str,
-    api_key: str = Depends(verify_api_key)
-):
+async def delete_job_data(contract_id: str):
     """
     Delete job data and all associated chunks
     
@@ -639,15 +607,10 @@ async def delete_job_data(
     responses={
         200: {"description": "Jobs deleted"},
         400: {"model": ErrorResponse, "description": "Validation error"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def bulk_delete_jobs(
-    request: DeleteJobsRequest,
-    api_key: str = Depends(verify_api_key)
-):
+async def bulk_delete_jobs(request: DeleteJobsRequest):
     """
     Delete multiple jobs by contract IDs
     
@@ -692,15 +655,10 @@ async def bulk_delete_jobs(
     responses={
         200: {"description": "Text extracted successfully"},
         400: {"model": ErrorResponse, "description": "Invalid image or no image provided"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "OCR processing failed"}
     }
 )
-async def extract_text_from_feedback_image(
-    file: UploadFile = File(...),
-    api_key: str = Depends(verify_api_key)
-):
+async def extract_text_from_feedback_image(file: UploadFile = File(...)):
     """
     Extract text from feedback image using GPT-4 Vision OCR
     
@@ -827,14 +785,10 @@ If this is a review/feedback screenshot, extract the complete feedback text."""
     summary="Get job data statistics",
     responses={
         200: {"description": "Statistics retrieved"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def get_statistics(
-    api_key: str = Depends(verify_api_key)
-):
+async def get_statistics():
     """
     Get statistics about stored job data and chunks
     
@@ -860,14 +814,10 @@ async def get_statistics(
     summary="Get unique filter options from database",
     responses={
         200: {"description": "Filter options retrieved"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def get_filter_options(
-    api_key: str = Depends(verify_api_key)
-):
+async def get_filter_options():
     """
     Get unique task types and platforms from the database for filter dropdowns.
     

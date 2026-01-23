@@ -168,53 +168,9 @@
 
         /* Empty state */
         .empty-state { text-align: center; padding: 60px 20px; }
-
-        /* Auth Modal - Minimalistic */
-        .auth-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-        .auth-overlay.hidden { display: none; }
-        .auth-modal {
-            background: #fff;
-            border-radius: 12px;
-            padding: 24px;
-            max-width: 320px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-        }
     </style>
 </head>
 <body>
-    <!-- Authentication Modal - Minimalistic -->
-    <div class="auth-overlay" id="auth-overlay">
-        <div class="auth-modal">
-            <div class="flex items-center gap-3 mb-5">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0110 0v4"></path>
-                </svg>
-                <h2 class="text-base font-semibold">Enter API Key</h2>
-            </div>
-            <form id="auth-form" onsubmit="authenticateUser(event)">
-                <input type="password" id="api-key-input" class="input-field mb-3" placeholder="API key" required autofocus>
-                <div class="flex items-center gap-2 mb-4">
-                    <input type="checkbox" id="remember-key" class="w-4 h-4" checked>
-                    <label for="remember-key" class="text-xs text-neutral-500">Remember me</label>
-                </div>
-                <button type="submit" class="btn-primary w-full text-sm py-3" id="auth-submit-btn">Continue</button>
-                <p class="text-xs text-red-500 text-center mt-3" id="auth-error"></p>
-            </form>
-            <a href="index.html" class="block text-xs text-neutral-400 text-center mt-4 hover:text-neutral-600">← Back to Generator</a>
-        </div>
-    </div>
-
     <!-- Header -->
     <header class="border-b border-neutral-200 bg-white">
         <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -357,115 +313,19 @@
 
     <script>
         // Use relative URL when served from same origin, absolute otherwise
-        const API_BASE = 'http://127.0.0.1:8000/api/proposals';
-        const AUTH_API = 'http://127.0.0.1:8000/api/auth/verify';
-        
-        // Authentication state
-        let apiKey = localStorage.getItem('training_api_key') || '';
-        let isAuthenticated = false;
+        const API_BASE = 'https://ml.genproposals.com/api/proposals';
         
         let currentFilter = '';
         let currentProposalId = null;
         let selectedOutcome = null;
         let proposals = [];
 
-        // Axios interceptor to add API key header
-        axios.interceptors.request.use(config => {
-            if (apiKey) {
-                config.headers['X-API-Key'] = apiKey;
-            }
-            return config;
-        });
-
-        // Axios interceptor to handle 401/403 errors
-        axios.interceptors.response.use(
-            response => response,
-            error => {
-                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                    isAuthenticated = false;
-                    apiKey = '';
-                    localStorage.removeItem('training_api_key');
-                    showAuthModal();
-                    showToast('Session expired. Please re-authenticate.');
-                }
-                return Promise.reject(error);
-            }
-        );
-
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            if (apiKey) {
-                verifyStoredApiKey();
-            } else {
-                showAuthModal();
-            }
-        });
-
-        function showAuthModal() {
-            document.getElementById('auth-overlay').classList.remove('hidden');
-        }
-
-        function hideAuthModal() {
-            document.getElementById('auth-overlay').classList.add('hidden');
-        }
-
-        async function verifyStoredApiKey() {
-            try {
-                await axios.get(AUTH_API);
-                isAuthenticated = true;
-                hideAuthModal();
-                initializeApp();
-            } catch (error) {
-                apiKey = '';
-                localStorage.removeItem('training_api_key');
-                showAuthModal();
-            }
-        }
-
-        async function authenticateUser(event) {
-            event.preventDefault();
-            const keyInput = document.getElementById('api-key-input');
-            const rememberCheckbox = document.getElementById('remember-key');
-            const submitBtn = document.getElementById('auth-submit-btn');
-            const errorEl = document.getElementById('auth-error');
-            
-            const enteredKey = keyInput.value.trim();
-            if (!enteredKey) {
-                errorEl.textContent = 'Please enter an API key';
-                errorEl.style.color = '#ef4444';
-                return;
-            }
-            
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Verifying...';
-            errorEl.textContent = '';
-            
-            try {
-                apiKey = enteredKey;
-                await axios.get(AUTH_API);
-                
-                isAuthenticated = true;
-                if (rememberCheckbox.checked) {
-                    localStorage.setItem('training_api_key', enteredKey);
-                }
-                
-                hideAuthModal();
-                initializeApp();
-                showToast('Welcome!');
-            } catch (error) {
-                apiKey = '';
-                errorEl.textContent = 'Invalid key';
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Continue';
-            }
-        }
-
-        function initializeApp() {
             loadStats();
             loadProposals();
             setupFilterTabs();
-        }
+        });
 
         function showToast(message) {
             const toast = document.getElementById('toast');

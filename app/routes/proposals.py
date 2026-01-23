@@ -11,20 +11,15 @@ Includes Outcome Tracking:
 - Save sent proposals
 - Track outcomes (viewed/hired)
 - Conversion analytics
-
-Authentication:
-- PUBLIC: /generate endpoint (for index.html)
-- PROTECTED: History, stats, save, update, delete endpoints
 """
 
 import logging
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
 from enum import Enum
 
-from app.middleware.auth import verify_api_key
 from app.utils.retrieval_pipeline import RetrievalPipeline
 from app.utils.openai_service import OpenAIService
 from app.utils.prompt_engine import PromptEngine
@@ -524,16 +519,9 @@ class ConversionStatsResponse(BaseModel):
     "/save",
     response_model=SaveProposalResponse,
     status_code=201,
-    summary="Save a sent proposal for outcome tracking",
-    responses={
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"}
-    }
+    summary="Save a sent proposal for outcome tracking"
 )
-async def save_sent_proposal(
-    request: SaveProposalRequest,
-    api_key: str = Depends(verify_api_key)
-):
+async def save_sent_proposal(request: SaveProposalRequest):
     """
     Save a proposal that you've sent to a client.
     
@@ -582,17 +570,9 @@ async def save_sent_proposal(
 @router.patch(
     "/{proposal_id}/outcome",
     response_model=UpdateOutcomeResponse,
-    summary="Update proposal outcome (viewed/hired/rejected)",
-    responses={
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"}
-    }
+    summary="Update proposal outcome (viewed/hired/rejected)"
 )
-async def update_proposal_outcome(
-    proposal_id: str,
-    request: UpdateOutcomeRequest,
-    api_key: str = Depends(verify_api_key)
-):
+async def update_proposal_outcome(proposal_id: str, request: UpdateOutcomeRequest):
     """
     Update the outcome of a sent proposal.
     
@@ -647,17 +627,12 @@ async def update_proposal_outcome(
 @router.get(
     "/history",
     response_model=ProposalHistoryResponse,
-    summary="Get sent proposals history with outcomes",
-    responses={
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"}
-    }
+    summary="Get sent proposals history with outcomes"
 )
 async def get_proposal_history(
     skip: int = 0,
     limit: int = 50,
-    outcome: Optional[str] = None,
-    api_key: str = Depends(verify_api_key)
+    outcome: Optional[str] = None
 ):
     """
     Get history of all sent proposals with their outcomes.
@@ -709,15 +684,9 @@ async def get_proposal_history(
 @router.get(
     "/stats",
     response_model=ConversionStatsResponse,
-    summary="Get proposal conversion statistics",
-    responses={
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"}
-    }
+    summary="Get proposal conversion statistics"
 )
-async def get_conversion_stats(
-    api_key: str = Depends(verify_api_key)
-):
+async def get_conversion_stats():
     """
     Get conversion statistics for all sent proposals.
     
@@ -747,16 +716,9 @@ async def get_conversion_stats(
 
 @router.get(
     "/{proposal_id}",
-    summary="Get a single sent proposal by ID",
-    responses={
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"}
-    }
+    summary="Get a single sent proposal by ID"
 )
-async def get_sent_proposal(
-    proposal_id: str,
-    api_key: str = Depends(verify_api_key)
-):
+async def get_sent_proposal(proposal_id: str):
     """Get details of a specific sent proposal"""
     try:
         db = get_db()
@@ -781,16 +743,9 @@ async def get_sent_proposal(
 
 @router.delete(
     "/{proposal_id}",
-    summary="Delete a single sent proposal",
-    responses={
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"}
-    }
+    summary="Delete a single sent proposal"
 )
-async def delete_proposal(
-    proposal_id: str,
-    api_key: str = Depends(verify_api_key)
-):
+async def delete_proposal(proposal_id: str):
     """Delete a specific sent proposal by ID"""
     try:
         db = get_db()
@@ -813,15 +768,9 @@ async def delete_proposal(
 
 @router.delete(
     "/clear-all",
-    summary="Delete all sent proposals (for testing)",
-    responses={
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"}
-    }
+    summary="Delete all sent proposals (for testing)"
 )
-async def clear_all_proposals(
-    api_key: str = Depends(verify_api_key)
-):
+async def clear_all_proposals():
     """Delete all sent proposals from database"""
     try:
         db = get_db()
