@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +18,7 @@ from app.config import settings
 from app.db import get_db
 from app.routes import job_data_router
 from app.routes.proposals import router as proposals_router
+from app.middleware.auth import verify_api_key
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,6 +51,20 @@ async def root():
         "service": "AI Proposal Generator Backend",
         "version": "1.0.0",
         "docs": "/docs",
+    }
+
+
+@app.get("/api/auth/verify")
+async def verify_api_key_endpoint(api_key: str = Depends(verify_api_key)):
+    """
+    Verify if the provided API key is valid.
+    
+    Send X-API-Key header with your API key.
+    Returns success if valid, 401/403 if invalid.
+    """
+    return {
+        "valid": True,
+        "message": "API key is valid. You have access to protected endpoints."
     }
 
 
