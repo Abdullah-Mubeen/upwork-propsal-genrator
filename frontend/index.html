@@ -430,14 +430,6 @@
                     <h2 class="text-base font-semibold text-neutral-900 mb-6">Job Details</h2>
                     
                     <form id="proposal-form" class="space-y-5">
-                        <!-- Task Type -->
-                        <div>
-                            <label class="block text-sm font-medium text-neutral-700 mb-2">Task Type</label>
-                            <select id="task_type" class="input-field" required>
-                                <option value="">Loading...</option>
-                            </select>
-                        </div>
-
                         <!-- Skills -->
                         <div>
                             <label class="block text-sm font-medium text-neutral-700 mb-2">Skills</label>
@@ -552,21 +544,6 @@
                         <div id="proposal-text" class="proposal-body"></div>
                     </div>
 
-                    <!-- Temporary Link Input -->
-                    <div class="info-section" style="padding: 12px 16px;">
-                        <div class="flex items-center gap-3">
-                            <label class="text-xs font-medium text-neutral-600 whitespace-nowrap">Temporary Link</label>
-                            <input 
-                                type="url" 
-                                id="temporary-link-input"
-                                placeholder="https://upwork.com/job/... (optional)"
-                                class="input-field text-sm"
-                                style="padding: 8px 12px;"
-                            />
-                        </div>
-                        <p class="text-xs text-neutral-400 mt-1">Add a URL to reference later (e.g., job posting link)</p>
-                    </div>
-
                     <!-- Quick Adjustments -->
                     <div class="flex flex-wrap items-center gap-2 px-1">
                         <span class="text-xs text-neutral-400">Adjust:</span>
@@ -622,52 +599,7 @@
         let lastGeneratedResult = null;  // Store full result for saving
         let proposalSaved = false;  // Track if current proposal was saved
 
-        // Load task types from database on page load
-        document.addEventListener('DOMContentLoaded', loadTaskTypes);
 
-        // Fetch task types from database
-        async function loadTaskTypes() {
-            const taskSelect = document.getElementById('task_type');
-            try {
-                const response = await axios.get(`${API_JOB_DATA_BASE}/stats/filter-options`);
-                const { task_types } = response.data;
-                
-                // Default task types to always include
-                const defaultTaskTypes = [
-                    'complete website', 'enhance functionality', 'redesign website',
-                    'bug fixes', 'speed optimization', 'layout fixing', 'seo',
-                    'consultation', 'ai_ml', 'backend_api', 'frontend', 'mobile_app'
-                ];
-                
-                // Merge database task types with defaults, remove duplicates, sort
-                const allTaskTypes = [...new Set([...defaultTaskTypes, ...task_types])].sort();
-                
-                // Format display name (capitalize, replace underscores)
-                const formatName = (t) => t.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                
-                taskSelect.innerHTML = '<option value="">Select...</option>' + 
-                    allTaskTypes.map(t => `<option value="${t}">${formatName(t)}</option>`).join('') +
-                    '<option value="other">Other</option>';
-                    
-            } catch (e) {
-                console.error('Error loading task types:', e);
-                // Fallback to default options
-                taskSelect.innerHTML = `
-                    <option value="">Select...</option>
-                    <option value="complete website">Complete Website</option>
-                    <option value="enhance functionality">Enhance Functionality</option>
-                    <option value="redesign website">Redesign Website</option>
-                    <option value="bug fixes">Bug Fixes</option>
-                    <option value="speed optimization">Speed Optimization</option>
-                    <option value="layout fixing">Layout Fixing</option>
-                    <option value="seo">SEO</option>
-                    <option value="consultation">Consultation</option>
-                    <option value="ai_ml">AI/ML</option>
-                    <option value="backend_api">Backend API</option>
-                    <option value="other">Other</option>
-                `;
-            }
-        }
 
         // Toast notification
         function showToast(message) {
@@ -793,10 +725,6 @@
             originalProposalText = '';
             proposalSaved = false;
             lastGeneratedResult = null;
-            
-            // Clear temporary link input
-            const tempLinkInput = document.getElementById('temporary-link-input');
-            if (tempLinkInput) tempLinkInput.value = '';
             
             // Reset save button
             const saveBtn = document.getElementById('save-send-btn');
@@ -938,7 +866,7 @@
                 job_description: jobDesc,
                 skills_required: currentSkills,
                 industry: 'general',
-                task_type: document.getElementById('task_type').value || 'other',
+                task_type: 'auto',  // Auto-detected from job description
                 proposal_style: 'professional',
                 tone: 'confident',
                 max_word_count: 150,
@@ -1019,4 +947,4 @@
         });
     </script>
 </body>
-</html>
+</html> 

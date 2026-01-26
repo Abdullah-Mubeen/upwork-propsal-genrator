@@ -402,12 +402,23 @@ Your response should be:
 
 Generate the proposal NOW. Target: {max_words} words (ideal range: 200-350).
 
+🚨 ANTI-HALLUCINATION RULES (CRITICAL - VIOLATION = REJECTION):
+1. ONLY reference projects listed in "VERIFIED PAST PROJECTS" section above
+2. If NO verified projects are listed OR projects say "NO RELEVANT PAST PROJECTS":
+   - DO NOT mention any past work, portfolio, or experience
+   - DO NOT fabricate project claims or portfolio URLs
+   - Focus ENTIRELY on understanding their problem and your APPROACH to solve it
+3. NEVER invent company names, deliverables, or outcomes that aren't in the data above
+4. Match client's NEED to project DELIVERABLES - migration job needs migration projects, NOT speed projects
+5. If no projects match the client's specific need, write a GENERIC proposal focused on skills and approach
+6. Use ONLY the portfolio URLs provided - if none provided, include ZERO portfolio links
+
 CRITICAL RULES:
 1. NO "As an AI", "I'm an AI", corporate jargon, or formal language
 2. Sound like a REAL person having a conversation - casual, natural, human
 3. USE A VARIED HOOK - don't start with "I see you're dealing with" every time
-4. Reference 2-3 past similar projects with outcomes
-5. Use PLAIN URLs (not markdown) for portfolio links and feedback URLs
+4. Reference ONLY projects from the verified list above - if none exist, DON'T MENTION PAST WORK AT ALL
+5. Use PLAIN URLs (not markdown) for portfolio links - ONLY if projects section has them
 6. Be conversational, direct, punchy - every word counts
 {timeline_instruction}
 8. End with a friendly, easygoing CTA (e.g., "Happy to hop on a quick call" or "Let me know if you want to chat")
@@ -634,8 +645,9 @@ WHAT NOT TO DO:
 WHAT TO DO:
 ✓ Sound like a REAL person having a coffee chat - natural, casual, human
 ✓ Start with a VARIED, COMPELLING hook (see strategies above)
-✓ Reference 2-3 REAL past projects with company names and outcomes
-✓ Include portfolio links (ALWAYS available)
+✓ Reference 2-3 REAL past projects with company names and outcomes - ONLY IF AVAILABLE
+✓ If NO relevant past projects: Focus on APPROACH and SKILLS, not experience
+✓ Include portfolio links ONLY if relevant projects exist - don't force it
 ✓ Include feedback URLs ONLY if they exist in the data - don't make them up
 ✓ Use conversational, punchy language - contractions are good (I've, you're, that's)!
 ✓ Show specific approach for THEIR tech stack
@@ -716,6 +728,36 @@ TARGET: 200-350 words. Every word must count. Include enough detail to build tru
         """Build template showing HOOK→PROOF→APPROACH→(TIMELINE)→CTA structure with portfolio link in hook"""
         problem = job_data.get("job_description", "")[:200]  # First 200 chars of job description
         company = job_data.get("company_name", "this client")
+        
+        # Check if we have relevant projects (score >= 0.45)
+        has_relevant_projects = False
+        for proj in similar_projects[:3]:
+            score = proj.get('similarity_score', 0)
+            if score >= 0.45:
+                has_relevant_projects = True
+                break
+        
+        # If no relevant projects, return a GENERIC structure without portfolio/experience
+        if not similar_projects or not has_relevant_projects:
+            # Build timeline section
+            timeline_section = ""
+            if include_timeline:
+                if timeline_duration:
+                    timeline_section = f"""\n[TIMELINE - 1 casual sentence]\nSomething like: "Looking at about {timeline_duration} to get this wrapped up"\n"""
+                else:
+                    timeline_section = """\n[TIMELINE - 1 casual sentence]\nSomething like: "Looking at about 2-3 weeks to wrap this up"\n"""
+            else:
+                timeline_section = "\n[NO TIMELINE - SKIP THIS SECTION]\n"
+            
+            return f"""\n📝 PROPOSAL STRUCTURE (GENERIC - NO PAST PROJECTS TO REFERENCE):\n\n⚠️ IMPORTANT: No relevant past projects available. DO NOT mention any portfolio, past work, or experience.\nFocus ONLY on understanding their problem and proposing a solution.\n\n[HOOK - 2 sentences max]\nStart by showing you UNDERSTAND their specific problem/need.\nExamples:\n• "Setting up [what they need] the right way from the start saves a lot of headaches down the road."
+• "That's a common challenge - here's how I'd approach it..."
+• "Quick question about [specific detail they mentioned]..."
+\n❌ DO NOT SAY: "I've done this before" or "Check out my past work" - you have no relevant projects to show!\n\n[APPROACH - 3-4 sentences]\nExplain HOW you would solve their specific problem:\n• What's your technical approach?\n• What tools/technologies would you use?\n• What steps would you take?\n• Why is this the right solution for them?\n{timeline_section}\n[CTA - 1 friendly sentence]\nEnd with a casual, easy call to action:\n• "Happy to hop on a quick call to discuss the details"
+• "Let me know if you'd like to chat about the approach"
+• "Feel free to reach out with any questions"
+
+🚫 REMEMBER: NO portfolio links, NO past project references, NO fabricated experience!
+"""
         
         # Get the BEST matching project for the HOOK (first one with ACTUAL project URL, not Upwork)
         hook_project = None
@@ -928,20 +970,59 @@ JOB DESCRIPTION:
         """
         Build similar projects reference section formatted for proposal generation.
         
-        CRITICAL: 
-        1. Only include projects that have actual portfolio URLs
-        2. PREFER actual project URLs (https://example.com/) over Upwork profile links
-        3. Only include feedback URL if it ACTUALLY EXISTS - don't fabricate
-        4. Format: Company name, TASK TYPE, brief outcome, portfolio link, feedback (if available)
-        5. Include task_type so AI knows what work was actually done (not just platform)
-        6. DIVERSIFY: Track used URLs to avoid repeating same portfolio links
+        CRITICAL FOR ANTI-HALLUCINATION: 
+        1. Include DELIVERABLES - what was actually built (e.g., "membership system", "content migration")
+        2. Include OUTCOMES - the result achieved (e.g., "migrated 5000 subscribers")
+        3. Only include projects that have actual portfolio URLs
+        4. PREFER actual project URLs (https://example.com/) over Upwork profile links
+        5. Only include feedback URL if it ACTUALLY EXISTS - don't fabricate
+        6. Format: Company name, TASK TYPE, DELIVERABLES, OUTCOMES, portfolio link, feedback
+        7. DIVERSIFY: Track used URLs to avoid repeating same portfolio links
+        8. IF NO RELEVANT PROJECTS: Generate generic proposal without portfolio/experience claims
+        
+        The AI MUST only reference work that matches these deliverables.
         """
         if not similar_projects:
-            return "SIMILAR PAST PROJECTS: None found in database yet."
+            return """VERIFIED PAST PROJECTS: None available.
 
-        section = "SIMILAR PAST PROJECTS (WITH PORTFOLIO PROOF):\n\n"
-        section += "⚠️ IMPORTANT: Reference projects that match the platform AND type of work!\n"
-        section += "⚠️ USE DIFFERENT PORTFOLIO LINKS for each project - don't repeat the same URLs!\n\n"
+🚫 NO RELEVANT PAST PROJECTS FOUND - GENERATE GENERIC PROPOSAL:
+   • DO NOT mention any past projects, portfolio URLs, or previous work experience
+   • DO NOT fabricate or invent any past experience
+   • DO NOT include any portfolio links or feedback URLs
+   • Focus ONLY on:
+     - Understanding the client's specific problem/need
+     - Your proposed APPROACH to solve their problem
+     - Your relevant SKILLS (technical abilities, not past projects)
+     - Clear next steps and friendly CTA
+   • Write a helpful, skills-focused proposal WITHOUT referencing past work"""
+        
+        # Check if projects have low similarity scores (not truly relevant)
+        has_relevant_projects = False
+        for proj in similar_projects[:3]:
+            score = proj.get('similarity_score', 0)
+            if score >= 0.45:  # Threshold for "relevant enough"
+                has_relevant_projects = True
+                break
+        
+        if not has_relevant_projects:
+            return """VERIFIED PAST PROJECTS: Available but NOT closely relevant to this job.
+
+🚫 NO CLOSELY MATCHING PROJECTS - GENERATE GENERIC PROPOSAL:
+   • The past projects in database don't match this job's requirements closely
+   • DO NOT force irrelevant project references
+   • DO NOT include portfolio links that don't relate to this job
+   • Focus ONLY on:
+     - Understanding the client's specific problem/need
+     - Your proposed APPROACH to solve their problem  
+     - Your relevant SKILLS and technical expertise
+     - Clear next steps and friendly CTA
+   • Write a helpful, skills-focused proposal WITHOUT forcing past work references"""
+
+        section = "VERIFIED PAST PROJECTS (Reference ONLY these - do not fabricate others):\n\n"
+        section += "🚨 ANTI-HALLUCINATION RULES:\n"
+        section += "   • ONLY reference projects listed below - do not invent others\n"
+        section += "   • Match the client's need to the DELIVERABLES field below\n"
+        section += "   • If none match the client's specific need, focus on transferable skills\n\n"
         projects_added = 0
         used_portfolio_urls = set()  # Track used URLs for diversity
 
@@ -954,6 +1035,8 @@ JOB DESCRIPTION:
             feedback_url = project.get('client_feedback_url')  # May be None/empty
             feedback_text = project.get('client_feedback_text', '')  # May be empty
             task_type = project.get('task_type', '')  # What work was actually done
+            deliverables = project.get('deliverables', [])  # CRITICAL: What was actually built
+            outcomes = project.get('outcomes', '')  # CRITICAL: The result achieved
             
             # Only include projects with portfolio links
             if not portfolio_urls:
@@ -989,25 +1072,32 @@ JOB DESCRIPTION:
             
             projects_added += 1
                 
-            # Format: Company name, TASK TYPE, specific outcome, link (NO MARKDOWN)
-            section += f"{projects_added}. {company}"
+            # Format: Company name, TASK TYPE, DELIVERABLES, OUTCOMES, link (NO MARKDOWN)
+            section += f"PROJECT {projects_added}: {company}\n"
             
             # Add task type - CRITICAL for AI to know what work was done
             if task_type:
-                section += f" [Task: {task_type}]"
+                section += f"   Task Type: {task_type}\n"
             
-            section += ": "
+            # CRITICAL: Add deliverables - what was ACTUALLY built
+            if deliverables:
+                deliverables_str = ", ".join(deliverables[:5]) if isinstance(deliverables, list) else str(deliverables)
+                section += f"   Deliverables: {deliverables_str}\n"
+            else:
+                section += f"   Deliverables: Not specified\n"
             
-            # Add specific outcome/skills for context
+            # CRITICAL: Add outcomes - the result achieved
+            if outcomes:
+                section += f"   Outcome: {outcomes}\n"
+            
+            # Add skills for context
             skills = project.get('skills', [])
             if skills:
-                section += f"Built with {', '.join(skills[:3])}"
-            else:
-                section += "Delivered successfully"
+                section += f"   Technologies: {', '.join(skills[:4])}\n"
             
             # Add portfolio link (prioritize actual project URL) - PLAIN URLs
             if include_portfolio and best_portfolio_url:
-                section += f"\n   → Live project: {best_portfolio_url}"
+                section += f"   Live project: {best_portfolio_url}\n"
             
             # ONLY add feedback URL if it ACTUALLY EXISTS and is not empty
             # Don't suggest or fabricate feedback URLs

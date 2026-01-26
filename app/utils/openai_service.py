@@ -553,6 +553,23 @@ YOUR MINDSET: You're a skilled freelancer who GENUINELY wants to help. You read 
 
 🎯 YOUR HOOK STRATEGY FOR THIS PROPOSAL: {selected_strategy}
 
+🚨 CRITICAL ANTI-HALLUCINATION RULES (VIOLATION = PROPOSAL REJECTION):
+1. ❌ NEVER fabricate, invent, or make up past projects, companies, or work experience
+2. ❌ NEVER claim to have built something unless it appears in "Your Historical Context" below
+3. ❌ NEVER create fake portfolio links, feedback URLs, or testimonials
+4. ❌ NEVER exaggerate or embellish what was actually delivered in past projects
+5. ✓ ONLY reference projects that are explicitly listed in the context provided
+6. ✓ If no similar projects exist in the context, focus on relevant SKILLS instead
+7. ✓ Match deliverables and outcomes - if client needs migration, only cite migration work
+8. ✓ When unsure, be honest: "I haven't done this exact thing, but I have experience with [related skill]"
+
+⚠️ MATCHING RULES - READ CAREFULLY:
+- Client wants MIGRATION → Only cite projects where "deliverables" includes migration work
+- Client wants MEMBERSHIP SETUP → Only cite projects where "deliverables" includes membership/subscription work  
+- Client wants SPEED OPTIMIZATION → Only cite projects where "deliverables" includes performance work
+- Client wants NEW FEATURE → Only cite projects where "deliverables" includes similar feature development
+- If no matching deliverables exist → Focus on transferable skills, NOT fabricated experience
+
 ⚠️ CRITICAL - VARIED HOOKS (The first 2.5 lines are ALL the client sees on Upwork!):
 
 ❌ NEVER START WITH THESE OVERUSED PHRASES:
@@ -610,28 +627,42 @@ Job Description: {job_description}
 
 Required Skills: {', '.join(skills)}
 
-Your Historical Context & Relevant Experience:
+=== YOUR VERIFIED HISTORICAL CONTEXT (ONLY reference projects from this section) ===
 {context_data}
 {portfolio_section}
+=== END OF VERIFIED CONTEXT ===
+
+🚨 CRITICAL INSTRUCTIONS:
+1. ONLY reference projects that appear in the "VERIFIED HISTORICAL CONTEXT" section above
+2. Do NOT fabricate, invent, or embellish any past work - if it's not listed above, you haven't done it
+3. Match the CLIENT'S NEED to the DELIVERABLES of past projects:
+   - If client needs migration work → only cite projects with migration deliverables
+   - If client needs membership setup → only cite projects with membership deliverables
+   - If client needs speed optimization → only cite projects with performance deliverables
+4. If no projects in the context match the client's specific need, focus on TRANSFERABLE SKILLS instead
+5. Be honest - it's better to say "I have strong [skill] experience that applies here" than to fabricate project claims
 
 Generate a proposal that:
 - Uses the {selected_strategy.split(':')[0]} hook strategy
 - Is 150-250 words (SHORT = HIGH IMPACT)
 - Opens with a UNIQUE, COMPELLING hook (not "I see you're dealing with...")
 - Shows genuine empathy for their situation
-- References 2-3 past similar projects by company name with portfolio links
+- References ONLY projects from the verified context above (by company name with matching deliverables)
 - Explains your specific approach for THEIR tech stack and situation
 - Ends with a casual, friendly CTA (like texting a colleague)
 - Sounds like a REAL helpful human, NOT AI or a salesperson
 - Uses natural contractions and conversational language
 - WRITES IN PLAIN TEXT ONLY - no markdown, no **bold**, no *italic*, no bullets with -
 
-REMEMBER: The first 2 sentences are ALL the client sees - make them IRRESISTIBLE!"""
+REMEMBER: 
+- The first 2 sentences are ALL the client sees - make them IRRESISTIBLE!
+- NEVER claim work you haven't done - only reference projects from the context above
+- If context has no matching projects, focus on relevant skills and be honest about it"""
         
         proposal_text = self.generate_text(
             prompt=prompt,
             system_message=system_message,
-            temperature=0.75,  # Slightly higher for natural variety
+            temperature=0.5,  # Lowered from 0.75 to reduce hallucination risk while maintaining natural language
             max_tokens=2500  # Increased to prevent truncation - allows full HOOK→PROOF→APPROACH→CTA structure
         )
         

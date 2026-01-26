@@ -634,15 +634,18 @@ class MetadataExtractor:
         job2: Dict[str, Any]
     ) -> Dict[str, float]:
         """
-        Compare two projects across multiple dimensions including CLIENT INTENT.
+        Compare two projects across multiple dimensions including CLIENT INTENT and DELIVERABLES.
         
-        CRITICAL: This now uses semantic task type matching and client intent
-        similarity to find projects that did SIMILAR WORK, not just same platform.
+        CRITICAL FOR ANTI-HALLUCINATION: This now uses:
+        1. Deliverables matching - what was ACTUALLY built in past project
+        2. Client intent similarity - what the client WANTS done
+        3. Semantic task type matching
+        
+        This ensures we only match projects that did SIMILAR WORK, not just same platform.
         
         For example: "Substack migration" should match projects that did:
-        - Content migration/transfer
-        - Membership/subscription setup
-        - Newsletter integration
+        - Content migration/transfer (deliverables include "migration", "content transfer")
+        - Membership/subscription setup (deliverables include "membership system")
         NOT just any WordPress project like "speed optimization"
         
         Returns:
@@ -653,6 +656,16 @@ class MetadataExtractor:
         # Extract client intents for both jobs
         intents1 = job1.get("client_intents") or MetadataExtractor.extract_client_intents(job1)
         intents2 = job2.get("client_intents") or MetadataExtractor.extract_client_intents(job2)
+
+        # DELIVERABLES similarity - CRITICAL for anti-hallucination
+        # This checks if what was built in job2 matches what job1 needs
+        deliverables2 = job2.get("deliverables", [])
+        outcomes2 = job2.get("outcomes", "")
+        job1_desc = job1.get("job_description", "")
+        
+        similarity["deliverables"] = MetadataExtractor.get_deliverables_similarity(
+            intents1, job1_desc, deliverables2, outcomes2
+        )
 
         # CLIENT INTENT similarity - HIGHEST PRIORITY
         # This captures WHAT the client actually wants done
@@ -712,43 +725,131 @@ class MetadataExtractor:
         """
         Calculate overall similarity from individual dimension scores.
         
-        CRITICAL CHANGE: Now includes CLIENT INTENT as the HIGHEST weighted factor.
+        CRITICAL CHANGE: Now includes CLIENT INTENT and DELIVERABLES as highest weighted factors.
         Intent captures WHAT the client wants done (migration, membership, speed, etc.)
-        which is more important than just platform or skill match.
+        Deliverables capture WHAT was actually built in past projects.
+        
+        Both are more important than just platform or skill match.
         
         Weights prioritize:
-        1. CLIENT INTENT (what they want done) - 35%
-        2. TASK TYPE (type of work) - 25%
-        3. SKILLS (technical overlap) - 20%
-        4. INDUSTRY (domain relevance) - 10%
-        5. COMPLEXITY/DURATION - 10%
+        1. DELIVERABLES (what was actually built) - 30%
+        2. CLIENT INTENT (what they want done) - 30%
+        3. TASK TYPE (type of work) - 15%
+        4. SKILLS (technical overlap) - 15%
+        5. INDUSTRY (domain relevance) - 5%
+        6. COMPLEXITY/DURATION - 5%
         """
         weights = {
-            "intent": 0.35,         # HIGHEST: What the client actually wants done
-            "task_type": 0.25,      # HIGH: Type of work (now with semantic matching)
-            "skills": 0.20,         # Medium: Skill overlap
-            "industry": 0.10,       # Lower: Industry relevance
-            "complexity": 0.05,     # Minor: Complexity match
-            "duration": 0.05        # Minor: Duration reference
+            "deliverables": 0.30,   # HIGHEST: What was actually built (anti-hallucination)
+            "intent": 0.30,         # HIGHEST: What the client actually wants done
+            "task_type": 0.15,      # Medium: Type of work (now with semantic matching)
+            "skills": 0.15,         # Medium: Skill overlap
+            "industry": 0.05,       # Lower: Industry relevance
+            "complexity": 0.025,    # Minor: Complexity match
+            "duration": 0.025       # Minor: Duration reference
         }
 
         total_score = 0.0
         total_weight = 0.0
 
         for dimension, score in similarity_scores.items():
-            weight = weights.get(dimension, 0.05)
+            weight = weights.get(dimension, 0.025)
             total_score += score * weight
             total_weight += weight
 
         final_score = total_score / total_weight if total_weight > 0 else 0.0
         
-        # Log when intent makes a big difference
+        # Log when deliverables or intent makes a big difference
+        deliverables_score = similarity_scores.get("deliverables", 0)
         intent_score = similarity_scores.get("intent", 0)
         task_score = similarity_scores.get("task_type", 0)
-        if intent_score > 0.5 or task_score > 0.5:
-            logger.debug(f"  Similarity breakdown: intent={intent_score:.2f}, task={task_score:.2f}, overall={final_score:.2f}")
+        if deliverables_score > 0.3 or intent_score > 0.5 or task_score > 0.5:
+            logger.debug(f"  Similarity breakdown: deliverables={deliverables_score:.2f}, intent={intent_score:.2f}, task={task_score:.2f}, overall={final_score:.2f}")
         
         return final_score
+
+    @staticmethod
+    def get_deliverables_similarity(
+        new_job_intents: List[str],
+        new_job_desc: str,
+        past_project_deliverables: List[str],
+        past_project_outcomes: str
+    ) -> float:
+        """
+        Calculate how well past project deliverables match what the new job needs.
+        
+        This is CRITICAL for anti-hallucination: we only want to reference projects
+        where we actually built something relevant to what the client wants.
+        
+        Args:
+            new_job_intents: Client intents extracted from new job (e.g., ["content_migration", "membership_setup"])
+            new_job_desc: New job description text for keyword matching
+            past_project_deliverables: List of deliverables from past project (e.g., ["membership system", "content migration"])
+            past_project_outcomes: Outcome description from past project
+            
+        Returns:
+            Similarity score 0-1 (1 = deliverables exactly match what client needs)
+        """
+        if not past_project_deliverables and not past_project_outcomes:
+            return 0.0  # No deliverables info = no match
+        
+        # Combine deliverables and outcomes for matching
+        past_work_text = " ".join(past_project_deliverables).lower() if past_project_deliverables else ""
+        if past_project_outcomes:
+            past_work_text += " " + past_project_outcomes.lower()
+        
+        if not past_work_text.strip():
+            return 0.0
+        
+        new_job_desc_lower = new_job_desc.lower()
+        
+        # Keywords associated with each intent
+        INTENT_DELIVERABLE_KEYWORDS = {
+            "content_migration": ["migrat", "transfer", "import", "export", "convert", "move content", "substack", "medium"],
+            "platform_switch": ["migrat", "rebuild", "recreat", "convert", "switch"],
+            "membership_setup": ["membership", "subscription", "paid content", "paywall", "member", "recurring", "restrict"],
+            "newsletter_email": ["newsletter", "email", "mailchimp", "convertkit", "subscriber"],
+            "store_setup": ["store", "ecommerce", "e-commerce", "product", "catalog", "shop"],
+            "payment_integration": ["payment", "stripe", "paypal", "checkout", "cart", "woocommerce payment"],
+            "speed_optimization": ["speed", "performance", "pagespeed", "core web vitals", "load time", "optimi"],
+            "seo_optimization": ["seo", "search engine", "ranking", "meta", "organic traffic"],
+            "website_redesign": ["redesign", "restyle", "makeover", "refresh", "modernize", "new look", "new design"],
+            "new_website": ["build website", "create website", "new website", "from scratch", "develop"],
+            "bug_fixes": ["fix", "bug", "issue", "repair", "broken", "error", "debug"],
+            "feature_addition": ["feature", "add", "integrat", "custom", "enhance", "extend", "functionality"],
+            "content_management": ["blog", "article", "content", "cms", "publish", "editorial"],
+            "form_setup": ["form", "contact form", "lead capture", "submission"],
+            "rss_integration": ["rss", "feed", "youtube", "syndication", "auto import"],
+        }
+        
+        score = 0.0
+        matched_intents = 0
+        
+        for intent in new_job_intents[:3]:  # Check top 3 intents
+            keywords = INTENT_DELIVERABLE_KEYWORDS.get(intent, [])
+            
+            # Check if any keywords from this intent appear in past deliverables
+            for keyword in keywords:
+                if keyword in past_work_text:
+                    score += 0.4  # Strong match
+                    matched_intents += 1
+                    logger.debug(f"  Deliverables match: intent '{intent}' matched keyword '{keyword}' in past work")
+                    break  # Only count each intent once
+        
+        # Also check direct keyword overlap between new job desc and past deliverables
+        # Extract significant words from new job
+        significant_words = []
+        for intent, keywords in INTENT_DELIVERABLE_KEYWORDS.items():
+            for kw in keywords:
+                if kw in new_job_desc_lower:
+                    significant_words.append(kw)
+        
+        # Check how many significant words appear in past deliverables
+        direct_matches = sum(1 for word in significant_words if word in past_work_text)
+        if direct_matches > 0:
+            score += min(0.3, direct_matches * 0.1)  # Up to 0.3 bonus for direct matches
+        
+        return min(1.0, score)
 
     @staticmethod
     def rank_similar_projects(

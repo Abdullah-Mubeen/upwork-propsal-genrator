@@ -139,6 +139,13 @@ class ProposalGenerator:
             new_job_data,
             references
         )
+        
+        # Step 6: Assess match quality and hallucination risk
+        match_assessment = self._get_match_quality_assessment(retrieval_result)
+        confidence_score = self._calculate_confidence(retrieval_result)
+        
+        # Combine hallucination warnings from references extraction
+        all_warnings = references.get("hallucination_warnings", []) + match_assessment.get("warnings", [])
 
         result = {
             "contract_id": job_id,
@@ -151,21 +158,39 @@ class ProposalGenerator:
             "retrieval_context": {
                 "similar_projects_count": len(retrieval_result.get("similar_projects", [])),
                 "success_patterns": retrieval_result.get("insights", {}).get("success_patterns", []),
-                "success_rate": retrieval_result.get("insights", {}).get("success_rate", 0)
+                "success_rate": retrieval_result.get("insights", {}).get("success_rate", 0),
+                # NEW: Include similar projects with deliverables for transparency
+                "similar_projects_summary": [
+                    {
+                        "company": p.get("company"),
+                        "deliverables": p.get("deliverables", []),
+                        "similarity_score": p.get("similarity_score", 0)
+                    }
+                    for p in retrieval_result.get("similar_projects", [])[:3]
+                ]
             },
             "references": references,
             "metadata": {
                 "estimated_acceptance_rate": retrieval_result.get("proposal_context", {}).get("estimated_success_rate", 0),
                 "similar_projects_used": similar_count,
-                "confidence_score": self._calculate_confidence(retrieval_result),
+                "confidence_score": confidence_score,
                 "proposal_style": proposal_style,
-                "tone": tone
-            }
+                "tone": tone,
+                # NEW: Match quality assessment
+                "match_quality": match_assessment["quality_level"],
+                "has_relevant_deliverables": match_assessment["has_deliverables_match"]
+            },
+            # NEW: Hallucination warnings for review
+            "hallucination_warnings": all_warnings if all_warnings else None,
+            "recommendations": match_assessment.get("recommendations", []) if match_assessment.get("recommendations") else None
         }
 
-        # Log quality assessment
+        # Log quality assessment with hallucination warnings
+        if all_warnings:
+            logger.warning(f"⚠️  [ProposalGen] HALLUCINATION RISK detected: {all_warnings}")
+        
         if quality_score.get("is_short_human_winning"):
-            logger.info(f"✅ [ProposalGen] HIGH QUALITY - {result['word_count']} words, score {quality_score['overall_score']}")
+            logger.info(f"✅ [ProposalGen] HIGH QUALITY - {result['word_count']} words, score {quality_score['overall_score']}, confidence {confidence_score}")
         else:
             logger.warning(f"⚠️  [ProposalGen] Quality issues detected - {quality_score['feedback']}")
             result["quality_warnings"] = quality_score.get("feedback", [])
@@ -438,12 +463,31 @@ Project {i}:
         references = {
             "portfolio_links_used": [],
             "feedback_urls_cited": [],
-            "projects_referenced": []
+            "projects_referenced": [],
+            "hallucination_warnings": []  # NEW: Track potential hallucinations
         }
 
         # Handle None or empty proposal_text
         if not proposal_text:
             return references
+        
+        proposal_lower = proposal_text.lower()
+        
+        # Get list of verified company names from similar projects
+        verified_companies = set()
+        verified_portfolio_urls = set()
+        verified_deliverables = set()
+        
+        for project in retrieval_result.get("similar_projects", []):
+            company = project.get("company", "")
+            if company:
+                verified_companies.add(company.lower())
+            for url in project.get("portfolio_urls", []):
+                if url:
+                    verified_portfolio_urls.add(url.lower())
+            for d in project.get("deliverables", []):
+                if d:
+                    verified_deliverables.add(d.lower())
 
         if include_portfolio:
             for project in retrieval_result.get("similar_projects", []):
@@ -466,17 +510,113 @@ Project {i}:
                     "company": project.get("company"),
                     "similarity_score": project.get("similarity_score", 0)
                 })
+        
+        # HALLUCINATION DETECTION: Check for potentially fabricated claims
+        references["hallucination_warnings"] = self._detect_hallucinations(
+            proposal_text, 
+            verified_companies, 
+            verified_portfolio_urls,
+            verified_deliverables
+        )
 
         return references
+    
+    def _detect_hallucinations(
+        self,
+        proposal_text: str,
+        verified_companies: set,
+        verified_portfolio_urls: set,
+        verified_deliverables: set
+    ) -> List[str]:
+        """
+        Detect potential hallucinations or fabricated claims in generated proposal.
+        
+        CRITICAL: This catches cases where the AI:
+        - Claims to have worked with companies not in our data
+        - Mentions deliverables that don't match our past work
+        - References fabricated URLs
+        
+        Args:
+            proposal_text: Generated proposal text
+            verified_companies: Set of company names from actual past projects
+            verified_portfolio_urls: Set of actual portfolio URLs
+            verified_deliverables: Set of actual deliverables from past projects
+            
+        Returns:
+            List of warning messages about potential hallucinations
+        """
+        import re
+        warnings = []
+        proposal_lower = proposal_text.lower()
+        
+        # 1. Check for company name claims that aren't in our data
+        # Look for patterns like "worked with X", "built for X", "completed X project"
+        company_claim_patterns = [
+            r"(?:worked with|built for|completed for|delivered for|did a? ?(?:similar |same )?(?:project|work) for)\s+([A-Z][a-zA-Z\s]+)",
+            r"(?:for|at|with)\s+([A-Z][a-zA-Z\s]+)(?:\s+I\s+(?:built|developed|created|delivered))",
+        ]
+        
+        for pattern in company_claim_patterns:
+            matches = re.findall(pattern, proposal_text)
+            for match in matches:
+                company_name = match.strip().lower()
+                # Skip generic words
+                if company_name in ["a client", "the client", "another client", "a company", "similar"]:
+                    continue
+                # Check if this company is in our verified list
+                if not any(company_name in verified.lower() or verified.lower() in company_name 
+                          for verified in verified_companies if verified):
+                    if len(company_name) > 3:  # Avoid false positives on short words
+                        warnings.append(f"⚠️ Potential hallucination: Claims work with '{match}' not found in verified projects")
+        
+        # 2. Check for URLs that aren't in our data
+        url_pattern = r'https?://[^\s<>"\']+|www\.[^\s<>"\']+'
+        urls_in_proposal = re.findall(url_pattern, proposal_text)
+        
+        for url in urls_in_proposal:
+            url_lower = url.lower().rstrip('/.,')
+            # Skip common legitimate URLs (upwork profile, etc)
+            if 'upwork.com/freelancers' in url_lower:
+                continue
+            # Check if URL is in our verified list
+            if not any(url_lower in verified.lower() or verified.lower() in url_lower 
+                      for verified in verified_portfolio_urls if verified):
+                warnings.append(f"⚠️ URL not from verified projects: {url[:50]}...")
+        
+        # 3. Check for specific deliverable claims that don't match our work
+        # These are strong claims about what was built
+        specific_claim_keywords = [
+            "migrated", "built membership", "set up subscription", "optimized speed",
+            "fixed the bug", "created the form", "integrated payment", "developed the api"
+        ]
+        
+        for keyword in specific_claim_keywords:
+            if keyword in proposal_lower:
+                # Check if we have matching deliverables
+                keyword_root = keyword.split()[0] if ' ' in keyword else keyword  # Get main action word
+                has_matching_deliverable = any(
+                    keyword_root in d.lower() for d in verified_deliverables if d
+                )
+                if not has_matching_deliverable and verified_deliverables:
+                    # This might be a fabrication - only warn if we have deliverables data to compare
+                    pass  # Don't warn for now - could be legitimate skill claim
+        
+        return warnings
 
     def _calculate_confidence(self, retrieval_result: Dict[str, Any]) -> float:
         """
         Calculate confidence score for the generated proposal based on:
         - Number of similar projects found
+        - Quality of match (similarity scores)
+        - Whether deliverables actually match what client needs
         - Success rate of similar projects
         - Amount of feedback data available
+        
+        CRITICAL: Low confidence indicates potential for hallucination - 
+        the AI may fabricate experience if no good matches exist.
         """
-        similar_count = len(retrieval_result.get("similar_projects", []))
+        similar_projects = retrieval_result.get("similar_projects", [])
+        similar_count = len(similar_projects)
         success_rate = retrieval_result.get("insights", {}).get("success_rate", 0.5)
 
         # Base confidence on similar projects (max 3)
@@ -484,11 +624,78 @@ Project {i}:
 
         # Factor in success rate
         success_confidence = success_rate
+        
+        # NEW: Factor in match quality (average similarity score)
+        if similar_projects:
+            avg_similarity = sum(p.get("similarity_score", 0) for p in similar_projects) / len(similar_projects)
+            match_quality_confidence = avg_similarity
+        else:
+            match_quality_confidence = 0.0
+        
+        # NEW: Check if projects have deliverables data (reduces hallucination risk)
+        projects_with_deliverables = sum(
+            1 for p in similar_projects 
+            if p.get("deliverables") and len(p.get("deliverables", [])) > 0
+        )
+        deliverables_confidence = projects_with_deliverables / max(similar_count, 1)
 
-        # Weighted average
-        confidence = (similarity_confidence * 0.4) + (success_confidence * 0.6)
+        # Weighted average - prioritize match quality and deliverables
+        confidence = (
+            (similarity_confidence * 0.2) + 
+            (success_confidence * 0.2) +
+            (match_quality_confidence * 0.35) +  # Higher weight for match quality
+            (deliverables_confidence * 0.25)     # Higher weight for having deliverables data
+        )
 
         return round(confidence, 2)
+    
+    def _get_match_quality_assessment(self, retrieval_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Assess the quality of project matches for the new job.
+        
+        Returns:
+            Assessment dict with quality level, warnings, and recommendations
+        """
+        similar_projects = retrieval_result.get("similar_projects", [])
+        
+        assessment = {
+            "quality_level": "unknown",
+            "has_relevant_projects": False,
+            "has_deliverables_match": False,
+            "warnings": [],
+            "recommendations": []
+        }
+        
+        if not similar_projects:
+            assessment["quality_level"] = "no_matches"
+            assessment["warnings"].append("No similar projects found - high risk of hallucination")
+            assessment["recommendations"].append("Focus on skills and approach, not past project claims")
+            return assessment
+        
+        # Check average similarity
+        avg_score = sum(p.get("similarity_score", 0) for p in similar_projects) / len(similar_projects)
+        
+        # Check if any projects have deliverables
+        has_deliverables = any(
+            p.get("deliverables") and len(p.get("deliverables", [])) > 0 
+            for p in similar_projects
+        )
+        
+        if avg_score >= 0.6 and has_deliverables:
+            assessment["quality_level"] = "high"
+            assessment["has_relevant_projects"] = True
+            assessment["has_deliverables_match"] = True
+        elif avg_score >= 0.4:
+            assessment["quality_level"] = "medium"
+            assessment["has_relevant_projects"] = True
+            if not has_deliverables:
+                assessment["warnings"].append("Similar projects found but missing deliverables data - match quality uncertain")
+        else:
+            assessment["quality_level"] = "low"
+            assessment["warnings"].append("Low similarity scores - projects may not be truly relevant")
+            assessment["recommendations"].append("Be conservative about past project claims")
+        
+        return assessment
 
     def batch_generate_proposals(
         self,
