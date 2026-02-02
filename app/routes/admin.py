@@ -29,7 +29,7 @@ class Permission(str, Enum):
     WRITE = "write"         # Create/edit proposals
     GENERATE = "generate"   # Use AI generation
     TRAINING = "training"   # Upload training data
-    ADMIN = "admin"         # Full access
+    # Note: No 'admin' permission - only super admin (master key) has admin access
 
 class KeyStatus(str, Enum):
     ACTIVE = "active"
@@ -38,7 +38,8 @@ class KeyStatus(str, Enum):
 
 
 class CreateKeyRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100, description="Key identifier/name")
+    name: str = Field(..., min_length=1, max_length=100, description="User's full name")
+    email: Optional[str] = Field(None, max_length=200, description="User's email (optional)")
     permissions: List[Permission] = Field(default=[Permission.READ, Permission.GENERATE])
     expires_in_days: Optional[int] = Field(None, ge=1, le=365, description="Days until expiry (null=never)")
     usage_limit: Optional[int] = Field(None, ge=1, description="Max API calls (null=unlimited)")
@@ -82,7 +83,7 @@ def generate_api_key() -> str:
 
 @router.post("/keys", dependencies=[Depends(verify_admin_key)])
 async def create_api_key(req: CreateKeyRequest):
-    """Create new API key with specified permissions"""
+    """Create new API key with specified permissions for a user"""
     db = get_db()
     
     raw_key = generate_api_key()
@@ -95,7 +96,8 @@ async def create_api_key(req: CreateKeyRequest):
     key_doc = {
         "key_hash": key_hash,
         "key_prefix": raw_key[:8],
-        "name": req.name,
+        "name": req.name,  # User's full name
+        "email": req.email,  # User's email (optional)
         "permissions": [p.value for p in req.permissions],
         "is_active": True,
         "created_at": datetime.utcnow(),
@@ -109,7 +111,7 @@ async def create_api_key(req: CreateKeyRequest):
     result = db.db["api_keys"].insert_one(key_doc)
     
     # Log activity
-    db.log_activity("admin", "create_key", "api_keys", {"name": req.name, "permissions": key_doc["permissions"]})
+    db.log_activity("Super Admin", "create_user", req.name, {"email": req.email, "permissions": key_doc["permissions"]})
     
     return {
         "success": True,
@@ -124,7 +126,7 @@ async def create_api_key(req: CreateKeyRequest):
 
 @router.get("/keys", dependencies=[Depends(verify_admin_key)])
 async def list_api_keys():
-    """List all API keys (without revealing full keys)"""
+    """List all users with API access"""
     db = get_db()
     
     keys = list(db.db["api_keys"].find({}, {"key_hash": 0}).sort("created_at", -1))
@@ -141,6 +143,7 @@ async def list_api_keys():
         result.append({
             "id": str(k["_id"]),
             "name": k["name"],
+            "email": k.get("email"),
             "key_prefix": k.get("key_prefix", "********"),
             "permissions": k["permissions"],
             "status": status,
@@ -215,7 +218,10 @@ async def update_api_key(key_id: str, req: UpdateKeyRequest):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Key not found")
     
-    db.log_activity("admin", "update_key", "api_keys", {"key_id": key_id, "changes": update["$set"]})
+    # Get user name for logging
+    key_data = db.db["api_keys"].find_one({"_id": oid})
+    user_name = key_data.get("name", "Unknown") if key_data else "Unknown"
+    db.log_activity("Super Admin", "update_user", user_name, {"changes": list(update["$set"].keys())})
     
     return {"success": True, "message": "Key updated"}
 
@@ -231,6 +237,10 @@ async def revoke_api_key(key_id: str):
     except:
         raise HTTPException(status_code=400, detail="Invalid key ID")
     
+    # Get user name before revoking
+    key_data = db.db["api_keys"].find_one({"_id": oid})
+    user_name = key_data.get("name", "Unknown") if key_data else "Unknown"
+    
     result = db.db["api_keys"].update_one(
         {"_id": oid},
         {"$set": {"is_active": False, "revoked_at": datetime.utcnow()}}
@@ -239,7 +249,7 @@ async def revoke_api_key(key_id: str):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Key not found")
     
-    db.log_activity("admin", "revoke_key", "api_keys", {"key_id": key_id})
+    db.log_activity("Super Admin", "revoke_user", user_name, {})
     
     return {"success": True, "message": "Key revoked"}
 
@@ -248,7 +258,7 @@ async def revoke_api_key(key_id: str):
 async def get_activity_log(
     limit: int = 100,
     action: Optional[str] = None,
-    key_prefix: Optional[str] = None
+    user_name: Optional[str] = None
 ):
     """Get activity log with optional filters"""
     db = get_db()
@@ -256,8 +266,8 @@ async def get_activity_log(
     query = {}
     if action:
         query["action"] = action
-    if key_prefix:
-        query["key_prefix"] = key_prefix
+    if user_name:
+        query["user_name"] = {"$regex": user_name, "$options": "i"}
     
     logs = list(db.db["activity_log"].find(query).sort("timestamp", -1).limit(limit))
     
@@ -265,9 +275,9 @@ async def get_activity_log(
         "success": True,
         "logs": [{
             "id": str(l["_id"]),
-            "key_prefix": l.get("key_prefix", "system"),
+            "user_name": l.get("user_name", l.get("key_prefix", "System")),
             "action": l["action"],
-            "resource": l.get("resource"),
+            "target": l.get("target", l.get("resource")),
             "details": l.get("details"),
             "ip": l.get("ip"),
             "timestamp": l["timestamp"]

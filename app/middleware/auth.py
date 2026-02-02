@@ -97,12 +97,29 @@ async def verify_api_key(
     }
 
 
-async def verify_admin_key(api_key: Optional[str] = Security(api_key_header)) -> dict:
-    """Verify key has admin permission"""
-    result = await verify_api_key(api_key, required_permissions=["admin"])
-    if not result.get("is_admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
-    return result
+async def verify_super_admin_key(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """
+    Verify ONLY the master admin key from .env.
+    Generated keys with 'admin' permission do NOT have super admin access.
+    There is only ONE super admin.
+    """
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API key required. Please provide X-API-Key header."
+        )
+    
+    if api_key != get_master_key():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super Admin access required. Only the master admin can access this."
+        )
+    
+    return {"key_prefix": "master", "permissions": ["admin", "read", "write", "generate", "training"], "is_admin": True, "is_super_admin": True}
+
+
+# Alias for backward compatibility
+verify_admin_key = verify_super_admin_key
 
 
 async def verify_generate_permission(api_key: Optional[str] = Security(api_key_header)) -> dict:

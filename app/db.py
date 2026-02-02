@@ -1262,13 +1262,22 @@ class DatabaseManager:
     
     # ===================== ADMIN: API KEY & ACTIVITY LOGGING =====================
     
-    def log_activity(self, key_prefix: str, action: str, resource: str = None, details: dict = None, ip: str = None):
-        """Log an activity for audit trail"""
+    def log_activity(self, user_name: str, action: str, target: str = None, details: dict = None, ip: str = None):
+        """
+        Log an activity for audit trail.
+        
+        Args:
+            user_name: Name of user who performed action (or 'Super Admin')
+            action: Action type (create_user, revoke_user, generate, etc.)
+            target: What was affected (user name, proposal title, etc.)
+            details: Additional context
+            ip: IP address (optional)
+        """
         try:
             self.db["activity_log"].insert_one({
-                "key_prefix": key_prefix,
+                "user_name": user_name,
                 "action": action,
-                "resource": resource,
+                "target": target,
                 "details": details,
                 "ip": ip,
                 "timestamp": datetime.utcnow()
