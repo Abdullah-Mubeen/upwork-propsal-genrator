@@ -183,17 +183,18 @@
         async function loadSummary(range) {
             try {
                 const { data } = await axios.get(`${API}/analytics/summary?range=${range}`);
-                document.getElementById('s-total').textContent = data.total_proposals;
-                document.getElementById('s-ai').textContent = data.ai_generated_count;
-                document.getElementById('s-manual').textContent = data.manual_count;
-                document.getElementById('s-hired').textContent = data.total_hired;
-                document.getElementById('s-rate').textContent = `(${data.overall_hire_rate}%)`;
-            } catch (e) { console.error('Summary error:', e); }
+                document.getElementById('s-total').textContent = data.total_proposals ?? 0;
+                document.getElementById('s-ai').textContent = data.ai_generated_count ?? 0;
+                document.getElementById('s-manual').textContent = data.manual_count ?? 0;
+                document.getElementById('s-hired').textContent = data.total_hired ?? 0;
+                document.getElementById('s-rate').textContent = data.total_proposals ? `(${data.overall_hire_rate}%)` : '';
+            } catch (e) { console.error('Summary error:', e); document.querySelectorAll('[id^="s-"]').forEach(el => el.textContent = '0'); }
         }
 
         async function loadFunnel(range) {
             try {
                 const { data } = await axios.get(`${API}/analytics/funnel?range=${range}`);
+                if (!data.funnel?.length) { document.getElementById('funnel-container').innerHTML = '<p class="text-neutral-400 text-sm">No proposals yet</p>'; return; }
                 const colors = { Sent: '#e5e5e5', Viewed: '#dbeafe', Discussed: '#ede9fe', Hired: '#d1fae5' };
                 const textColors = { Sent: '#525252', Viewed: '#1e40af', Discussed: '#6d28d9', Hired: '#065f46' };
                 document.getElementById('funnel-container').innerHTML = data.funnel.map(s => `
@@ -207,7 +208,7 @@
                         <div class="w-14 text-right text-sm text-neutral-500">${s.percentage}%</div>
                     </div>
                 `).join('');
-            } catch (e) { console.error('Funnel error:', e); }
+            } catch (e) { console.error('Funnel error:', e); document.getElementById('funnel-container').innerHTML = '<p class="text-neutral-400 text-sm">Error loading funnel</p>'; }
         }
 
         async function loadComparison(range) {
@@ -215,21 +216,26 @@
                 const { data } = await axios.get(`${API}/analytics/comparison?range=${range}`);
                 const ctx = document.getElementById('comparison-chart').getContext('2d');
                 if (comparisonChart) comparisonChart.destroy();
+                const noData = !data.ai_generated?.total && !data.manual?.total;
+                if (noData) { document.getElementById('effectiveness-badge').innerHTML = '<span class="text-sm text-neutral-400">No comparison data yet</span>'; }
                 comparisonChart = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: ['View Rate', 'Hire Rate'],
                         datasets: [
-                            { label: 'AI Generated', data: [data.ai_generated.view_rate, data.ai_generated.hire_rate], backgroundColor: '#3b82f6' },
-                            { label: 'Manual', data: [data.manual.view_rate, data.manual.hire_rate], backgroundColor: '#f59e0b' }
+                            { label: 'AI Generated', data: [data.ai_generated?.view_rate ?? 0, data.ai_generated?.hire_rate ?? 0], backgroundColor: '#3b82f6' },
+                            { label: 'Manual', data: [data.manual?.view_rate ?? 0, data.manual?.hire_rate ?? 0], backgroundColor: '#f59e0b' }
                         ]
                     },
                     options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, max: 100 } } }
                 });
-                const eff = data.ai_effectiveness;
-                const effEl = document.getElementById('effectiveness-value');
-                effEl.textContent = eff === Infinity ? '∞' : eff >= 1 ? `${((eff - 1) * 100).toFixed(0)}%` : `${((1 - eff) * 100).toFixed(0)}% less`;
-                effEl.className = `font-bold text-lg ${eff >= 1 ? 'text-green-600' : 'text-red-500'}`;
+                if (!noData) {
+                    const eff = data.ai_effectiveness ?? 1;
+                    const effEl = document.getElementById('effectiveness-value');
+                    effEl.textContent = eff === Infinity || eff > 100 ? '∞' : eff >= 1 ? `${((eff - 1) * 100).toFixed(0)}%` : `${((1 - eff) * 100).toFixed(0)}% less`;
+                    effEl.className = `font-bold text-lg ${eff >= 1 ? 'text-green-600' : 'text-red-500'}`;
+                    document.getElementById('effectiveness-badge').innerHTML = `<span class="text-sm text-neutral-600">AI is </span><span class="font-bold text-lg ${eff >= 1 ? 'text-green-600' : 'text-red-500'}" id="effectiveness-value">${effEl.textContent}</span><span class="text-sm text-neutral-600"> ${eff >= 1 ? 'more effective' : ''}</span>`;
+                }
             } catch (e) { console.error('Comparison error:', e); }
         }
 
@@ -238,13 +244,14 @@
                 const { data } = await axios.get(`${API}/analytics/trends?range=${range}`);
                 const ctx = document.getElementById('trends-chart').getContext('2d');
                 if (trendsChart) trendsChart.destroy();
+                if (!data.data?.length) { ctx.font = '14px Inter'; ctx.fillStyle = '#a3a3a3'; ctx.textAlign = 'center'; ctx.fillText('No trend data yet', ctx.canvas.width / 2, ctx.canvas.height / 2); return; }
                 trendsChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: data.data.map(d => d.date.slice(5)),
+                        labels: data.data.map(d => d.date?.slice(5) ?? ''),
                         datasets: [
-                            { label: 'Sent', data: data.data.map(d => d.sent), borderColor: '#6b7280', tension: 0.3, fill: false },
-                            { label: 'Hired', data: data.data.map(d => d.hired), borderColor: '#10b981', tension: 0.3, fill: false }
+                            { label: 'Sent', data: data.data.map(d => d.sent ?? 0), borderColor: '#6b7280', tension: 0.3, fill: false },
+                            { label: 'Hired', data: data.data.map(d => d.hired ?? 0), borderColor: '#10b981', tension: 0.3, fill: false }
                         ]
                     },
                     options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
