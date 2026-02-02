@@ -1259,6 +1259,40 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error getting industry performance: {e}")
             return []
+    
+    # ===================== ADMIN: API KEY & ACTIVITY LOGGING =====================
+    
+    def log_activity(self, key_prefix: str, action: str, resource: str = None, details: dict = None, ip: str = None):
+        """Log an activity for audit trail"""
+        try:
+            self.db["activity_log"].insert_one({
+                "key_prefix": key_prefix,
+                "action": action,
+                "resource": resource,
+                "details": details,
+                "ip": ip,
+                "timestamp": datetime.utcnow()
+            })
+        except Exception as e:
+            logger.error(f"Error logging activity: {e}")
+    
+    def init_admin_collections(self):
+        """Initialize admin collections and indexes"""
+        try:
+            # API Keys collection
+            self.db["api_keys"].create_index([("key_hash", ASCENDING)], unique=True)
+            self.db["api_keys"].create_index([("name", ASCENDING)])
+            self.db["api_keys"].create_index([("is_active", ASCENDING)])
+            self.db["api_keys"].create_index([("created_at", DESCENDING)])
+            
+            # Activity Log collection
+            self.db["activity_log"].create_index([("timestamp", DESCENDING)])
+            self.db["activity_log"].create_index([("key_prefix", ASCENDING)])
+            self.db["activity_log"].create_index([("action", ASCENDING)])
+            
+            logger.info("Admin collections initialized")
+        except Exception as e:
+            logger.error(f"Error initializing admin collections: {e}")
 
 
 # Singleton instance
@@ -1269,11 +1303,12 @@ def get_db() -> DatabaseManager:
     global _db_manager
     if _db_manager is None:
         _db_manager = DatabaseManager()
+        _db_manager.init_admin_collections()
     return _db_manager
 
 def close_db():
     """Close database connection"""
     global _db_manager
     if _db_manager:
-        _db_manager. disconnect()
+        _db_manager.disconnect()
         _db_manager = None

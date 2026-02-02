@@ -20,6 +20,7 @@ from app.routes import job_data_router
 from app.routes.proposals import router as proposals_router
 from app.routes.profile import router as profile_router
 from app.routes.analytics import router as analytics_router
+from app.routes.admin import router as admin_router
 from app.middleware.auth import verify_api_key
 
 logging.basicConfig(level=logging.INFO)
@@ -57,7 +58,7 @@ async def root():
 
 
 @app.get("/api/auth/verify")
-async def verify_api_key_endpoint(api_key: str = Depends(verify_api_key)):
+async def verify_api_key_endpoint(auth_result: dict = Depends(verify_api_key)):
     """
     Verify if the provided API key is valid.
     
@@ -66,7 +67,10 @@ async def verify_api_key_endpoint(api_key: str = Depends(verify_api_key)):
     """
     return {
         "valid": True,
-        "message": "API key is valid. You have access to protected endpoints."
+        "message": "API key is valid. You have access to protected endpoints.",
+        "key_prefix": auth_result.get("key_prefix"),
+        "permissions": auth_result.get("permissions", []),
+        "is_admin": auth_result.get("is_admin", False)
     }
 
 
@@ -74,6 +78,7 @@ app.include_router(job_data_router, prefix="/api/job-data")
 app.include_router(proposals_router)
 app.include_router(profile_router)
 app.include_router(analytics_router)
+app.include_router(admin_router)
 
 # Serve frontend static files - mount AFTER API routes to avoid conflicts
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
