@@ -456,6 +456,7 @@ class SaveProposalRequest(BaseModel):
     similar_projects_used: Optional[List[str]] = Field(default_factory=list, description="IDs of similar projects used")
     portfolio_links_used: Optional[List[str]] = Field(default_factory=list, description="Portfolio links included")
     confidence_score: Optional[float] = Field(0.0, description="AI confidence score")
+    source: Optional[str] = Field("ai_generated", description="Source: ai_generated or manual")
 
 
 class SaveProposalResponse(BaseModel):
@@ -564,7 +565,8 @@ async def save_sent_proposal(
             "word_count": request.word_count,
             "similar_projects_used": request.similar_projects_used,
             "portfolio_links_used": request.portfolio_links_used,
-            "confidence_score": request.confidence_score
+            "confidence_score": request.confidence_score,
+            "source": request.source
         })
         
         return SaveProposalResponse(

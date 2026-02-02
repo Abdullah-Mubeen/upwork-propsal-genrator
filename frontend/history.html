@@ -223,6 +223,10 @@
                 <p class="text-xs text-neutral-500">Track outcomes & conversion</p>
             </div>
             <div class="flex items-center gap-3">
+                <a href="dashboard.html" class="btn-secondary inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                    Dashboard
+                </a>
                 <a href="index.html" class="btn-secondary inline-flex items-center gap-2">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
                     Generate
@@ -257,12 +261,18 @@
         </div>
 
         <!-- Filter Tabs -->
-        <div class="flex items-center gap-2 mb-6">
-            <button class="filter-tab active" data-filter="">All</button>
-            <button class="filter-tab" data-filter="sent">Pending</button>
-            <button class="filter-tab" data-filter="viewed">Viewed</button>
-            <button class="filter-tab" data-filter="hired">Hired</button>
-            <button class="filter-tab" data-filter="rejected">Rejected</button>
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+                <button class="filter-tab active" data-filter="">All</button>
+                <button class="filter-tab" data-filter="sent">Pending</button>
+                <button class="filter-tab" data-filter="viewed">Viewed</button>
+                <button class="filter-tab" data-filter="hired">Hired</button>
+                <button class="filter-tab" data-filter="rejected">Rejected</button>
+            </div>
+            <button onclick="openManualModal()" class="btn-secondary btn-sm inline-flex items-center gap-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                Log Manual
+            </button>
         </div>
 
         <!-- Proposals List -->
@@ -354,6 +364,38 @@
 
     <!-- Toast -->
     <div id="toast" class="toast"></div>
+
+    <!-- Manual Proposal Modal -->
+    <div id="manual-modal" class="modal-backdrop">
+        <div class="modal" style="max-width: 420px;">
+            <div class="p-5 border-b border-neutral-100">
+                <h3 class="font-semibold text-neutral-900">Log Manual Proposal</h3>
+                <p class="text-xs text-neutral-500 mt-1">Track a proposal you wrote manually</p>
+            </div>
+            <form id="manual-form" onsubmit="saveManualProposal(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-neutral-600 mb-1">Job Title *</label>
+                    <input type="text" id="manual-title" class="input-field" placeholder="e.g., Full Stack Developer" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-neutral-600 mb-1">Company</label>
+                    <input type="text" id="manual-company" class="input-field" placeholder="Client name">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-neutral-600 mb-1">Skills (comma separated)</label>
+                    <input type="text" id="manual-skills" class="input-field" placeholder="React, Node.js, MongoDB">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-neutral-600 mb-1">Proposal Text</label>
+                    <textarea id="manual-text" class="input-field" rows="4" placeholder="Paste your proposal..."></textarea>
+                </div>
+            </form>
+            <div class="p-4 border-t border-neutral-100 flex justify-end gap-2">
+                <button onclick="closeManualModal()" class="btn-secondary btn-sm">Cancel</button>
+                <button onclick="document.getElementById('manual-form').requestSubmit()" class="btn-primary btn-sm" id="manual-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Use relative URL when served from same origin, absolute otherwise
@@ -703,6 +745,47 @@
                 loadProposals(currentFilter);
             } catch (e) {
                 showToast('Error: ' + (e.response?.data?.detail || e.message));
+            }
+        }
+
+        // ==================== MANUAL PROPOSAL ====================
+
+        function openManualModal() {
+            document.getElementById('manual-form').reset();
+            document.getElementById('manual-modal').classList.add('show');
+        }
+
+        function closeManualModal() {
+            document.getElementById('manual-modal').classList.remove('show');
+        }
+
+        async function saveManualProposal(e) {
+            e.preventDefault();
+            const btn = document.getElementById('manual-save-btn');
+            btn.disabled = true; btn.textContent = 'Saving...';
+            
+            try {
+                const text = document.getElementById('manual-text').value.trim();
+                const skills = document.getElementById('manual-skills').value.split(',').map(s => s.trim()).filter(Boolean);
+                
+                await axios.post(`${API_BASE}/save`, {
+                    job_title: document.getElementById('manual-title').value.trim(),
+                    company_name: document.getElementById('manual-company').value.trim() || 'Client',
+                    job_description: 'Manual entry',
+                    proposal_text: text || 'No text provided',
+                    skills_required: skills,
+                    word_count: text ? text.split(/\s+/).length : 0,
+                    source: 'manual'
+                });
+                
+                closeManualModal();
+                showToast('✓ Manual proposal saved');
+                loadStats();
+                loadProposals(currentFilter);
+            } catch (e) {
+                showToast('Error: ' + (e.response?.data?.detail || e.message));
+            } finally {
+                btn.disabled = false; btn.textContent = 'Save';
             }
         }
 

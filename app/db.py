@@ -3,7 +3,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError, DuplicateKeyError
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 import uuid
 import certifi
@@ -65,7 +65,8 @@ class DatabaseManager:
                 "embedding_cache": "Cache of embeddings for quick retrieval",
                 "skills": "Unique skills with frequency and usage tracking",
                 "skill_embeddings": "Embeddings for skill vectors",
-                "sent_proposals": "Sent proposals with outcome tracking (viewed/hired)"
+                "sent_proposals": "Sent proposals with outcome tracking (viewed/hired)",
+                "user_profile": "User profile data for dashboard"
             }
             
             for collection_name in collections.keys():
@@ -161,8 +162,12 @@ class DatabaseManager:
             self.db["sent_proposals"].create_index([("job_title", ASCENDING)])
             self.db["sent_proposals"].create_index([("skills_required", ASCENDING)])
             self.db["sent_proposals"].create_index([("industry", ASCENDING)])
+            self.db["sent_proposals"].create_index([("source", ASCENDING)])  # ai_generated or manual
             
-            logger. info("Successfully created all database indexes")
+            # User Profile Collection (singleton)
+            self.db["user_profile"].create_index([("user_id", ASCENDING)], unique=True)
+            
+            logger.info("Successfully created all database indexes")
         except Exception as e:
             logger.error(f"Error creating indexes: {str(e)}")
     
@@ -815,6 +820,9 @@ class DatabaseManager:
                 "similar_projects_used": proposal_data.get("similar_projects_used", []),
                 "portfolio_links_used": proposal_data.get("portfolio_links_used", []),
                 
+                # Source: ai_generated or manual
+                "source": proposal_data.get("source", "ai_generated"),
+                
                 # Outcome tracking
                 "outcome": "sent",  # sent → viewed → hired | rejected
                 "sent_at": datetime.utcnow(),
@@ -1019,6 +1027,237 @@ class DatabaseManager:
             return results
         except Exception as e:
             logger.error(f"Error getting effective proposals: {str(e)}")
+            return []
+
+    # ===================== USER PROFILE OPERATIONS =====================
+    
+    def get_profile(self) -> Dict[str, Any]:
+        """Get user profile (singleton - one profile per instance)"""
+        try:
+            profile = self.db["user_profile"].find_one({"user_id": "default"})
+            if not profile:
+                # Create default profile
+                profile = {
+                    "user_id": "default",
+                    "name": "",
+                    "email": "",
+                    "upwork_url": "",
+                    "bio": "",
+                    "hourly_rate": 0,
+                    "skills": [],
+                    "timezone": "UTC",
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                }
+                self.db["user_profile"].insert_one(profile)
+            profile["_id"] = str(profile["_id"])
+            return profile
+        except Exception as e:
+            logger.error(f"Error getting profile: {e}")
+            return {}
+    
+    def update_profile(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update user profile"""
+        try:
+            data["updated_at"] = datetime.utcnow()
+            self.db["user_profile"].update_one(
+                {"user_id": "default"},
+                {"$set": data},
+                upsert=True
+            )
+            return self.get_profile()
+        except Exception as e:
+            logger.error(f"Error updating profile: {e}")
+            raise
+
+    # ===================== ANALYTICS OPERATIONS =====================
+    
+    def _build_date_query(self, since: Optional[datetime], source: Optional[str] = None) -> Dict[str, Any]:
+        """Build MongoDB query with optional date and source filters"""
+        query = {}
+        if since:
+            query["sent_at"] = {"$gte": since}
+        if source:
+            query["source"] = source
+        return query
+    
+    def get_analytics_summary(self, since: Optional[datetime] = None) -> Dict[str, Any]:
+        """Get dashboard summary statistics"""
+        try:
+            base_query = self._build_date_query(since)
+            col = self.db["sent_proposals"]
+            
+            total = col.count_documents(base_query)
+            ai_count = col.count_documents({**base_query, "source": "ai_generated"})
+            manual_count = col.count_documents({**base_query, "source": "manual"})
+            hired = col.count_documents({**base_query, "outcome": "hired"})
+            viewed = col.count_documents({**base_query, "outcome": {"$in": ["viewed", "hired"]}})
+            discussions = col.count_documents({**base_query, "discussion_initiated": True})
+            
+            ai_hired = col.count_documents({**base_query, "source": "ai_generated", "outcome": "hired"})
+            manual_hired = col.count_documents({**base_query, "source": "manual", "outcome": "hired"})
+            
+            return {
+                "total_proposals": total,
+                "ai_generated_count": ai_count,
+                "manual_count": manual_count,
+                "total_hired": hired,
+                "total_viewed": viewed,
+                "overall_hire_rate": round(hired / total * 100, 1) if total else 0,
+                "ai_hire_rate": round(ai_hired / ai_count * 100, 1) if ai_count else 0,
+                "manual_hire_rate": round(manual_hired / manual_count * 100, 1) if manual_count else 0,
+                "message_market_fit": round(discussions / viewed * 100, 1) if viewed else 0
+            }
+        except Exception as e:
+            logger.error(f"Error getting analytics summary: {e}")
+            return {}
+    
+    def get_conversion_funnel(self, since: Optional[datetime] = None, source: Optional[str] = None) -> Dict[str, Any]:
+        """Get conversion funnel: Sent → Viewed → Discussed → Hired"""
+        try:
+            query = self._build_date_query(since, source)
+            col = self.db["sent_proposals"]
+            
+            sent = col.count_documents(query)
+            viewed = col.count_documents({**query, "outcome": {"$in": ["viewed", "hired"]}})
+            discussed = col.count_documents({**query, "discussion_initiated": True})
+            hired = col.count_documents({**query, "outcome": "hired"})
+            
+            funnel = [
+                {"stage": "Sent", "count": sent, "percentage": 100.0},
+                {"stage": "Viewed", "count": viewed, "percentage": round(viewed / sent * 100, 1) if sent else 0},
+                {"stage": "Discussed", "count": discussed, "percentage": round(discussed / sent * 100, 1) if sent else 0},
+                {"stage": "Hired", "count": hired, "percentage": round(hired / sent * 100, 1) if sent else 0}
+            ]
+            return {"funnel": funnel, "total_sent": sent}
+        except Exception as e:
+            logger.error(f"Error getting funnel: {e}")
+            return {"funnel": [], "total_sent": 0}
+    
+    def get_source_comparison(self, since: Optional[datetime] = None) -> Dict[str, Any]:
+        """Compare AI-generated vs manual proposals"""
+        try:
+            col = self.db["sent_proposals"]
+            
+            def get_stats(source: str) -> Dict[str, Any]:
+                query = self._build_date_query(since, source)
+                total = col.count_documents(query)
+                hired = col.count_documents({**query, "outcome": "hired"})
+                viewed = col.count_documents({**query, "outcome": {"$in": ["viewed", "hired"]}})
+                return {
+                    "total": total,
+                    "hired": hired,
+                    "viewed": viewed,
+                    "hire_rate": round(hired / total * 100, 1) if total else 0,
+                    "view_rate": round(viewed / total * 100, 1) if total else 0
+                }
+            
+            ai = get_stats("ai_generated")
+            manual = get_stats("manual")
+            
+            # Calculate effectiveness: how much better AI performs
+            effectiveness = 1.0
+            if manual["hire_rate"] > 0:
+                effectiveness = round(ai["hire_rate"] / manual["hire_rate"], 2)
+            elif ai["hire_rate"] > 0:
+                effectiveness = float("inf")
+            
+            return {"ai_generated": ai, "manual": manual, "ai_effectiveness": effectiveness}
+        except Exception as e:
+            logger.error(f"Error getting comparison: {e}")
+            return {"ai_generated": {}, "manual": {}, "ai_effectiveness": 1.0}
+    
+    def get_proposal_trends(self, since: Optional[datetime] = None) -> List[Dict[str, Any]]:
+        """Get daily proposal trends for charts"""
+        try:
+            if not since:
+                since = datetime.utcnow() - timedelta(days=30)
+            
+            pipeline = [
+                {"$match": {"sent_at": {"$gte": since}}},
+                {"$group": {
+                    "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$sent_at"}},
+                    "sent": {"$sum": 1},
+                    "hired": {"$sum": {"$cond": [{"$eq": ["$outcome", "hired"]}, 1, 0]}}
+                }},
+                {"$sort": {"_id": 1}}
+            ]
+            
+            results = list(self.db["sent_proposals"].aggregate(pipeline))
+            return [
+                {
+                    "date": r["_id"],
+                    "sent": r["sent"],
+                    "hired": r["hired"],
+                    "hire_rate": round(r["hired"] / r["sent"] * 100, 1) if r["sent"] else 0
+                }
+                for r in results
+            ]
+        except Exception as e:
+            logger.error(f"Error getting trends: {e}")
+            return []
+    
+    def get_skills_performance(self, since: Optional[datetime] = None, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get performance breakdown by skill"""
+        try:
+            match_stage = {"$match": {"sent_at": {"$gte": since}}} if since else {"$match": {}}
+            
+            pipeline = [
+                match_stage,
+                {"$unwind": "$skills_required"},
+                {"$group": {
+                    "_id": "$skills_required",
+                    "total": {"$sum": 1},
+                    "hired": {"$sum": {"$cond": [{"$eq": ["$outcome", "hired"]}, 1, 0]}}
+                }},
+                {"$match": {"total": {"$gte": 2}}},  # At least 2 proposals
+                {"$sort": {"hired": -1, "total": -1}},
+                {"$limit": limit}
+            ]
+            
+            results = list(self.db["sent_proposals"].aggregate(pipeline))
+            return [
+                {
+                    "skill": r["_id"],
+                    "total": r["total"],
+                    "hired": r["hired"],
+                    "hire_rate": round(r["hired"] / r["total"] * 100, 1) if r["total"] else 0
+                }
+                for r in results
+            ]
+        except Exception as e:
+            logger.error(f"Error getting skills performance: {e}")
+            return []
+    
+    def get_industry_performance(self, since: Optional[datetime] = None) -> List[Dict[str, Any]]:
+        """Get performance breakdown by industry"""
+        try:
+            match_stage = {"$match": {"sent_at": {"$gte": since}}} if since else {"$match": {}}
+            
+            pipeline = [
+                match_stage,
+                {"$group": {
+                    "_id": "$industry",
+                    "total": {"$sum": 1},
+                    "hired": {"$sum": {"$cond": [{"$eq": ["$outcome", "hired"]}, 1, 0]}},
+                    "viewed": {"$sum": {"$cond": [{"$in": ["$outcome", ["viewed", "hired"]]}, 1, 0]}}
+                }},
+                {"$sort": {"total": -1}}
+            ]
+            
+            results = list(self.db["sent_proposals"].aggregate(pipeline))
+            return [
+                {
+                    "industry": r["_id"] or "general",
+                    "total": r["total"],
+                    "hired": r["hired"],
+                    "viewed": r["viewed"],
+                    "hire_rate": round(r["hired"] / r["total"] * 100, 1) if r["total"] else 0
+                }
+                for r in results
+            ]
+        except Exception as e:
+            logger.error(f"Error getting industry performance: {e}")
             return []
 
 
