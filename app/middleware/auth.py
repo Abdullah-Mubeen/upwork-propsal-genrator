@@ -1,171 +1,139 @@
 """
 API Key Authentication Middleware
 
-Security layer for protecting training data and history endpoints.
-- Public: Proposal generation (index.html)
-- Protected: Training data management, history viewing
+Security layer with permission-based access control.
+- Master Admin: Full access (ADMIN_API_KEY from env)
+- Generated Keys: Custom permissions, expiry, usage limits
 
-Usage:
-    from app.middleware.auth import verify_api_key
-    
-    @router.post("/upload")
-    async def upload_job_data(
-        job_data: JobDataUploadRequest,
-        api_key: str = Depends(verify_api_key)
-    ):
-        ...
+Permissions: read, write, generate, training, admin
 """
 
 import logging
-from typing import Optional
-from fastapi import HTTPException, Security, Depends, Header, status
+import hashlib
+from typing import Optional, List
+from datetime import datetime
+from fastapi import HTTPException, Security, Request, status
 from fastapi.security import APIKeyHeader
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# API Key header configuration
 API_KEY_HEADER_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_HEADER_NAME, auto_error=False)
 
 
-def get_valid_api_key() -> str:
-    """
-    Get the valid API key from settings.
-    
-    Returns:
-        The configured API key
-        
-    Raises:
-        ValueError: If API key is not configured
-    """
-    api_key = settings.ADMIN_API_KEY
-    if not api_key:
-        logger.warning("ADMIN_API_KEY not configured in environment variables")
-        # Return a default key for development - CHANGE IN PRODUCTION
-        return "dev-api-key-change-me"
-    return api_key
+def hash_key(key: str) -> str:
+    """SHA-256 hash of API key"""
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def get_master_key() -> str:
+    """Get master admin key from settings"""
+    return settings.ADMIN_API_KEY or "dev-api-key-change-me"
 
 
 async def verify_api_key(
-    api_key: Optional[str] = Security(api_key_header)
-) -> str:
+    api_key: Optional[str] = Security(api_key_header),
+    required_permissions: List[str] = None
+) -> dict:
     """
-    Verify the API key from request header.
+    Verify API key and check permissions.
     
-    Args:
-        api_key: API key from X-API-Key header
-        
-    Returns:
-        The verified API key
-        
-    Raises:
-        HTTPException: If API key is missing or invalid
+    Returns dict with: key_prefix, permissions, is_admin
     """
     if not api_key:
-        logger.warning("API key missing from request")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required. Please provide X-API-Key header.",
-            headers={"WWW-Authenticate": "ApiKey"}
+            detail="API key required. Please provide X-API-Key header."
         )
     
-    valid_key = get_valid_api_key()
+    # Check if master admin key
+    if api_key == get_master_key():
+        return {"key_prefix": "master", "permissions": ["admin", "read", "write", "generate", "training"], "is_admin": True}
     
-    if api_key != valid_key:
-        logger.warning(f"Invalid API key attempt: {api_key[:8]}...")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid API key. Access denied.",
-            headers={"WWW-Authenticate": "ApiKey"}
-        )
+    # Check database for generated key
+    from app.db import get_db
+    db = get_db()
     
-    logger.debug("API key verified successfully")
-    return api_key
+    key_hash = hash_key(api_key)
+    key_doc = db.db["api_keys"].find_one({"key_hash": key_hash})
+    
+    if not key_doc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid API key. Access denied.")
+    
+    # Check if active
+    if not key_doc.get("is_active", True):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API key has been revoked.")
+    
+    # Check expiry
+    if key_doc.get("expires_at") and key_doc["expires_at"] < datetime.utcnow():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API key has expired.")
+    
+    # Check usage limit
+    if key_doc.get("usage_limit") and key_doc.get("used_count", 0) >= key_doc["usage_limit"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API key usage limit exceeded.")
+    
+    # Check required permissions
+    key_permissions = key_doc.get("permissions", [])
+    if required_permissions:
+        if "admin" not in key_permissions:  # Admin bypasses permission checks
+            for perm in required_permissions:
+                if perm not in key_permissions:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Permission denied. Required: {perm}"
+                    )
+    
+    # Update usage stats
+    db.db["api_keys"].update_one(
+        {"_id": key_doc["_id"]},
+        {"$inc": {"used_count": 1}, "$set": {"last_used": datetime.utcnow()}}
+    )
+    
+    return {
+        "key_prefix": key_doc.get("key_prefix", api_key[:8]),
+        "permissions": key_permissions,
+        "is_admin": "admin" in key_permissions
+    }
 
 
-def get_api_key_header() -> APIKeyHeader:
-    """
-    Get the API key header security scheme for OpenAPI docs.
-    
-    Returns:
-        APIKeyHeader instance
-    """
-    return api_key_header
+async def verify_admin_key(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Verify key has admin permission"""
+    result = await verify_api_key(api_key, required_permissions=["admin"])
+    if not result.get("is_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
+    return result
+
+
+async def verify_generate_permission(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Verify key has generate permission"""
+    return await verify_api_key(api_key, required_permissions=["generate"])
+
+
+async def verify_training_permission(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Verify key has training permission"""
+    return await verify_api_key(api_key, required_permissions=["training"])
+
+
+async def verify_write_permission(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Verify key has write permission"""
+    return await verify_api_key(api_key, required_permissions=["write"])
 
 
 class APIKeyDependency:
-    """
-    Dependency class for API key verification with optional bypass.
+    """Dependency class for API key verification with required permissions."""
     
-    Usage:
-        # Required authentication
-        @router.post("/protected")
-        async def protected_endpoint(auth: str = Depends(APIKeyDependency())):
-            ...
-        
-        # Optional authentication (for mixed access)
-        @router.get("/mixed")  
-        async def mixed_endpoint(auth: str = Depends(APIKeyDependency(required=False))):
-            if auth:
-                # Authenticated access
-            else:
-                # Public access
-    """
-    
-    def __init__(self, required: bool = True):
-        """
-        Initialize the dependency.
-        
-        Args:
-            required: If True, raises error when API key is missing/invalid.
-                     If False, returns None for invalid keys.
-        """
+    def __init__(self, required: bool = True, permissions: List[str] = None):
         self.required = required
+        self.permissions = permissions or []
     
-    async def __call__(
-        self,
-        api_key: Optional[str] = Security(api_key_header)
-    ) -> Optional[str]:
-        """
-        Verify API key based on required setting.
-        
-        Args:
-            api_key: API key from header
-            
-        Returns:
-            Verified API key or None if not required
-        """
-        if not api_key:
-            if self.required:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="API key required. Please provide X-API-Key header.",
-                    headers={"WWW-Authenticate": "ApiKey"}
-                )
+    async def __call__(self, api_key: Optional[str] = Security(api_key_header)) -> Optional[dict]:
+        if not api_key and not self.required:
             return None
-        
-        valid_key = get_valid_api_key()
-        
-        if api_key != valid_key:
-            if self.required:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Invalid API key. Access denied.",
-                    headers={"WWW-Authenticate": "ApiKey"}
-                )
-            return None
-        
-        return api_key
+        return await verify_api_key(api_key, required_permissions=self.permissions)
 
 
-# Endpoint to verify API key (for frontend validation)
 async def check_api_key(api_key: str = Security(api_key_header)) -> dict:
-    """
-    Check if provided API key is valid.
-    
-    Returns:
-        Success response if valid
-    """
-    await verify_api_key(api_key)
-    return {"valid": True, "message": "API key is valid"}
+    """Check if provided API key is valid."""
+    result = await verify_api_key(api_key)
+    return {"valid": True, "permissions": result["permissions"], "is_admin": result["is_admin"]}
