@@ -1042,6 +1042,10 @@
                         <div class="text-2xl font-bold text-neutral-900" id="total-count">0</div>
                         <div class="text-xs text-neutral-500 font-500">Entries Trained</div>
                     </div>
+                    <a href="dashboard.html" class="btn-secondary inline-flex items-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                        Dashboard
+                    </a>
                     <a href="index.html" class="btn-primary inline-flex items-center gap-2">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
                         Generate Proposal
@@ -1339,7 +1343,7 @@
         // Local: 'http://127.0.0.1:8000/api/job-data'
         // Production: 'https://ml.genproposals.com/api/job-data'
         const API_BASE = 'https://ml.genproposals.com/api/job-data';
-        const AUTH_API = 'https://ml.genproposals.com/api/auth/verify';
+        const AUTH_API = 'https://ml.genproposals.com/api/verify';
         
         // Authentication state
         let apiKey = localStorage.getItem('training_api_key') || '';

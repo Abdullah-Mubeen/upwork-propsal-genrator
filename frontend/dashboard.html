@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="image.png">
+    <title>Analytics Dashboard | Proposal Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background: #fafafa; min-height: 100vh; }
+        .input-field { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+        .input-field:focus { outline: none; border-color: #171717; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
+        .stat-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 20px; }
+        .stat-value { font-size: 32px; font-weight: 700; color: #171717; }
+        .stat-label { font-size: 13px; color: #737373; margin-top: 4px; }
+        .stat-change { font-size: 12px; font-weight: 500; }
+        .btn-secondary { background: #fff; color: #171717; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 16px; font-weight: 500; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+        .btn-secondary:hover { background: #fafafa; border-color: #d4d4d4; }
+        .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; }
+        .funnel-bar { height: 36px; border-radius: 6px; transition: width 0.5s ease; }
+        .auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        .auth-overlay.hidden { display: none; }
+        .auth-modal { background: #fff; border-radius: 12px; padding: 24px; max-width: 320px; width: 90%; }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #171717; color: #fff; padding: 12px 16px; border-radius: 8px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.2s; z-index: 200; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <!-- Auth Modal -->
+    <div class="auth-overlay" id="auth-overlay">
+        <div class="auth-modal">
+            <div class="flex items-center gap-3 mb-5">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                <h2 class="text-base font-semibold">Enter API Key</h2>
+            </div>
+            <form onsubmit="authenticate(event)">
+                <input type="password" id="api-key-input" class="input-field w-full mb-3" placeholder="API key" required>
+                <label class="flex items-center gap-2 mb-4 text-xs text-neutral-500"><input type="checkbox" id="remember-key" checked> Remember me</label>
+                <button type="submit" class="w-full bg-neutral-900 text-white py-3 rounded-lg font-medium text-sm" id="auth-btn">Continue</button>
+                <p class="text-xs text-red-500 text-center mt-3" id="auth-error"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="border-b border-neutral-200 bg-white">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-semibold text-neutral-900">Analytics Dashboard</h1>
+                <p class="text-xs text-neutral-500">Track proposal performance</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <select id="date-range" class="input-field text-sm" onchange="loadAll()">
+                    <option value="all">All Time</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d" selected>Last 30 Days</option>
+                    <option value="90d">Last 90 Days</option>
+                </select>
+                <a href="index.html" class="btn-secondary inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                    Generate
+                </a>
+                <a href="history.html" class="btn-secondary inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    History
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-8">
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="stat-card">
+                <div class="stat-value" id="s-total">-</div>
+                <div class="stat-label">Total Proposals</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-blue-600" id="s-ai">-</div>
+                <div class="stat-label">AI Generated</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-amber-600" id="s-manual">-</div>
+                <div class="stat-label">Manual</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-green-600" id="s-hired">-</div>
+                <div class="stat-label">Hired <span class="text-neutral-400 text-sm" id="s-rate"></span></div>
+            </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <!-- Conversion Funnel -->
+            <div class="card p-6">
+                <h2 class="font-semibold text-neutral-900 mb-4">Conversion Funnel</h2>
+                <div class="space-y-3" id="funnel-container">
+                    <div class="animate-pulse bg-neutral-100 h-10 rounded"></div>
+                </div>
+            </div>
+
+            <!-- AI vs Manual Comparison -->
+            <div class="card p-6">
+                <h2 class="font-semibold text-neutral-900 mb-4">AI vs Manual Performance</h2>
+                <div id="comparison-container">
+                    <canvas id="comparison-chart" height="180"></canvas>
+                </div>
+                <div class="mt-4 p-3 bg-neutral-50 rounded-lg text-center" id="effectiveness-badge">
+                    <span class="text-sm text-neutral-600">AI is </span>
+                    <span class="font-bold text-lg text-green-600" id="effectiveness-value">-</span>
+                    <span class="text-sm text-neutral-600"> more effective</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6">
+            <!-- Trends Chart -->
+            <div class="card p-6">
+                <h2 class="font-semibold text-neutral-900 mb-4">Proposal Trends</h2>
+                <canvas id="trends-chart" height="200"></canvas>
+            </div>
+
+            <!-- Top Skills -->
+            <div class="card p-6">
+                <h2 class="font-semibold text-neutral-900 mb-4">Top Performing Skills</h2>
+                <div id="skills-container" class="space-y-2">
+                    <div class="animate-pulse bg-neutral-100 h-8 rounded"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const API = 'https://ml.genproposals.com/api';
+        let apiKey = localStorage.getItem('training_api_key') || '';
+        let comparisonChart, trendsChart;
+
+        axios.interceptors.request.use(c => { if (apiKey) c.headers['X-API-Key'] = apiKey; return c; });
+        axios.interceptors.response.use(r => r, e => {
+            if (e.response?.status === 401 || e.response?.status === 403) {
+                apiKey = ''; localStorage.removeItem('training_api_key');
+                document.getElementById('auth-overlay').classList.remove('hidden');
+            }
+            return Promise.reject(e);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => apiKey ? verify() : showAuth());
+
+        function showAuth() { document.getElementById('auth-overlay').classList.remove('hidden'); }
+        function hideAuth() { document.getElementById('auth-overlay').classList.add('hidden'); }
+        function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+
+        async function verify() {
+            try { await axios.get(`${API}/auth/verify`); hideAuth(); loadAll(); }
+            catch { showAuth(); }
+        }
+
+        async function authenticate(e) {
+            e.preventDefault();
+            const btn = document.getElementById('auth-btn'), err = document.getElementById('auth-error');
+            apiKey = document.getElementById('api-key-input').value.trim();
+            btn.disabled = true; btn.textContent = 'Verifying...'; err.textContent = '';
+            try {
+                await axios.get(`${API}/auth/verify`);
+                if (document.getElementById('remember-key').checked) localStorage.setItem('training_api_key', apiKey);
+                hideAuth(); loadAll();
+            } catch { err.textContent = 'Invalid key'; apiKey = ''; }
+            finally { btn.disabled = false; btn.textContent = 'Continue'; }
+        }
+
+        function getRange() { return document.getElementById('date-range').value; }
+
+        async function loadAll() {
+            const range = getRange();
+            await Promise.all([loadSummary(range), loadFunnel(range), loadComparison(range), loadTrends(range), loadSkills(range)]);
+        }
+
+        async function loadSummary(range) {
+            try {
+                const { data } = await axios.get(`${API}/analytics/summary?range=${range}`);
+                document.getElementById('s-total').textContent = data.total_proposals;
+                document.getElementById('s-ai').textContent = data.ai_generated_count;
+                document.getElementById('s-manual').textContent = data.manual_count;
+                document.getElementById('s-hired').textContent = data.total_hired;
+                document.getElementById('s-rate').textContent = `(${data.overall_hire_rate}%)`;
+            } catch (e) { console.error('Summary error:', e); }
+        }
+
+        async function loadFunnel(range) {
+            try {
+                const { data } = await axios.get(`${API}/analytics/funnel?range=${range}`);
+                const colors = { Sent: '#e5e5e5', Viewed: '#dbeafe', Discussed: '#ede9fe', Hired: '#d1fae5' };
+                const textColors = { Sent: '#525252', Viewed: '#1e40af', Discussed: '#6d28d9', Hired: '#065f46' };
+                document.getElementById('funnel-container').innerHTML = data.funnel.map(s => `
+                    <div class="flex items-center gap-3">
+                        <div class="w-20 text-sm font-medium text-neutral-700">${s.stage}</div>
+                        <div class="flex-1 bg-neutral-100 rounded-md overflow-hidden h-9">
+                            <div class="funnel-bar flex items-center px-3" style="width:${s.percentage}%;background:${colors[s.stage]}">
+                                <span class="text-sm font-semibold" style="color:${textColors[s.stage]}">${s.count}</span>
+                            </div>
+                        </div>
+                        <div class="w-14 text-right text-sm text-neutral-500">${s.percentage}%</div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error('Funnel error:', e); }
+        }
+
+        async function loadComparison(range) {
+            try {
+                const { data } = await axios.get(`${API}/analytics/comparison?range=${range}`);
+                const ctx = document.getElementById('comparison-chart').getContext('2d');
+                if (comparisonChart) comparisonChart.destroy();
+                comparisonChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['View Rate', 'Hire Rate'],
+                        datasets: [
+                            { label: 'AI Generated', data: [data.ai_generated.view_rate, data.ai_generated.hire_rate], backgroundColor: '#3b82f6' },
+                            { label: 'Manual', data: [data.manual.view_rate, data.manual.hire_rate], backgroundColor: '#f59e0b' }
+                        ]
+                    },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, max: 100 } } }
+                });
+                const eff = data.ai_effectiveness;
+                const effEl = document.getElementById('effectiveness-value');
+                effEl.textContent = eff === Infinity ? '∞' : eff >= 1 ? `${((eff - 1) * 100).toFixed(0)}%` : `${((1 - eff) * 100).toFixed(0)}% less`;
+                effEl.className = `font-bold text-lg ${eff >= 1 ? 'text-green-600' : 'text-red-500'}`;
+            } catch (e) { console.error('Comparison error:', e); }
+        }
+
+        async function loadTrends(range) {
+            try {
+                const { data } = await axios.get(`${API}/analytics/trends?range=${range}`);
+                const ctx = document.getElementById('trends-chart').getContext('2d');
+                if (trendsChart) trendsChart.destroy();
+                trendsChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.data.map(d => d.date.slice(5)),
+                        datasets: [
+                            { label: 'Sent', data: data.data.map(d => d.sent), borderColor: '#6b7280', tension: 0.3, fill: false },
+                            { label: 'Hired', data: data.data.map(d => d.hired), borderColor: '#10b981', tension: 0.3, fill: false }
+                        ]
+                    },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+                });
+            } catch (e) { console.error('Trends error:', e); }
+        }
+
+        async function loadSkills(range) {
+            try {
+                const { data } = await axios.get(`${API}/analytics/skills?range=${range}&limit=8`);
+                if (!data.skills.length) {
+                    document.getElementById('skills-container').innerHTML = '<p class="text-neutral-400 text-sm">No data yet</p>';
+                    return;
+                }
+                const maxTotal = Math.max(...data.skills.map(s => s.total));
+                document.getElementById('skills-container').innerHTML = data.skills.map(s => `
+                    <div class="flex items-center gap-3">
+                        <div class="w-24 text-sm font-medium text-neutral-700 truncate" title="${s.skill}">${s.skill}</div>
+                        <div class="flex-1 bg-neutral-100 rounded h-6 overflow-hidden">
+                            <div class="h-full bg-green-100 flex items-center px-2" style="width:${(s.total/maxTotal)*100}%">
+                                <span class="text-xs font-medium text-green-700">${s.hired}/${s.total}</span>
+                            </div>
+                        </div>
+                        <div class="w-12 text-right text-sm font-medium ${s.hire_rate >= 20 ? 'text-green-600' : 'text-neutral-500'}">${s.hire_rate}%</div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error('Skills error:', e); }
+        }
+    </script>
+</body>
+</html>
