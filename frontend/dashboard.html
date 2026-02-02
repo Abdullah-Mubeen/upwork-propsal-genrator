@@ -141,13 +141,13 @@
 
     <script>
         const API = 'https://ml.genproposals.com/api';
-        let apiKey = localStorage.getItem('training_api_key') || '';
+        let apiKey = localStorage.getItem('app_api_key') || '';
         let comparisonChart, trendsChart;
 
         axios.interceptors.request.use(c => { if (apiKey) c.headers['X-API-Key'] = apiKey; return c; });
         axios.interceptors.response.use(r => r, e => {
             if (e.response?.status === 401 || e.response?.status === 403) {
-                apiKey = ''; localStorage.removeItem('training_api_key');
+                apiKey = ''; localStorage.removeItem('app_api_key');
                 document.getElementById('auth-overlay').classList.remove('hidden');
             }
             return Promise.reject(e);
@@ -171,7 +171,7 @@
             btn.disabled = true; btn.textContent = 'Verifying...'; err.textContent = '';
             try {
                 await axios.get(`${API}/auth/verify`);
-                if (document.getElementById('remember-key').checked) localStorage.setItem('training_api_key', apiKey);
+                if (document.getElementById('remember-key').checked) localStorage.setItem('app_api_key', apiKey);
                 hideAuth(); loadAll();
             } catch { err.textContent = 'Invalid key'; apiKey = ''; }
             finally { btn.disabled = false; btn.textContent = 'Continue'; }

@@ -1,156 +1,75 @@
 """
-API Key Authentication Middleware
+Simplified Auth Middleware - 3 Roles Only
 
-Security layer with permission-based access control.
-- Master Admin: Full access (ADMIN_API_KEY from env)
-- Generated Keys: Custom permissions, expiry, usage limits
-
-Permissions: read, write, generate, training, admin
+- Super Admin: Master key from .env - manages keys
+- Admin: Full access (generate, read, write, training)  
+- User: Generate proposals only
 """
-
-import logging
 import hashlib
-from typing import Optional, List
 from datetime import datetime
-from fastapi import HTTPException, Security, Request, status
+from typing import Optional
+from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 from app.config import settings
 
-logger = logging.getLogger(__name__)
-
-API_KEY_HEADER_NAME = "X-API-Key"
-api_key_header = APIKeyHeader(name=API_KEY_HEADER_NAME, auto_error=False)
-
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 def hash_key(key: str) -> str:
-    """SHA-256 hash of API key"""
     return hashlib.sha256(key.encode()).hexdigest()
 
-
 def get_master_key() -> str:
-    """Get master admin key from settings"""
-    return settings.ADMIN_API_KEY or "dev-api-key-change-me"
+    return settings.ADMIN_API_KEY or "dev-key"
 
-
-async def verify_api_key(
-    api_key: Optional[str] = Security(api_key_header),
-    required_permissions: List[str] = None
-) -> dict:
-    """
-    Verify API key and check permissions.
-    
-    Returns dict with: key_prefix, permissions, is_admin
-    """
+async def verify_key(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Verify any valid key - returns role info"""
     if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required. Please provide X-API-Key header."
-        )
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "API key required")
     
-    # Check if master admin key
+    # Super Admin check
     if api_key == get_master_key():
-        return {"key_prefix": "master", "permissions": ["admin", "read", "write", "generate", "training"], "is_admin": True}
+        return {"role": "super_admin", "name": "Super Admin", "permissions": ["admin", "generate", "read", "write", "training"]}
     
-    # Check database for generated key
+    # Check DB for generated key
     from app.db import get_db
     db = get_db()
+    doc = db.db["api_keys"].find_one({"key_hash": hash_key(api_key)})
     
-    key_hash = hash_key(api_key)
-    key_doc = db.db["api_keys"].find_one({"key_hash": key_hash})
+    if not doc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid API key")
+    if not doc.get("is_active", True):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Key revoked")
+    if doc.get("expires_at") and doc["expires_at"] < datetime.utcnow():
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Key expired")
+    if doc.get("usage_limit") and doc.get("used_count", 0) >= doc["usage_limit"]:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Usage limit exceeded")
     
-    if not key_doc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid API key. Access denied.")
+    # Update usage
+    db.db["api_keys"].update_one({"_id": doc["_id"]}, {"$inc": {"used_count": 1}, "$set": {"last_used": datetime.utcnow()}})
     
-    # Check if active
-    if not key_doc.get("is_active", True):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API key has been revoked.")
-    
-    # Check expiry
-    if key_doc.get("expires_at") and key_doc["expires_at"] < datetime.utcnow():
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API key has expired.")
-    
-    # Check usage limit
-    if key_doc.get("usage_limit") and key_doc.get("used_count", 0) >= key_doc["usage_limit"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API key usage limit exceeded.")
-    
-    # Check required permissions
-    key_permissions = key_doc.get("permissions", [])
-    if required_permissions:
-        if "admin" not in key_permissions:  # Admin bypasses permission checks
-            for perm in required_permissions:
-                if perm not in key_permissions:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Permission denied. Required: {perm}"
-                    )
-    
-    # Update usage stats
-    db.db["api_keys"].update_one(
-        {"_id": key_doc["_id"]},
-        {"$inc": {"used_count": 1}, "$set": {"last_used": datetime.utcnow()}}
-    )
-    
-    return {
-        "key_prefix": key_doc.get("key_prefix", api_key[:8]),
-        "permissions": key_permissions,
-        "is_admin": "admin" in key_permissions
-    }
+    role = doc.get("role", "user")
+    perms = ["admin", "generate", "read", "write", "training"] if role == "admin" else ["generate"]
+    return {"role": role, "name": doc.get("name", "User"), "permissions": perms}
 
+async def verify_super_admin(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Only master key from .env"""
+    if not api_key or api_key != get_master_key():
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Super Admin access required")
+    return {"role": "super_admin", "name": "Super Admin"}
 
-async def verify_super_admin_key(api_key: Optional[str] = Security(api_key_header)) -> dict:
-    """
-    Verify ONLY the master admin key from .env.
-    Generated keys with 'admin' permission do NOT have super admin access.
-    There is only ONE super admin.
-    """
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required. Please provide X-API-Key header."
-        )
-    
-    if api_key != get_master_key():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Super Admin access required. Only the master admin can access this."
-        )
-    
-    return {"key_prefix": "master", "permissions": ["admin", "read", "write", "generate", "training"], "is_admin": True, "is_super_admin": True}
+async def verify_admin(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Admin or Super Admin"""
+    result = await verify_key(api_key)
+    if result["role"] not in ("admin", "super_admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin access required")
+    return result
 
+async def verify_user(api_key: Optional[str] = Security(api_key_header)) -> dict:
+    """Any valid key (user, admin, super_admin)"""
+    return await verify_key(api_key)
 
-# Alias for backward compatibility
-verify_admin_key = verify_super_admin_key
-
-
-async def verify_generate_permission(api_key: Optional[str] = Security(api_key_header)) -> dict:
-    """Verify key has generate permission"""
-    return await verify_api_key(api_key, required_permissions=["generate"])
-
-
-async def verify_training_permission(api_key: Optional[str] = Security(api_key_header)) -> dict:
-    """Verify key has training permission"""
-    return await verify_api_key(api_key, required_permissions=["training"])
-
-
-async def verify_write_permission(api_key: Optional[str] = Security(api_key_header)) -> dict:
-    """Verify key has write permission"""
-    return await verify_api_key(api_key, required_permissions=["write"])
-
-
-class APIKeyDependency:
-    """Dependency class for API key verification with required permissions."""
-    
-    def __init__(self, required: bool = True, permissions: List[str] = None):
-        self.required = required
-        self.permissions = permissions or []
-    
-    async def __call__(self, api_key: Optional[str] = Security(api_key_header)) -> Optional[dict]:
-        if not api_key and not self.required:
-            return None
-        return await verify_api_key(api_key, required_permissions=self.permissions)
-
-
-async def check_api_key(api_key: str = Security(api_key_header)) -> dict:
-    """Check if provided API key is valid."""
-    result = await verify_api_key(api_key)
-    return {"valid": True, "permissions": result["permissions"], "is_admin": result["is_admin"]}
+# Aliases for backward compatibility
+verify_api_key = verify_key
+verify_admin_key = verify_super_admin
+verify_generate_permission = verify_user
+verify_training_permission = verify_admin
+verify_write_permission = verify_admin

@@ -59,18 +59,14 @@ async def root():
 
 @app.get("/api/auth/verify")
 async def verify_api_key_endpoint(auth_result: dict = Depends(verify_api_key)):
-    """
-    Verify if the provided API key is valid.
-    
-    Send X-API-Key header with your API key.
-    Returns success if valid, 401/403 if invalid.
-    """
+    """Verify API key and return role/permissions"""
+    role = auth_result.get("role", "user")
     return {
         "valid": True,
-        "message": "API key is valid. You have access to protected endpoints.",
-        "key_prefix": auth_result.get("key_prefix"),
+        "role": role,
         "permissions": auth_result.get("permissions", []),
-        "is_admin": auth_result.get("is_admin", False)
+        "is_admin": role in ("admin", "super_admin"),
+        "is_super_admin": role == "super_admin"
     }
 
 
