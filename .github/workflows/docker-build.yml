@@ -1,25 +1,15 @@
-name: Build and Push Docker Image to ECR
+name: Build and Deploy
 
 on:
   push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'app/**'
-      - 'frontend/**'
-      - 'requirements.txt'
-      - 'Dockerfile'
-      - '.github/workflows/docker-build.yml'
+    branches: [main]
+    paths: ['app/**', 'frontend/**', 'requirements.txt', 'Dockerfile', '.github/workflows/docker-build.yml']
   pull_request:
-    branches:
-      - main
-      - develop
+    branches: [main]
 
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: proposal-generator
-  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build:
@@ -27,10 +17,14 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      image: ${{ steps.build.outputs.image }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -42,73 +36,67 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build and push with cache
+        id: build
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker buildx build \
+            --cache-from type=registry,ref=$ECR_REGISTRY/$ECR_REPOSITORY:cache \
+            --cache-to type=registry,ref=$ECR_REGISTRY/$ECR_REPOSITORY:cache,mode=max \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            --push .
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: List files for debug
-        run: ls -l
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
-      - name: Render ECS task definition
-        if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::605600142754:role/GitHubActionsRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy to ECS
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Replace image placeholder with actual ECR image URI
-          sed -i "s|REPLACED_BY_CICD|$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}|g" ecs-task-def.json
-          
-          # Register new task definition
-          TASK_DEFINITION=$(aws ecs register-task-definition --cli-input-json file://ecs-task-def.json --region ${{ env.AWS_REGION }})
-          TASK_DEFINITION_ARN=$(echo $TASK_DEFINITION | jq -r '.taskDefinition.taskDefinitionArn')
-          
-          # Update service with new task definition (FORCE NEW DEPLOYMENT)
-          aws ecs update-service \
-            --cluster proposal-generator-cluster \
-            --service proposal-generator-service \
-            --task-definition $TASK_DEFINITION_ARN \
-            --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
-          
-          echo "✅ Service updated with task definition: $TASK_DEFINITION_ARN"
+          sed -i "s|REPLACED_BY_CICD|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" ecs-task-def.json
+          TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://ecs-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster proposal-generator-cluster --service proposal-generator-service --task-definition $TASK_ARN --force-new-deployment
+          echo "✅ ECS deployment triggered: $TASK_ARN"
 
-      - name: Wait for service to stabilize
-        if: github.ref == 'refs/heads/main'
-        run: |
-          aws ecs wait services-stable \
-            --cluster proposal-generator-cluster \
-            --services proposal-generator-service \
-            --region ${{ env.AWS_REGION }}
-          echo "✅ Service has stabilized with new deployment"
-      
-      - name: Verify frontend directory
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "Checking frontend directory..."
-          ls -la frontend/ || echo "Frontend directory not found!"
-          
       - name: Deploy frontend to S3
-        if: github.ref == 'refs/heads/main'
         run: |
-          if [ -d "frontend" ]; then
-            aws s3 sync frontend/ s3://genproposals.com/ --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate" --region ap-south-1
-            echo "✅ Frontend deployed to S3"
-          else
-            echo "❌ Frontend directory not found, skipping S3 sync"
-            exit 1
-          fi
+          aws s3 sync frontend/ s3://genproposals.com/ --delete --cache-control "max-age=0,no-cache,no-store,must-revalidate"
+          echo "✅ Frontend deployed"
 
-      - name: Invalidate CloudFront cache
-        if: github.ref == 'refs/heads/main'
+      - name: Invalidate CloudFront
         run: |
-          aws cloudfront create-invalidation --distribution-id E2FANG0M4M7PYU --paths "/*" --region ap-south-1
-          echo "✅ CloudFront cache invalidated"
-      
-      - name: Output image URI
+          aws cloudfront create-invalidation --distribution-id E2FANG0M4M7PYU --paths "/*"
+          echo "✅ Cache invalidated"
+
+      - name: Verify deployment
         run: |
-          echo "Docker image pushed: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+          sleep 30
+          for i in {1..6}; do
+            STATUS=$(aws ecs describe-services --cluster proposal-generator-cluster --services proposal-generator-service --query 'services[0].deployments[0].runningCount' --output text)
+            if [ "$STATUS" -ge 1 ]; then echo "✅ Service running"; exit 0; fi
+            echo "Waiting... ($i/6)"; sleep 10
+          done
+          echo "⚠️ Deployment in progress (check ECS console)"
