@@ -698,7 +698,8 @@
                     similar_projects_used: (lastGeneratedResult.similar_projects || []).map(p => p.contract_id).filter(Boolean),
                     portfolio_links_used: lastGeneratedResult.portfolio_links_used || [],
                     confidence_score: lastGeneratedResult.confidence_score || 0,
-                    temporary_link: document.getElementById('temporary-link-input').value.trim() || null
+                    temporary_link: document.getElementById('temporary-link-input').value.trim() || null,
+                    source: 'ai_generated'
                 };
                 
                 const res = await axios.post(`${API_BASE}/save`, saveData);
