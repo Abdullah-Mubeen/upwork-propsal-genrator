@@ -1346,7 +1346,7 @@
         const AUTH_API = 'https://ml.genproposals.com/api/auth/verify';
         
         // Authentication state
-        let apiKey = localStorage.getItem('training_api_key') || '';
+        let apiKey = localStorage.getItem('app_api_key') || '';
         let isAuthenticated = false;
         
         let currentSkills = [];
@@ -1377,7 +1377,7 @@
                     // API key is invalid or missing
                     isAuthenticated = false;
                     apiKey = '';
-                    localStorage.removeItem('training_api_key');
+                    localStorage.removeItem('app_api_key');
                     showAuthModal();
                     showToast('Session expired. Please re-authenticate.', 'error');
                 }
@@ -1415,7 +1415,7 @@
             } catch (error) {
                 // Stored key is invalid
                 apiKey = '';
-                localStorage.removeItem('training_api_key');
+                localStorage.removeItem('app_api_key');
                 showAuthModal();
             }
         }
@@ -1449,7 +1449,7 @@
                 
                 // Store if remember is checked
                 if (rememberCheckbox.checked) {
-                    localStorage.setItem('training_api_key', enteredKey);
+                    localStorage.setItem('app_api_key', enteredKey);
                 }
                 
                 hideAuthModal();
