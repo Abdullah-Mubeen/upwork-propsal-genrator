@@ -92,15 +92,9 @@
                         </label>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3 mb-4">
-                    <div>
-                        <label class="block text-sm font-medium text-neutral-700 mb-1">Expires (days)</label>
-                        <input type="number" id="key-expiry" class="input-field w-full" placeholder="Never" min="1" max="365">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-neutral-700 mb-1">Usage Limit</label>
-                        <input type="number" id="key-limit" class="input-field w-full" placeholder="Unlimited" min="1">
-                    </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-neutral-700 mb-1">Expires (days)</label>
+                    <input type="number" id="key-expiry" class="input-field w-full" placeholder="Never expires" min="1" max="365">
                 </div>
                 <div class="flex gap-3">
                     <button type="button" onclick="toggleModal('create-modal')" class="btn-secondary flex-1">Cancel</button>
@@ -247,10 +241,9 @@
                         </div>
                         <div class="flex items-center gap-2 mb-2">
                             <span class="badge ${k.role === 'admin' ? 'badge-blue' : 'badge-purple'}">${k.role}</span>
-                            <span class="text-xs text-neutral-400">${k.used_count || 0}${k.usage_limit ? '/' + k.usage_limit : ''} uses</span>
                         </div>
                         <div class="flex items-center justify-between text-xs text-neutral-500">
-                            <span>${k.expires_at ? 'Exp: ' + new Date(k.expires_at).toLocaleDateString() : 'No expiry'}</span>
+                            <span>${k.expires_at ? 'Expires: ' + new Date(k.expires_at).toLocaleDateString() : 'Never expires'}</span>
                             ${k.is_active ? `<button onclick="revokeKey('${k.id}','${esc(k.name).replace(/'/g, "\\'")}')" class="btn-danger">Revoke</button>` : ''}
                         </div>
                     </div>
@@ -284,8 +277,7 @@
                     name,
                     email: document.getElementById('key-email').value.trim() || null,
                     role,
-                    expires_in_days: parseInt(document.getElementById('key-expiry').value) || null,
-                    usage_limit: parseInt(document.getElementById('key-limit').value) || null
+                    expires_in_days: parseInt(document.getElementById('key-expiry').value) || null
                 });
                 newKeyValue = data.api_key;
                 document.getElementById('new-key-value').textContent = newKeyValue;

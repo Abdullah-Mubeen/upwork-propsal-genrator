@@ -40,11 +40,9 @@ async def verify_key(api_key: Optional[str] = Security(api_key_header)) -> dict:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Key revoked")
     if doc.get("expires_at") and doc["expires_at"] < datetime.utcnow():
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Key expired")
-    if doc.get("usage_limit") and doc.get("used_count", 0) >= doc["usage_limit"]:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Usage limit exceeded")
     
-    # Update usage
-    db.db["api_keys"].update_one({"_id": doc["_id"]}, {"$inc": {"used_count": 1}, "$set": {"last_used": datetime.utcnow()}})
+    # Update last used
+    db.db["api_keys"].update_one({"_id": doc["_id"]}, {"$set": {"last_used": datetime.utcnow()}})
     
     role = doc.get("role", "user")
     perms = ["admin", "generate", "read", "write", "training"] if role == "admin" else ["generate"]
