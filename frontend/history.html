@@ -166,6 +166,15 @@
         }
         .toast.show { opacity: 1; transform: translateY(0); }
 
+        /* Nav icons */
+        .nav-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #737373; transition: all 0.15s; cursor: pointer; text-decoration: none; position: relative; }
+        .nav-icon:hover { background: #f5f5f5; color: #171717; }
+        .nav-icon svg { width: 18px; height: 18px; }
+        .nav-icon .tooltip { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #171717; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+        .nav-icon:hover .tooltip { opacity: 1; }
+        .user-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f5f5f5; border-radius: 6px; font-size: 12px; color: #525252; }
+        .user-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+
         /* Empty state */
         .empty-state { text-align: center; padding: 60px 20px; }
 
@@ -216,25 +225,37 @@
     </div>
 
     <!-- Header -->
-    <header class="border-b border-neutral-200 bg-white">
-        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div>
-                <h1 class="text-lg font-semibold text-neutral-900">Proposal History</h1>
-                <p class="text-xs text-neutral-500">Track outcomes & conversion</p>
-            </div>
+    <header class="border-b border-neutral-200 bg-white sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <a href="dashboard.html" class="btn-secondary inline-flex items-center gap-2">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-                    Dashboard
+                <div class="w-8 h-8 bg-neutral-900 rounded-lg flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                <span class="font-semibold text-neutral-900 text-sm">History</span>
+            </div>
+            <div class="flex items-center gap-1" id="nav-links">
+                <a href="index.html" class="nav-icon" title="Generate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                    <span class="tooltip">Generate</span>
                 </a>
-                <a href="index.html" class="btn-secondary inline-flex items-center gap-2">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                    Generate
+                <a href="dashboard.html" class="nav-icon" title="Analytics">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                    <span class="tooltip">Analytics</span>
                 </a>
-                <a href="training.html" class="btn-secondary inline-flex items-center gap-2">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-                    Training
+                <a href="training.html" class="nav-icon" title="Training">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                    <span class="tooltip">Training</span>
                 </a>
+                <a href="admin.html" class="nav-icon" id="nav-admin" title="Admin" style="display:none">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                    <span class="tooltip">Admin</span>
+                </a>
+                <div class="w-px h-6 bg-neutral-200 mx-2"></div>
+                <div class="user-badge" id="user-badge"><span class="dot"></span><span id="user-role">Admin</span></div>
+                <button onclick="logout()" class="nav-icon" title="Logout">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                    <span class="tooltip">Logout</span>
+                </button>
             </div>
         </div>
     </header>
@@ -405,6 +426,7 @@
         // Authentication state
         let apiKey = localStorage.getItem('app_api_key') || '';
         let isAuthenticated = false;
+        let userRole = null;
         
         let currentFilter = '';
         let currentProposalId = null;
@@ -434,6 +456,14 @@
             }
         );
 
+        function logout() { apiKey = ''; userRole = null; localStorage.removeItem('app_api_key'); location.reload(); }
+
+        function updateNav() {
+            const isSuper = userRole === 'super_admin';
+            document.getElementById('nav-admin').style.display = isSuper ? 'flex' : 'none';
+            document.getElementById('user-role').textContent = isSuper ? 'Super Admin' : 'Admin';
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             if (apiKey) {
@@ -453,9 +483,11 @@
 
         async function verifyStoredApiKey() {
             try {
-                await axios.get(AUTH_API);
+                const { data } = await axios.get(AUTH_API);
+                userRole = data.role;
                 isAuthenticated = true;
                 hideAuthModal();
+                updateNav();
                 initializeApp();
             } catch (error) {
                 apiKey = '';
@@ -484,7 +516,8 @@
             
             try {
                 apiKey = enteredKey;
-                await axios.get(AUTH_API);
+                const { data } = await axios.get(AUTH_API);
+                userRole = data.role;
                 
                 isAuthenticated = true;
                 if (rememberCheckbox.checked) {
@@ -492,6 +525,7 @@
                 }
                 
                 hideAuthModal();
+                updateNav();
                 initializeApp();
                 showToast('Welcome!');
             } catch (error) {

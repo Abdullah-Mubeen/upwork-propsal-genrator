@@ -4,58 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="image.png">
-    <title>Proposal Generator | AI-Powered Upwork Proposals</title>
+    <title>Proposal Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        * { font-family: 'Inter', sans-serif; }
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
         body { background: #fafafa; min-height: 100vh; }
+        
+        /* Inputs */
         .input-field { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 14px; font-size: 14px; transition: all 0.15s; width: 100%; }
+        .input-field:hover { border-color: #d4d4d4; }
         .input-field:focus { outline: none; border-color: #171717; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
-        select.input-field { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
-        .skill-tag { display: inline-flex; align-items: center; gap: 6px; background: #171717; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; }
-        .skill-tag button { background: none; border: none; cursor: pointer; color: #a3a3a3; font-size: 14px; padding: 0; }
+        
+        /* Skills */
+        .skill-tag { display: inline-flex; align-items: center; gap: 6px; background: #171717; color: #fff; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: 500; }
+        .skill-tag button { background: none; border: none; cursor: pointer; color: #a3a3a3; font-size: 13px; padding: 0; line-height: 1; }
         .skill-tag button:hover { color: #fff; }
-        .btn-primary { background: #171717; color: #fff; border: none; border-radius: 8px; padding: 14px 20px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+        
+        /* Buttons */
+        .btn-primary { background: #171717; color: #fff; border: none; border-radius: 8px; padding: 12px 18px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s; }
         .btn-primary:hover { background: #262626; }
         .btn-primary:disabled { background: #a3a3a3; cursor: not-allowed; }
-        .btn-secondary { background: #fff; color: #171717; border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px 16px; font-weight: 500; font-size: 13px; cursor: pointer; transition: all 0.15s; }
-        .btn-secondary:hover { background: #fafafa; border-color: #d4d4d4; }
-        .toggle-container { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; cursor: pointer; }
-        .toggle-switch { width: 40px; height: 22px; background: #e5e5e5; border-radius: 11px; position: relative; transition: background 0.2s; }
+        
+        /* Toggle */
+        .toggle-container { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; cursor: pointer; }
+        .toggle-switch { width: 36px; height: 20px; background: #e5e5e5; border-radius: 10px; position: relative; transition: background 0.2s; }
         .toggle-switch.active { background: #171717; }
-        .toggle-switch::after { content: ''; position: absolute; width: 18px; height: 18px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .toggle-switch.active::after { transform: translateX(18px); }
-        .loader { width: 20px; height: 20px; border: 2px solid #e5e5e5; border-top-color: #171717; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        .toggle-switch::after { content: ''; position: absolute; width: 16px; height: 16px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.2s; }
+        .toggle-switch.active::after { transform: translateX(16px); }
+        
+        /* Loader */
+        .loader { width: 18px; height: 18px; border: 2px solid #e5e5e5; border-top-color: #171717; border-radius: 50%; animation: spin 0.6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .proposal-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; overflow: hidden; }
-        .proposal-header { padding: 20px 24px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; }
-        .proposal-body { padding: 24px; font-size: 15px; line-height: 1.75; color: #404040; white-space: pre-wrap; }
-        .stat-item { text-align: center; padding: 0 16px; }
-        .stat-value { font-size: 24px; font-weight: 700; color: #171717; }
-        .stat-label { font-size: 12px; color: #737373; margin-top: 2px; }
-        .info-section { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 20px; }
-        .info-title { font-size: 13px; font-weight: 600; color: #525252; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .project-item { padding: 12px; background: #fafafa; border-radius: 8px; margin-bottom: 8px; }
-        .project-item:last-child { margin-bottom: 0; }
-        .link-item { display: inline-flex; padding: 8px 12px; background: #fafafa; border-radius: 6px; font-size: 13px; color: #525252; text-decoration: none; margin-right: 8px; margin-bottom: 8px; }
-        .link-item:hover { background: #f0f0f0; color: #171717; }
-        .action-btn { display: inline-flex; align-items: center; gap: 5px; background: transparent; color: #737373; border: none; padding: 6px 10px; font-weight: 500; font-size: 13px; cursor: pointer; }
-        .action-btn:hover { color: #171717; }
-        .action-btn.action-btn-primary { background: #171717; color: #fff; border-radius: 6px; padding: 6px 12px; }
-        .action-btn.action-btn-primary:hover { background: #262626; }
-        .proposal-body-editable { padding: 24px; font-size: 15px; line-height: 1.75; color: #171717; white-space: pre-wrap; min-height: 200px; border-left: 2px solid #171717; background: #fafafa; outline: none; }
-        .proposal-body-editable:focus { background: #fff; }
-        .edit-mode-banner { background: #fafafa; border-bottom: 1px solid #e5e5e5; padding: 8px 24px; display: flex; align-items: center; justify-content: space-between; }
-        .edit-mode-banner p { font-size: 12px; color: #737373; }
-        .toast { position: fixed; bottom: 24px; right: 24px; background: #171717; color: #fff; padding: 12px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; opacity: 0; transform: translateY(8px); transition: all 0.2s; z-index: 100; }
+        
+        /* Proposal */
+        .proposal-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; }
+        .proposal-body { padding: 20px; font-size: 14px; line-height: 1.8; color: #404040; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+        .proposal-body-editable { padding: 20px; font-size: 14px; line-height: 1.8; color: #171717; white-space: pre-wrap; min-height: 200px; border-left: 2px solid #171717; background: #fafafa; outline: none; }
+        
+        /* Toast */
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #171717; color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.2s; z-index: 100; }
         .toast.show { opacity: 1; transform: translateY(0); }
-        .auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        
+        /* Auth */
+        .auth-overlay { position: fixed; inset: 0; background: rgba(250,250,250,0.95); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
         .auth-overlay.hidden { display: none; }
-        .auth-modal { background: #fff; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
-        .nav-link { display: none; }
-        .nav-link.visible { display: inline-flex; }
+        .auth-modal { background: #fff; border-radius: 16px; padding: 32px; max-width: 340px; width: 90%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); border: 1px solid #e5e5e5; }
+        
+        /* Nav Icons */
+        .nav-icon { width: 36px; height: 36px; display: none; align-items: center; justify-content: center; border-radius: 8px; color: #737373; transition: all 0.15s; cursor: pointer; text-decoration: none; position: relative; }
+        .nav-icon:hover { background: #f5f5f5; color: #171717; }
+        .nav-icon.visible { display: flex; }
+        .nav-icon svg { width: 18px; height: 18px; }
+        .nav-icon .tooltip { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #171717; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+        .nav-icon:hover .tooltip { opacity: 1; }
+        
+        /* Info cards */
+        .info-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 14px; }
+        .info-title { font-size: 11px; font-weight: 600; color: #a3a3a3; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+        .project-item { padding: 10px; background: #fafafa; border-radius: 6px; margin-bottom: 6px; }
+        .project-item:last-child { margin-bottom: 0; }
+        .link-item { display: inline-block; padding: 6px 10px; background: #f5f5f5; border-radius: 5px; font-size: 12px; color: #525252; text-decoration: none; margin: 3px; }
+        .link-item:hover { background: #e5e5e5; color: #171717; }
+        
+        /* Action buttons */
+        .action-btn { display: inline-flex; align-items: center; gap: 4px; background: transparent; color: #737373; border: none; padding: 6px 8px; font-size: 12px; cursor: pointer; border-radius: 4px; }
+        .action-btn:hover { color: #171717; background: #f5f5f5; }
+        .action-btn.primary { background: #171717; color: #fff; }
+        .action-btn.primary:hover { background: #262626; }
+        
+        /* User badge */
+        .user-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f5f5f5; border-radius: 6px; font-size: 12px; color: #525252; }
+        .user-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
     </style>
 </head>
 <body>
@@ -63,134 +84,208 @@
     <div class="auth-overlay" id="auth-overlay">
         <div class="auth-modal">
             <div class="text-center mb-6">
-                <h1 class="text-xl font-semibold text-neutral-900">Proposal Generator</h1>
+                <div class="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
+                </div>
+                <h1 class="text-lg font-semibold text-neutral-900">Welcome Back</h1>
                 <p class="text-sm text-neutral-500 mt-1">Enter your API key to continue</p>
             </div>
             <form onsubmit="authenticate(event)">
-                <input type="password" id="api-key-input" class="input-field mb-3" placeholder="Enter API Key" required>
-                <label class="flex items-center gap-2 mb-4 text-xs text-neutral-500 cursor-pointer">
-                    <input type="checkbox" id="remember-key" checked class="accent-neutral-900"> Remember me
+                <div class="relative mb-3">
+                    <input type="password" id="api-key-input" class="input-field pr-10" placeholder="pk_xxxxxxxx..." required autocomplete="off">
+                    <button type="button" onclick="toggleKeyVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+                        <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </div>
+                <label class="flex items-center gap-2 mb-4 text-xs text-neutral-500 cursor-pointer select-none">
+                    <input type="checkbox" id="remember-key" checked class="accent-neutral-900 w-3.5 h-3.5"> Remember on this device
                 </label>
-                <button type="submit" class="btn-primary w-full" id="auth-btn">Continue</button>
+                <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2" id="auth-btn">
+                    <span>Continue</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </button>
                 <p class="text-xs text-red-500 text-center mt-3 min-h-[16px]" id="auth-error"></p>
             </form>
         </div>
     </div>
 
     <!-- Header -->
-    <header class="border-b border-neutral-200 bg-white">
-        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div>
-                <h1 class="text-lg font-semibold text-neutral-900">Proposal Generator</h1>
-                <p class="text-xs text-neutral-500">AI-powered winning proposals</p>
+    <header class="border-b border-neutral-200 bg-white sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-neutral-900 rounded-lg flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                </div>
+                <span class="font-semibold text-neutral-900 text-sm">Proposal Generator</span>
             </div>
-            <div class="flex items-center gap-3" id="nav-links">
-                <a href="dashboard.html" class="btn-secondary nav-link" id="nav-dashboard">Dashboard</a>
-                <a href="history.html" class="btn-secondary nav-link" id="nav-history">History</a>
-                <a href="training.html" class="btn-secondary nav-link" id="nav-training">Training</a>
-                <a href="admin.html" class="btn-secondary nav-link" id="nav-admin">Admin</a>
-                <button onclick="logout()" class="btn-secondary" id="logout-btn" style="display:none">Logout</button>
+            
+            <div class="flex items-center gap-1" id="nav-links">
+                <!-- Analytics -->
+                <a href="dashboard.html" class="nav-icon" id="nav-analytics" title="Analytics">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                    <span class="tooltip">Analytics</span>
+                </a>
+                <!-- History -->
+                <a href="history.html" class="nav-icon" id="nav-history" title="History">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <span class="tooltip">History</span>
+                </a>
+                <!-- Training -->
+                <a href="training.html" class="nav-icon" id="nav-training" title="Training">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                    <span class="tooltip">Training</span>
+                </a>
+                <!-- Admin -->
+                <a href="admin.html" class="nav-icon" id="nav-admin" title="Admin">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                    <span class="tooltip">Admin</span>
+                </a>
+                
+                <div class="w-px h-6 bg-neutral-200 mx-2" id="nav-divider" style="display:none"></div>
+                
+                <!-- User info -->
+                <div class="user-badge" id="user-badge" style="display:none">
+                    <span class="dot"></span>
+                    <span id="user-role">User</span>
+                </div>
+                
+                <!-- Logout -->
+                <button onclick="logout()" class="nav-icon" id="logout-btn" style="display:none" title="Logout">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                    <span class="tooltip">Logout</span>
+                </button>
             </div>
         </div>
     </header>
 
-    <!-- Main -->
-    <main class="max-w-7xl mx-auto px-6 py-10">
-        <div class="grid lg:grid-cols-5 gap-8">
-            <!-- Left: Form -->
-            <div class="lg:col-span-2">
-                <div class="bg-white border border-neutral-200 rounded-xl p-6">
-                    <h2 class="text-base font-semibold text-neutral-900 mb-6">Job Details</h2>
-                    <form id="proposal-form" class="space-y-5">
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-4 py-6">
+        <div class="grid lg:grid-cols-12 gap-6">
+            <!-- Left: Form (4 cols) -->
+            <div class="lg:col-span-4">
+                <div class="bg-white border border-neutral-200 rounded-xl p-5 sticky top-20">
+                    <h2 class="text-sm font-semibold text-neutral-900 mb-4">Job Details</h2>
+                    <form id="proposal-form" class="space-y-4">
+                        <!-- Skills -->
                         <div>
-                            <label class="block text-sm font-medium text-neutral-700 mb-2">Skills</label>
-                            <div class="flex gap-2 mb-3">
-                                <input type="text" id="skill-input" placeholder="Add skills (comma separated)" class="input-field flex-1">
-                                <button type="button" onclick="addSkills()" class="btn-secondary">Add</button>
+                            <label class="block text-xs font-medium text-neutral-600 mb-1.5">Skills</label>
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" id="skill-input" placeholder="Python, FastAPI..." class="input-field text-sm py-2.5">
+                                <button type="button" onclick="addSkills()" class="px-3 py-2 bg-neutral-100 hover:bg-neutral-200 rounded-lg text-sm font-medium transition-colors">+</button>
                             </div>
-                            <div id="skills-container" class="flex flex-wrap gap-2"></div>
+                            <div id="skills-container" class="flex flex-wrap gap-1.5"></div>
                         </div>
+                        
+                        <!-- Job Description -->
                         <div>
-                            <label class="block text-sm font-medium text-neutral-700 mb-2">Job Description</label>
-                            <textarea id="job_description" placeholder="Paste the job description..." rows="8" class="input-field resize-none" required></textarea>
+                            <label class="block text-xs font-medium text-neutral-600 mb-1.5">Job Description</label>
+                            <textarea id="job_description" placeholder="Paste the job posting here..." rows="6" class="input-field text-sm resize-none" required></textarea>
                         </div>
-                        <div>
-                            <div class="toggle-container" onclick="toggleTimeline()">
-                                <div>
-                                    <p class="text-sm font-medium text-neutral-700">Include Timeline</p>
-                                    <p class="text-xs text-neutral-500 mt-0.5">Add delivery duration to proposal</p>
-                                </div>
-                                <div id="timeline-toggle" class="toggle-switch"></div>
+                        
+                        <!-- Timeline Toggle -->
+                        <div class="toggle-container" onclick="toggleTimeline()">
+                            <div>
+                                <p class="text-sm font-medium text-neutral-700">Include Timeline</p>
+                                <p class="text-xs text-neutral-400">Add delivery estimate</p>
                             </div>
-                            <div id="timeline-input" class="hidden mt-3">
-                                <input type="text" id="timeline_duration" placeholder="e.g., 2-3 weeks" class="input-field">
-                            </div>
+                            <div id="timeline-toggle" class="toggle-switch"></div>
                         </div>
-                        <button type="submit" id="generate-btn" class="btn-primary w-full">Generate Proposal</button>
+                        <div id="timeline-input" class="hidden">
+                            <input type="text" id="timeline_duration" placeholder="e.g., 2-3 weeks" class="input-field text-sm">
+                        </div>
+                        
+                        <!-- Submit -->
+                        <button type="submit" id="generate-btn" class="btn-primary w-full">
+                            Generate Proposal
+                        </button>
                     </form>
                 </div>
             </div>
 
-            <!-- Right: Output -->
-            <div class="lg:col-span-3">
-                <div id="empty-state" class="bg-white border border-neutral-200 rounded-xl p-12 text-center">
-                    <p class="text-neutral-400 text-sm">Fill in the job details to generate a proposal</p>
+            <!-- Right: Output (8 cols) -->
+            <div class="lg:col-span-8">
+                <!-- Empty State -->
+                <div id="empty-state" class="bg-white border border-neutral-200 border-dashed rounded-xl p-16 text-center">
+                    <div class="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                    </div>
+                    <p class="text-neutral-500 text-sm">Add skills and job description to generate</p>
                 </div>
-                <div id="loading-state" class="hidden bg-white border border-neutral-200 rounded-xl p-12">
+
+                <!-- Loading State -->
+                <div id="loading-state" class="hidden bg-white border border-neutral-200 rounded-xl p-16">
                     <div class="flex flex-col items-center">
-                        <div class="loader mb-4"></div>
-                        <p class="text-sm text-neutral-600">Generating proposal...</p>
+                        <div class="loader mb-3"></div>
+                        <p class="text-sm text-neutral-500">Crafting your proposal...</p>
                     </div>
                 </div>
-                <div id="result-state" class="hidden space-y-6">
+
+                <!-- Result State -->
+                <div id="result-state" class="hidden space-y-4">
+                    <!-- Proposal Card -->
                     <div class="proposal-card">
-                        <div class="proposal-header">
-                            <div class="flex items-center gap-6">
-                                <div class="stat-item border-r border-neutral-200">
-                                    <div class="stat-value" id="word-count">0</div>
-                                    <div class="stat-label">words</div>
+                        <div class="p-4 border-b border-neutral-100 flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="text-center px-3">
+                                    <div class="text-lg font-bold text-neutral-900" id="word-count">0</div>
+                                    <div class="text-[10px] text-neutral-400 uppercase">Words</div>
                                 </div>
-                                <div class="stat-item">
-                                    <div class="stat-value" id="quality-score">0%</div>
-                                    <div class="stat-label">quality</div>
+                                <div class="w-px h-8 bg-neutral-100"></div>
+                                <div class="text-center px-3">
+                                    <div class="text-lg font-bold text-green-600" id="quality-score">0%</div>
+                                    <div class="text-[10px] text-neutral-400 uppercase">Quality</div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-1">
-                                <button onclick="toggleEditMode()" id="edit-btn" class="action-btn"><span id="edit-btn-text">Edit</span></button>
-                                <span class="text-neutral-300">|</span>
-                                <button onclick="copyToClipboard()" class="action-btn">Copy</button>
-                                <span class="text-neutral-300">|</span>
-                                <button onclick="saveAndSend()" id="save-send-btn" class="action-btn action-btn-primary">📤 Save & Send</button>
+                                <button onclick="toggleEditMode()" id="edit-btn" class="action-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    <span id="edit-btn-text">Edit</span>
+                                </button>
+                                <button onclick="copyToClipboard()" class="action-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                    Copy
+                                </button>
+                                <button onclick="saveAndSend()" id="save-send-btn" class="action-btn primary">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                                    Save
+                                </button>
                             </div>
                         </div>
-                        <div id="edit-mode-banner" class="edit-mode-banner hidden">
-                            <p>Editing mode — click outside or press Escape to finish</p>
+                        <div id="edit-mode-banner" class="hidden bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between">
+                            <p class="text-xs text-amber-700">Editing mode • Press Escape to exit</p>
                             <div class="flex gap-2">
-                                <button onclick="cancelEdit()" class="action-btn text-xs">Discard</button>
-                                <button onclick="saveEdit()" class="action-btn action-btn-primary text-xs">Done</button>
+                                <button onclick="cancelEdit()" class="text-xs text-amber-600 hover:text-amber-800">Cancel</button>
+                                <button onclick="saveEdit()" class="text-xs font-medium text-amber-800">Done</button>
                             </div>
                         </div>
                         <div id="proposal-text" class="proposal-body"></div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2 px-1">
-                        <span class="text-xs text-neutral-400">Adjust:</span>
-                        <button onclick="quickTweak('shorter')" class="text-xs text-neutral-500 hover:text-neutral-900">Shorter</button>
-                        <span class="text-neutral-300">·</span>
-                        <button onclick="quickTweak('friendlier')" class="text-xs text-neutral-500 hover:text-neutral-900">Friendlier</button>
-                        <span class="text-neutral-300">·</span>
-                        <button onclick="quickTweak('technical')" class="text-xs text-neutral-500 hover:text-neutral-900">Technical</button>
-                        <span class="text-neutral-300">·</span>
-                        <button onclick="quickTweak('confident')" class="text-xs text-neutral-500 hover:text-neutral-900">Confident</button>
+
+                    <!-- Quick Adjustments -->
+                    <div class="flex items-center gap-2 px-1">
+                        <span class="text-[11px] text-neutral-400">Adjust:</span>
+                        <button onclick="quickTweak('shorter')" class="text-[11px] text-neutral-500 hover:text-neutral-900 px-2 py-1 rounded hover:bg-neutral-100">Shorter</button>
+                        <button onclick="quickTweak('friendlier')" class="text-[11px] text-neutral-500 hover:text-neutral-900 px-2 py-1 rounded hover:bg-neutral-100">Friendlier</button>
+                        <button onclick="quickTweak('technical')" class="text-[11px] text-neutral-500 hover:text-neutral-900 px-2 py-1 rounded hover:bg-neutral-100">Technical</button>
+                        <button onclick="quickTweak('confident')" class="text-[11px] text-neutral-500 hover:text-neutral-900 px-2 py-1 rounded hover:bg-neutral-100">Confident</button>
                     </div>
-                    <div class="info-section">
-                        <div class="info-title">Similar Projects</div>
-                        <div id="similar-projects"><p class="text-sm text-neutral-500">None found</p></div>
+
+                    <!-- Info Cards -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="info-card">
+                            <div class="info-title">Similar Projects</div>
+                            <div id="similar-projects"><p class="text-xs text-neutral-400">None found</p></div>
+                        </div>
+                        <div class="info-card">
+                            <div class="info-title">Portfolio Links</div>
+                            <div id="portfolio-links"><p class="text-xs text-neutral-400">None included</p></div>
+                        </div>
                     </div>
-                    <div class="info-section">
-                        <div class="info-title">Portfolio References</div>
-                        <div id="portfolio-links"><p class="text-sm text-neutral-500">None included</p></div>
-                    </div>
-                    <button onclick="resetForm()" class="w-full py-2 text-xs text-neutral-400 hover:text-neutral-600">Start over</button>
+
+                    <!-- Reset -->
+                    <button onclick="resetForm()" class="w-full py-2 text-xs text-neutral-400 hover:text-neutral-600">
+                        ← Start over
+                    </button>
                 </div>
             </div>
         </div>
@@ -206,8 +301,9 @@
         let currentSkills = [], includeTimeline = false, isEditMode = false, originalProposalText = '';
         let lastRequestData = null, lastGeneratedResult = null, proposalSaved = false;
 
+        // Axios config
         axios.interceptors.request.use(c => { if (apiKey) c.headers['X-API-Key'] = apiKey; return c; });
-        axios.interceptors.response.use(r => r, e => { if ([401, 403].includes(e.response?.status)) { showAuth(); } return Promise.reject(e); });
+        axios.interceptors.response.use(r => r, e => { if ([401, 403].includes(e.response?.status)) showAuth(); return Promise.reject(e); });
 
         document.addEventListener('DOMContentLoaded', () => apiKey ? verifyAndLoad() : showAuth());
 
@@ -215,13 +311,24 @@
         function hideAuth() { document.getElementById('auth-overlay').classList.add('hidden'); }
         function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show'; setTimeout(() => t.classList.remove('show'), 2000); }
 
+        function toggleKeyVisibility() {
+            const input = document.getElementById('api-key-input');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+            }
+        }
+
         async function verifyAndLoad() {
             try {
                 const { data } = await axios.get(`${API}/auth/verify`);
                 userRole = data.role;
                 hideAuth();
                 updateNav();
-                document.getElementById('logout-btn').style.display = 'block';
             } catch { apiKey = ''; localStorage.removeItem(KEY_NAME); showAuth(); }
         }
 
@@ -229,27 +336,35 @@
             e.preventDefault();
             const btn = document.getElementById('auth-btn'), err = document.getElementById('auth-error');
             apiKey = document.getElementById('api-key-input').value.trim();
-            if (!apiKey) { err.textContent = 'Enter API key'; return; }
-            btn.disabled = true; btn.textContent = 'Verifying...'; err.textContent = '';
+            if (!apiKey) { err.textContent = 'Please enter your API key'; return; }
+            btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
+            err.textContent = '';
             try {
                 const { data } = await axios.get(`${API}/auth/verify`);
                 userRole = data.role;
                 if (document.getElementById('remember-key').checked) localStorage.setItem(KEY_NAME, apiKey);
                 hideAuth();
                 updateNav();
-                document.getElementById('logout-btn').style.display = 'block';
             } catch { err.textContent = 'Invalid API key'; apiKey = ''; }
-            btn.disabled = false; btn.textContent = 'Continue';
+            btn.disabled = false; btn.innerHTML = '<span>Continue</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
         }
 
         function updateNav() {
-            // Super Admin: all links | Admin: Dashboard, History, Training | User: none
             const isSuper = userRole === 'super_admin';
             const isAdmin = userRole === 'admin' || isSuper;
-            document.getElementById('nav-dashboard').classList.toggle('visible', isAdmin);
+            
+            document.getElementById('nav-analytics').classList.toggle('visible', isAdmin);
             document.getElementById('nav-history').classList.toggle('visible', isAdmin);
             document.getElementById('nav-training').classList.toggle('visible', isAdmin);
             document.getElementById('nav-admin').classList.toggle('visible', isSuper);
+            document.getElementById('nav-divider').style.display = 'block';
+            document.getElementById('logout-btn').style.display = 'flex';
+            
+            // User badge
+            const badge = document.getElementById('user-badge');
+            const roleText = document.getElementById('user-role');
+            badge.style.display = 'flex';
+            roleText.textContent = isSuper ? 'Super Admin' : isAdmin ? 'Admin' : 'User';
         }
 
         function logout() { apiKey = ''; userRole = null; localStorage.removeItem(KEY_NAME); location.reload(); }
@@ -267,15 +382,24 @@
         }
 
         function removeSkill(skill) { currentSkills = currentSkills.filter(s => s !== skill); renderSkills(); }
-        function renderSkills() { document.getElementById('skills-container').innerHTML = currentSkills.map(s => `<div class="skill-tag">${s}<button onclick="removeSkill('${s}')">×</button></div>`).join(''); }
-        function copyToClipboard() { navigator.clipboard.writeText(document.getElementById('proposal-text').innerText).then(() => showToast('Copied')); }
+        
+        function renderSkills() {
+            document.getElementById('skills-container').innerHTML = currentSkills.map(s => 
+                `<div class="skill-tag">${s}<button onclick="removeSkill('${s}')">×</button></div>`
+            ).join('');
+        }
+
+        function copyToClipboard() { 
+            navigator.clipboard.writeText(document.getElementById('proposal-text').innerText).then(() => showToast('Copied!')); 
+        }
+
         function formatLink(url) { try { return new URL(url).hostname.replace('www.', ''); } catch { return url; } }
 
         async function saveAndSend() {
-            if (!lastGeneratedResult || !lastRequestData) { showToast('Generate a proposal first'); return; }
+            if (!lastGeneratedResult || !lastRequestData) { showToast('Generate first'); return; }
             if (proposalSaved) { showToast('Already saved!'); return; }
             const btn = document.getElementById('save-send-btn');
-            btn.disabled = true; btn.innerHTML = 'Saving...';
+            btn.disabled = true; btn.innerHTML = '<div class="loader"></div>';
             try {
                 const proposalText = document.getElementById('proposal-text').innerText;
                 await axios.post(`${API}/proposals/save`, {
@@ -288,9 +412,11 @@
                     portfolio_links_used: lastGeneratedResult.portfolio_links_used || [],
                     confidence_score: lastGeneratedResult.confidence_score || 0, source: 'ai_generated'
                 });
-                proposalSaved = true; btn.innerHTML = '✓ Saved'; btn.classList.remove('action-btn-primary'); btn.style.background = '#059669';
+                proposalSaved = true;
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Saved';
+                btn.classList.remove('primary'); btn.style.background = '#22c55e'; btn.style.color = '#fff';
                 showToast('Saved!');
-            } catch (err) { showToast('Error saving'); btn.disabled = false; btn.innerHTML = '📤 Save & Send'; }
+            } catch { showToast('Save failed'); btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Save'; }
         }
 
         function resetForm() {
@@ -298,7 +424,8 @@
             document.getElementById('empty-state').classList.remove('hidden');
             isEditMode = false; originalProposalText = ''; proposalSaved = false; lastGeneratedResult = null;
             const saveBtn = document.getElementById('save-send-btn');
-            saveBtn.innerHTML = '📤 Save & Send'; saveBtn.disabled = false; saveBtn.style.background = ''; saveBtn.classList.add('action-btn-primary');
+            saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Save';
+            saveBtn.disabled = false; saveBtn.style.background = ''; saveBtn.style.color = ''; saveBtn.classList.add('primary');
         }
 
         function toggleEditMode() {
@@ -306,14 +433,14 @@
             if (!isEditMode) {
                 isEditMode = true; originalProposalText = el.innerText;
                 el.setAttribute('contenteditable', 'true'); el.classList.remove('proposal-body'); el.classList.add('proposal-body-editable'); el.focus();
-                btn.textContent = 'Editing...'; document.getElementById('edit-btn').classList.add('action-btn-primary'); banner.classList.remove('hidden');
+                btn.textContent = 'Editing...'; document.getElementById('edit-btn').classList.add('primary'); banner.classList.remove('hidden');
             } else { saveEdit(); }
         }
 
         function saveEdit() {
             const el = document.getElementById('proposal-text'), btn = document.getElementById('edit-btn-text'), banner = document.getElementById('edit-mode-banner');
             isEditMode = false; el.setAttribute('contenteditable', 'false'); el.classList.remove('proposal-body-editable'); el.classList.add('proposal-body');
-            btn.textContent = 'Edit'; document.getElementById('edit-btn').classList.remove('action-btn-primary'); banner.classList.add('hidden');
+            btn.textContent = 'Edit'; document.getElementById('edit-btn').classList.remove('primary'); banner.classList.add('hidden');
             document.getElementById('word-count').textContent = el.innerText.trim().split(/\s+/).filter(w => w).length;
             showToast('Saved');
         }
@@ -323,7 +450,7 @@
             isEditMode = false; el.innerText = originalProposalText;
             el.setAttribute('contenteditable', 'false'); el.classList.remove('proposal-body-editable'); el.classList.add('proposal-body');
             document.getElementById('edit-btn-text').textContent = 'Edit';
-            document.getElementById('edit-btn').classList.remove('action-btn-primary');
+            document.getElementById('edit-btn').classList.remove('primary');
             document.getElementById('edit-mode-banner').classList.add('hidden');
         }
 
@@ -346,7 +473,7 @@
 
         document.getElementById('proposal-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!currentSkills.length) { alert('Add at least one skill'); return; }
+            if (!currentSkills.length) { showToast('Add at least one skill'); return; }
             const jobDesc = document.getElementById('job_description').value;
             const data = {
                 company_name: (jobDesc.match(/(?:company|client)[\s:]+([^\n]+)/i)?.[1] || 'Client').substring(0, 50),
@@ -366,25 +493,27 @@
                 const { data: result } = await axios.post(`${API}/proposals/generate`, data);
                 lastGeneratedResult = result; proposalSaved = false;
                 const saveBtn = document.getElementById('save-send-btn');
-                saveBtn.innerHTML = '📤 Save & Send'; saveBtn.disabled = false; saveBtn.style.background = ''; saveBtn.classList.add('action-btn-primary');
+                saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Save';
+                saveBtn.disabled = false; saveBtn.style.background = ''; saveBtn.style.color = ''; saveBtn.classList.add('primary');
                 document.getElementById('proposal-text').innerText = result.generated_proposal;
                 document.getElementById('word-count').innerText = result.word_count;
                 document.getElementById('quality-score').innerText = Math.round((result.confidence_score || 0.85) * 100) + '%';
                 const projects = result.similar_projects || [];
                 document.getElementById('similar-projects').innerHTML = projects.length
-                    ? projects.map(p => `<div class="project-item"><p class="font-medium text-neutral-800 text-sm">${p.company}</p><p class="text-xs text-neutral-500 mt-1">${(p.skills || []).slice(0, 4).join(' · ')}</p></div>`).join('')
-                    : '<p class="text-sm text-neutral-500">None found</p>';
+                    ? projects.map(p => `<div class="project-item"><p class="text-xs font-medium text-neutral-700">${p.company}</p><p class="text-[10px] text-neutral-400 mt-0.5">${(p.skills || []).slice(0, 3).join(' · ')}</p></div>`).join('')
+                    : '<p class="text-xs text-neutral-400">None found</p>';
                 const links = result.portfolio_links_used || [];
                 document.getElementById('portfolio-links').innerHTML = links.length
                     ? links.map(url => `<a href="${url}" target="_blank" class="link-item">${formatLink(url)}</a>`).join('')
-                    : '<p class="text-sm text-neutral-500">None included</p>';
+                    : '<p class="text-xs text-neutral-400">None included</p>';
                 document.getElementById('loading-state').classList.add('hidden');
                 document.getElementById('result-state').classList.remove('hidden');
-            } catch (err) { alert('Error: ' + (err.response?.data?.detail || err.message)); document.getElementById('loading-state').classList.add('hidden'); document.getElementById('empty-state').classList.remove('hidden'); }
+            } catch (err) { showToast('Error: ' + (err.response?.data?.detail || err.message)); document.getElementById('loading-state').classList.add('hidden'); document.getElementById('empty-state').classList.remove('hidden'); }
             finally { btn.disabled = false; btn.innerHTML = 'Generate Proposal'; }
         });
 
         document.getElementById('skill-input').addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); addSkills(); } });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && isEditMode) cancelEdit(); });
     </script>
 </body>
 </html>
