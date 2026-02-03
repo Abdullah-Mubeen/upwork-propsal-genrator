@@ -22,7 +22,6 @@ class CreateKeyRequest(BaseModel):
     email: Optional[EmailStr] = None
     role: str = Field(..., pattern="^(admin|user)$")  # Only admin or user
     expires_in_days: Optional[int] = Field(None, ge=1, le=365)
-    usage_limit: Optional[int] = Field(None, ge=1, le=100000)
 
 class KeyResponse(BaseModel):
     id: str
@@ -31,8 +30,6 @@ class KeyResponse(BaseModel):
     email: Optional[str]
     created_at: datetime
     expires_at: Optional[datetime]
-    usage_limit: Optional[int]
-    used_count: int
     is_active: bool
 
 # ============ KEY MANAGEMENT ============
@@ -50,8 +47,6 @@ async def create_key(req: CreateKeyRequest):
         "role": req.role,  # "admin" or "user"
         "created_at": datetime.utcnow(),
         "expires_at": datetime.utcnow() + timedelta(days=req.expires_in_days) if req.expires_in_days else None,
-        "usage_limit": req.usage_limit,
-        "used_count": 0,
         "is_active": True
     }
     db.db["api_keys"].insert_one(doc)
@@ -123,8 +118,6 @@ def _format_key(doc: dict) -> dict:
         "email": doc.get("email"),
         "created_at": doc.get("created_at"),
         "expires_at": doc.get("expires_at"),
-        "usage_limit": doc.get("usage_limit"),
-        "used_count": doc.get("used_count", 0),
         "is_active": doc.get("is_active", True),
         "last_used": doc.get("last_used")
     }

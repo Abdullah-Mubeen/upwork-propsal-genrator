@@ -333,6 +333,18 @@
             opacity: 1;
         }
 
+        /* Nav icons */
+        .nav-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #737373; transition: all 0.15s; cursor: pointer; text-decoration: none; position: relative; }
+        .nav-icon:hover { background: #f5f5f5; color: #171717; }
+        .nav-icon svg { width: 18px; height: 18px; }
+        .nav-icon .tooltip { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #171717; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+        .nav-icon:hover .tooltip { opacity: 1; }
+        .nav-icon.active { background: #171717; color: #fff; }
+        .nav-icon.active:hover { background: #262626; }
+        .nav-icon.active .tooltip { display: none; }
+        .user-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f5f5f5; border-radius: 6px; font-size: 12px; color: #525252; }
+        .user-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+
         /* Image upload */
         .upload-zone {
             border: 2px dashed #e5e5e5;
@@ -929,7 +941,7 @@
 </head>
 <body>
     <!-- Authentication Modal - Minimalistic -->
-    <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-overlay hidden" id="auth-overlay">
         <div class="auth-modal">
             <div class="flex items-center gap-3 mb-5">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="2">
@@ -1030,30 +1042,50 @@
     </div>
 
     <!-- Header -->
-    <header class="border-b border-neutral-200 bg-white sticky top-0 z-50 backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.98);">
-        <div class="max-w-5xl mx-auto px-6">
-            <div class="flex items-center justify-between py-4">
-                <div>
-                    <h1 class="text-lg font-semibold text-neutral-900">Training Platform</h1>
-                    <p class="text-xs text-neutral-500 font-400">Add winning proposals to improve AI</p>
+    <header class="border-b border-neutral-200 bg-white sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-neutral-900 rounded-lg flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
                 </div>
-                <div class="flex items-center gap-8">
-                    <div class="text-right border-r border-neutral-200 pr-8">
-                        <div class="text-2xl font-bold text-neutral-900" id="total-count">0</div>
-                        <div class="text-xs text-neutral-500 font-500">Entries Trained</div>
-                    </div>
-                    <a href="dashboard.html" class="btn-secondary inline-flex items-center gap-2">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-                        Dashboard
-                    </a>
-                    <a href="index.html" class="btn-primary inline-flex items-center gap-2">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
-                        Generate Proposal
-                    </a>
+                <span class="font-semibold text-neutral-900 text-sm">Training</span>
+                <div class="ml-4 text-right border-l border-neutral-200 pl-4">
+                    <div class="text-lg font-bold text-neutral-900" id="total-count">0</div>
+                    <div class="text-[10px] text-neutral-400 uppercase">Entries</div>
                 </div>
             </div>
-
-            <!-- Navigation -->
+            <div class="flex items-center gap-1" id="nav-links">
+                <a href="index.html" class="nav-icon" title="Generate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                    <span class="tooltip">Generate</span>
+                </a>
+                <a href="dashboard.html" class="nav-icon" title="Analytics">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                    <span class="tooltip">Analytics</span>
+                </a>
+                <a href="history.html" class="nav-icon" title="History">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <span class="tooltip">History</span>
+                </a>
+                <span class="nav-icon active" title="Training">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                    <span class="tooltip">Training</span>
+                </span>
+                <a href="admin.html" class="nav-icon" id="nav-admin" title="Admin" style="display:none">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                    <span class="tooltip">Admin</span>
+                </a>
+                <div class="w-px h-6 bg-neutral-200 mx-2"></div>
+                <div class="user-badge" id="user-badge"><span class="dot"></span><span id="user-role">Admin</span></div>
+                <button onclick="logout()" class="nav-icon" title="Logout">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                    <span class="tooltip">Logout</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <div class="max-w-5xl mx-auto px-4">
             <div class="flex gap-8 border-t border-neutral-200 pt-3">
                 <button class="nav-tab active" data-tab="upload">Add Entry</button>
                 <button class="nav-tab" data-tab="dashboard">Dashboard</button>
@@ -1348,6 +1380,7 @@
         // Authentication state
         let apiKey = localStorage.getItem('app_api_key') || '';
         let isAuthenticated = false;
+        let userRole = null;
         
         let currentSkills = [];
         let currentPortfolios = [];
@@ -1385,6 +1418,14 @@
             }
         );
 
+        function logout() { apiKey = ''; userRole = null; localStorage.removeItem('app_api_key'); location.reload(); }
+
+        function updateNav() {
+            const isSuper = userRole === 'super_admin';
+            document.getElementById('nav-admin').style.display = isSuper ? 'flex' : 'none';
+            document.getElementById('user-role').textContent = isSuper ? 'Super Admin' : 'Admin';
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Check for stored API key and verify it
@@ -1408,9 +1449,11 @@
         // Verify stored API key
         async function verifyStoredApiKey() {
             try {
-                await axios.get(AUTH_API);
+                const { data } = await axios.get(AUTH_API);
+                userRole = data.role;
                 isAuthenticated = true;
                 hideAuthModal();
+                updateNav();
                 initializeApp();
             } catch (error) {
                 // Stored key is invalid
@@ -1442,7 +1485,8 @@
             try {
                 // Temporarily set the key for verification
                 apiKey = enteredKey;
-                await axios.get(AUTH_API);
+                const { data } = await axios.get(AUTH_API);
+                userRole = data.role;
                 
                 // Key is valid
                 isAuthenticated = true;
@@ -1453,6 +1497,7 @@
                 }
                 
                 hideAuthModal();
+                updateNav();
                 initializeApp();
                 showToast('Welcome!', 'success');
             } catch (error) {
