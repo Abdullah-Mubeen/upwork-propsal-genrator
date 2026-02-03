@@ -172,6 +172,9 @@
         .nav-icon svg { width: 18px; height: 18px; }
         .nav-icon .tooltip { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #171717; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
         .nav-icon:hover .tooltip { opacity: 1; }
+        .nav-icon.active { background: #171717; color: #fff; }
+        .nav-icon.active:hover { background: #262626; }
+        .nav-icon.active .tooltip { display: none; }
         .user-badge { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #f5f5f5; border-radius: 6px; font-size: 12px; color: #525252; }
         .user-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
 
@@ -242,6 +245,9 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
                     <span class="tooltip">Analytics</span>
                 </a>
+                <span class="nav-icon active" title="History">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </span>
                 <a href="training.html" class="nav-icon" title="Training">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
                     <span class="tooltip">Training</span>

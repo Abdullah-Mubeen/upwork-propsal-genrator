@@ -59,6 +59,9 @@
         .nav-icon svg { width: 18px; height: 18px; }
         .nav-icon .tooltip { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #171717; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
         .nav-icon:hover .tooltip { opacity: 1; }
+        .nav-icon.active { background: #171717; color: #fff; }
+        .nav-icon.active:hover { background: #262626; }
+        .nav-icon.active .tooltip { display: none; }
         
         /* Info cards */
         .info-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 14px; }
@@ -120,6 +123,10 @@
             </div>
             
             <div class="flex items-center gap-1" id="nav-links">
+                <!-- Generate -->
+                <span class="nav-icon active" id="nav-generate" title="Generate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                </span>
                 <!-- Analytics -->
                 <a href="dashboard.html" class="nav-icon" id="nav-analytics" title="Analytics">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
@@ -141,7 +148,7 @@
                     <span class="tooltip">Admin</span>
                 </a>
                 
-                <div class="w-px h-6 bg-neutral-200 mx-2" id="nav-divider" style="display:none"></div>
+                <div class="w-px h-6 bg-neutral-200 mx-2" id="nav-divider"></div>
                 
                 <!-- User info -->
                 <div class="user-badge" id="user-badge" style="display:none">
@@ -353,18 +360,13 @@
             const isSuper = userRole === 'super_admin';
             const isAdmin = userRole === 'admin' || isSuper;
             
-            document.getElementById('nav-analytics').classList.toggle('visible', isAdmin);
-            document.getElementById('nav-history').classList.toggle('visible', isAdmin);
-            document.getElementById('nav-training').classList.toggle('visible', isAdmin);
-            document.getElementById('nav-admin').classList.toggle('visible', isSuper);
-            document.getElementById('nav-divider').style.display = 'block';
+            document.getElementById('nav-analytics').style.display = isAdmin ? 'flex' : 'none';
+            document.getElementById('nav-history').style.display = isAdmin ? 'flex' : 'none';
+            document.getElementById('nav-training').style.display = isAdmin ? 'flex' : 'none';
+            document.getElementById('nav-admin').style.display = isSuper ? 'flex' : 'none';
             document.getElementById('logout-btn').style.display = 'flex';
-            
-            // User badge
-            const badge = document.getElementById('user-badge');
-            const roleText = document.getElementById('user-role');
-            badge.style.display = 'flex';
-            roleText.textContent = isSuper ? 'Super Admin' : isAdmin ? 'Admin' : 'User';
+            document.getElementById('user-badge').style.display = 'flex';
+            document.getElementById('user-role').textContent = isSuper ? 'Super Admin' : isAdmin ? 'Admin' : 'User';
         }
 
         function logout() { apiKey = ''; userRole = null; localStorage.removeItem(KEY_NAME); location.reload(); }
