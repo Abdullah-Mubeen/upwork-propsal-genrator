@@ -1370,12 +1370,10 @@
         </div>
     </main>
 
+    <script src="js/config.js"></script>
     <script>
-        // CHANGE THIS TO TEST LOCALLY vs PRODUCTION
-        // Local: 'http://127.0.0.1:8000/api/job-data'
-        // Production: 'https://ml.genproposals.com/api/job-data'
-        const API_BASE = 'https://ml.genproposals.com/api/job-data';
-        const AUTH_API = 'https://ml.genproposals.com/api/auth/verify';
+        // API_BASE is set from config.js (JOB_DATA_API)
+        const API_BASE = JOB_DATA_API;
         
         // Authentication state
         let apiKey = localStorage.getItem('app_api_key') || '';

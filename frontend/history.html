@@ -424,10 +424,10 @@
         </div>
     </div>
 
+    <script src="js/config.js"></script>
     <script>
-        // Use relative URL when served from same origin, absolute otherwise
-        const API_BASE = 'https://ml.genproposals.com/api/proposals';
-        const AUTH_API = 'https://ml.genproposals.com/api/auth/verify';
+        // API_BASE is set from config.js (PROPOSALS_API)
+        const API_BASE = PROPOSALS_API;
         
         // Authentication state
         let apiKey = localStorage.getItem('app_api_key') || '';
