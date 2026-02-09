@@ -1370,10 +1370,12 @@
     <script>
         // API_BASE is set from config.js (JOB_DATA_API)
         const API_BASE = JOB_DATA_API;
+        const KEY_NAME = 'app_api_key';
         
         // Authentication state
         let isAuthenticated = false;
         let userRole = null;
+        let apiKey = localStorage.getItem(KEY_NAME) || '';
         
         let currentSkills = [];
         let currentPortfolios = [];
@@ -1387,8 +1389,11 @@
         let currentPage = 0;
         const perPage = 10;
 
-        // Axios config - use cookies for auth, no API key in headers
-        axios.defaults.withCredentials = true;
+        // Axios config - include API key in header
+        axios.interceptors.request.use(config => {
+            if (apiKey) config.headers['X-API-Key'] = apiKey;
+            return config;
+        });
 
         // Axios interceptor to handle 401/403 errors
         axios.interceptors.response.use(
@@ -1397,6 +1402,8 @@
                 if (error.response && (error.response.status === 401 || error.response.status === 403)) {
                     // Session expired
                     isAuthenticated = false;
+                    apiKey = '';
+                    localStorage.removeItem(KEY_NAME);
                     showAuthModal();
                     showToast('Session expired. Please re-authenticate.', 'error');
                 }
@@ -1405,8 +1412,10 @@
         );
 
         async function logout() { 
-            try { await axios.post(`${API}/auth/logout`); } catch {}
-            userRole = null; location.reload(); 
+            apiKey = '';
+            localStorage.removeItem(KEY_NAME);
+            userRole = null; 
+            location.reload(); 
         }
 
         function updateNav() {
@@ -1417,13 +1426,14 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Check session cookie and verify
-            verifyStoredApiKey();
+            // Check stored API key and verify
+            apiKey ? verifyStoredApiKey() : showAuthModal();
         });
 
         // Show authentication modal
         function showAuthModal() {
             document.getElementById('auth-overlay').classList.remove('hidden');
+            document.getElementById('api-key-input').focus();
         }
 
         // Hide authentication modal
@@ -1434,14 +1444,16 @@
         // Verify stored API key
         async function verifyStoredApiKey() {
             try {
-                const { data } = await axios.get(AUTH_API);
+                const { data } = await axios.get(`${API}/auth/verify`);
                 userRole = data.role;
                 isAuthenticated = true;
                 hideAuthModal();
                 updateNav();
                 initializeApp();
             } catch (error) {
-                // Session expired or not logged in
+                // Invalid key
+                apiKey = '';
+                localStorage.removeItem(KEY_NAME);
                 showAuthModal();
             }
         }
@@ -1465,9 +1477,15 @@
             errorEl.textContent = '';
             
             try {
-                // POST login - API key sent once, session cookie set automatically
-                const { data } = await axios.post(`${API}/auth/login`, { api_key: enteredKey });
+                // Set key for axios interceptor
+                apiKey = enteredKey;
+                
+                // Verify the key
+                const { data } = await axios.get(`${API}/auth/verify`);
                 userRole = data.role;
+                
+                // Store key on success
+                localStorage.setItem(KEY_NAME, apiKey);
                 
                 isAuthenticated = true;
                 hideAuthModal();
@@ -1475,6 +1493,7 @@
                 initializeApp();
                 showToast('Welcome!', 'success');
             } catch (error) {
+                apiKey = '';
                 errorEl.textContent = 'Invalid key';
             } finally {
                 submitBtn.disabled = false;
