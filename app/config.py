@@ -56,7 +56,7 @@ class Settings:
     RATE_LIMIT: str = os.getenv("RATE_LIMIT", "30/minute")  # Format: "count/period"
     
     # CORS - comma-separated origins
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "https://genproposals.com,https://www.genproposals.com,http://127.0.0.1:8000,http://127.0.0.1:5500,http://127.0.0.1:5501,http://localhost:5500,http://localhost:5501")
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "https://genproposals.com,https://www.genproposals.com,http://127.0.0.1:8000,http://localhost:8000,http://127.0.0.1:5500,http://127.0.0.1:5501,http://localhost:5500,http://localhost:5501")
     
     # Admin API Key for protected endpoints
     ADMIN_API_KEY: str = os.getenv("ADMIN_API_KEY", "")

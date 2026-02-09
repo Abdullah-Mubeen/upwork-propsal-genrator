@@ -810,15 +810,9 @@ class DatabaseManager:
             document = {
                 "proposal_id": proposal_id,
                 "job_title": proposal_data.get("job_title", ""),
-                "company_name": proposal_data.get("company_name", ""),
-                "job_description": proposal_data.get("job_description", ""),
                 "proposal_text": proposal_data.get("proposal_text", ""),
                 "skills_required": proposal_data.get("skills_required", []),
-                "industry": proposal_data.get("industry", "general"),
-                "task_type": proposal_data.get("task_type", "other"),
                 "word_count": proposal_data.get("word_count", 0),
-                "similar_projects_used": proposal_data.get("similar_projects_used", []),
-                "portfolio_links_used": proposal_data.get("portfolio_links_used", []),
                 
                 # Source: ai_generated or manual
                 "source": proposal_data.get("source", "ai_generated"),
@@ -835,7 +829,6 @@ class DatabaseManager:
                 "rejection_reason": None,
                 
                 # Metadata
-                "confidence_score": proposal_data.get("confidence_score", 0.0),
                 "created_at": datetime.utcnow()
             }
             

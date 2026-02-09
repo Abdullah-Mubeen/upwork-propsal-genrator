@@ -951,11 +951,7 @@
                 <h2 class="text-base font-semibold">Enter API Key</h2>
             </div>
             <form id="auth-form" onsubmit="authenticateUser(event)">
-                <input type="password" id="api-key-input" class="input-field mb-3" placeholder="API key" required autofocus>
-                <div class="flex items-center gap-2 mb-4">
-                    <input type="checkbox" id="remember-key" class="w-4 h-4" checked>
-                    <label for="remember-key" class="text-xs text-neutral-500">Remember me</label>
-                </div>
+                <input type="password" id="api-key-input" class="input-field mb-4" placeholder="API key" required autofocus>
                 <button type="submit" class="btn-primary w-full text-sm py-3" id="auth-submit-btn">Continue</button>
                 <p class="text-xs text-red-500 text-center mt-3" id="auth-error"></p>
             </form>
@@ -1376,7 +1372,6 @@
         const API_BASE = JOB_DATA_API;
         
         // Authentication state
-        let apiKey = localStorage.getItem('app_api_key') || '';
         let isAuthenticated = false;
         let userRole = null;
         
@@ -1392,23 +1387,16 @@
         let currentPage = 0;
         const perPage = 10;
 
-        // Axios interceptor to add API key header to all requests
-        axios.interceptors.request.use(config => {
-            if (apiKey) {
-                config.headers['X-API-Key'] = apiKey;
-            }
-            return config;
-        });
+        // Axios config - use cookies for auth, no API key in headers
+        axios.defaults.withCredentials = true;
 
         // Axios interceptor to handle 401/403 errors
         axios.interceptors.response.use(
             response => response,
             error => {
                 if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                    // API key is invalid or missing
+                    // Session expired
                     isAuthenticated = false;
-                    apiKey = '';
-                    localStorage.removeItem('app_api_key');
                     showAuthModal();
                     showToast('Session expired. Please re-authenticate.', 'error');
                 }
@@ -1416,7 +1404,10 @@
             }
         );
 
-        function logout() { apiKey = ''; userRole = null; localStorage.removeItem('app_api_key'); location.reload(); }
+        async function logout() { 
+            try { await axios.post(`${API}/auth/logout`); } catch {}
+            userRole = null; location.reload(); 
+        }
 
         function updateNav() {
             const isSuper = userRole === 'super_admin';
@@ -1426,12 +1417,8 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Check for stored API key and verify it
-            if (apiKey) {
-                verifyStoredApiKey();
-            } else {
-                showAuthModal();
-            }
+            // Check session cookie and verify
+            verifyStoredApiKey();
         });
 
         // Show authentication modal
@@ -1454,9 +1441,7 @@
                 updateNav();
                 initializeApp();
             } catch (error) {
-                // Stored key is invalid
-                apiKey = '';
-                localStorage.removeItem('app_api_key');
+                // Session expired or not logged in
                 showAuthModal();
             }
         }
@@ -1465,7 +1450,6 @@
         async function authenticateUser(event) {
             event.preventDefault();
             const keyInput = document.getElementById('api-key-input');
-            const rememberCheckbox = document.getElementById('remember-key');
             const submitBtn = document.getElementById('auth-submit-btn');
             const errorEl = document.getElementById('auth-error');
             
@@ -1481,25 +1465,16 @@
             errorEl.textContent = '';
             
             try {
-                // Temporarily set the key for verification
-                apiKey = enteredKey;
-                const { data } = await axios.get(AUTH_API);
+                // POST login - API key sent once, session cookie set automatically
+                const { data } = await axios.post(`${API}/auth/login`, { api_key: enteredKey });
                 userRole = data.role;
                 
-                // Key is valid
                 isAuthenticated = true;
-                
-                // Store if remember is checked
-                if (rememberCheckbox.checked) {
-                    localStorage.setItem('app_api_key', enteredKey);
-                }
-                
                 hideAuthModal();
                 updateNav();
                 initializeApp();
                 showToast('Welcome!', 'success');
             } catch (error) {
-                apiKey = '';
                 errorEl.textContent = 'Invalid key';
             } finally {
                 submitBtn.disabled = false;

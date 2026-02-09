@@ -405,16 +405,12 @@
                     <input type="text" id="manual-title" class="input-field" placeholder="e.g., Full Stack Developer" required>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-neutral-600 mb-1">Company</label>
-                    <input type="text" id="manual-company" class="input-field" placeholder="Client name">
+                    <label class="block text-xs font-medium text-neutral-600 mb-1">Skills (comma separated) *</label>
+                    <input type="text" id="manual-skills" class="input-field" placeholder="React, Node.js, MongoDB" required>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-neutral-600 mb-1">Skills (comma separated)</label>
-                    <input type="text" id="manual-skills" class="input-field" placeholder="React, Node.js, MongoDB">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-neutral-600 mb-1">Proposal Text</label>
-                    <textarea id="manual-text" class="input-field" rows="4" placeholder="Paste your proposal..."></textarea>
+                    <label class="block text-xs font-medium text-neutral-600 mb-1">Proposal Text *</label>
+                    <textarea id="manual-text" class="input-field" rows="4" placeholder="Paste your proposal..." required></textarea>
                 </div>
             </form>
             <div class="p-4 border-t border-neutral-100 flex justify-end gap-2">
@@ -810,9 +806,7 @@
                 
                 await axios.post(`${API_BASE}/save`, {
                     job_title: document.getElementById('manual-title').value.trim(),
-                    company_name: document.getElementById('manual-company').value.trim() || 'Client',
-                    job_description: 'Manual entry',
-                    proposal_text: text || 'No text provided',
+                    proposal_text: text,
                     skills_required: skills,
                     word_count: text ? text.split(/\s+/).length : 0,
                     source: 'manual'
