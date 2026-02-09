@@ -1160,6 +1160,81 @@ class DatabaseManager:
             logger.error(f"Error getting comparison: {e}")
             return {"ai_generated": {}, "manual": {}, "ai_effectiveness": 1.0}
     
+    def get_combined_funnel(self, since: Optional[datetime] = None) -> Dict[str, Any]:
+        """
+        Get combined funnel data for AI-generated and Manual proposals.
+        Returns full flow: Generated → Sent → Viewed → Discussed → Hired
+        """
+        try:
+            sent_col = self.db["sent_proposals"]
+            proposals_col = self.db["proposals"]
+            
+            def get_funnel_for_source(source: str) -> Dict[str, Any]:
+                """Get funnel data for a specific source (ai_generated or manual)"""
+                query = self._build_date_query(since, source)
+                
+                # Count proposals in each stage
+                sent = sent_col.count_documents(query)
+                viewed = sent_col.count_documents({**query, "outcome": {"$in": ["viewed", "hired"]}})
+                discussed = sent_col.count_documents({**query, "discussion_initiated": True})
+                hired = sent_col.count_documents({**query, "outcome": "hired"})
+                
+                # Generated count from proposals collection (AI only)
+                generated = 0
+                if source == "ai_generated":
+                    gen_query = {"created_at": {"$gte": since}} if since else {}
+                    generated = proposals_col.count_documents(gen_query)
+                else:
+                    generated = sent  # Manual proposals are generated when sent
+                
+                # Calculate percentages relative to sent (funnel starts at sent)
+                base = sent if sent > 0 else 1
+                
+                return {
+                    "generated": generated,
+                    "sent": sent,
+                    "viewed": viewed,
+                    "discussed": discussed,
+                    "hired": hired,
+                    "rates": {
+                        "sent_rate": round(sent / generated * 100, 1) if generated > 0 else 0,
+                        "view_rate": round(viewed / base * 100, 1),
+                        "discuss_rate": round(discussed / base * 100, 1),
+                        "hire_rate": round(hired / base * 100, 1)
+                    }
+                }
+            
+            ai_data = get_funnel_for_source("ai_generated")
+            manual_data = get_funnel_for_source("manual")
+            
+            # Calculate totals
+            total_generated = ai_data["generated"] + manual_data["generated"]
+            total_sent = ai_data["sent"] + manual_data["sent"]
+            total_viewed = ai_data["viewed"] + manual_data["viewed"]
+            total_discussed = ai_data["discussed"] + manual_data["discussed"]
+            total_hired = ai_data["hired"] + manual_data["hired"]
+            
+            return {
+                "ai": ai_data,
+                "manual": manual_data,
+                "totals": {
+                    "generated": total_generated,
+                    "sent": total_sent,
+                    "viewed": total_viewed,
+                    "discussed": total_discussed,
+                    "hired": total_hired
+                },
+                "ai_share": round(ai_data["sent"] / total_sent * 100, 1) if total_sent > 0 else 0
+            }
+        except Exception as e:
+            logger.error(f"Error getting combined funnel: {e}")
+            return {
+                "ai": {"generated": 0, "sent": 0, "viewed": 0, "discussed": 0, "hired": 0, "rates": {}},
+                "manual": {"generated": 0, "sent": 0, "viewed": 0, "discussed": 0, "hired": 0, "rates": {}},
+                "totals": {"generated": 0, "sent": 0, "viewed": 0, "discussed": 0, "hired": 0},
+                "ai_share": 0
+            }
+    
     def get_proposal_trends(self, since: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Get daily proposal trends for charts"""
         try:

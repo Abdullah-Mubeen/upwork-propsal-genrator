@@ -143,6 +143,45 @@ async def get_funnel(
         raise HTTPException(500, str(e))
 
 
+class FunnelSourceData(BaseModel):
+    """Funnel data for a single source"""
+    generated: int
+    sent: int
+    viewed: int
+    discussed: int
+    hired: int
+    rates: Dict[str, float]
+
+
+class CombinedFunnelResponse(BaseModel):
+    """Combined funnel response with AI and Manual data"""
+    success: bool
+    ai: FunnelSourceData
+    manual: FunnelSourceData
+    totals: Dict[str, int]
+    ai_share: float = Field(description="Percentage of sent proposals that are AI-generated")
+
+
+@router.get("/funnel-combined", response_model=CombinedFunnelResponse)
+async def get_combined_funnel(
+    range: DateRange = Query(DateRange.ALL),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Get combined conversion funnel for AI-generated and Manual proposals.
+    
+    Returns full flow: Generated → Sent → Viewed → Discussed → Hired
+    Both AI and Manual data in a single response for unified visualization.
+    """
+    try:
+        db = get_db()
+        funnel_data = db.get_combined_funnel(_get_date_filter(range))
+        return CombinedFunnelResponse(success=True, **funnel_data)
+    except Exception as e:
+        logger.error(f"Error getting combined funnel: {e}")
+        raise HTTPException(500, str(e))
+
+
 @router.get("/comparison", response_model=ComparisonResponse)
 async def get_comparison(
     range: DateRange = Query(DateRange.ALL),
