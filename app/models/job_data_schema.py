@@ -147,10 +147,9 @@ class JobDataUploadRequest(BaseModel):
     )
     
     # ===== DELIVERABLES & OUTCOMES (Critical for matching) =====
-    deliverables: List[str] = Field(
-        ...,
-        min_length=1,
-        description="What was actually built/delivered (e.g., 'Custom dashboard', 'Payment integration') - REQUIRED"
+    deliverables: Optional[List[str]] = Field(
+        default_factory=list,
+        description="What was actually built/delivered (e.g., 'Custom dashboard', 'Payment integration')"
     )
     outcomes: Optional[str] = Field(
         None,
@@ -192,6 +191,21 @@ class JobDataUploadRequest(BaseModel):
             return []
         return [url.strip() for url in v if url and isinstance(url, str) and url.strip()]
     
+    @validator("deliverables", pre=True)
+    def validate_deliverables(cls, v):
+        """Validate deliverables list"""
+        if not v:
+            return []
+        if isinstance(v, str):
+            import json
+            try:
+                v = json.loads(v)
+            except:
+                v = [v] if v else []
+        if not isinstance(v, list):
+            return []
+        return [d.strip() for d in v if d and isinstance(d, str) and d.strip()]
+    
     @validator("task_type", pre=True)
     def validate_task_type(cls, v):
         """Validate task type"""
@@ -207,6 +221,13 @@ class JobDataUploadRequest(BaseModel):
             return None
         if isinstance(v, str):
             return v.strip()
+        return v
+    
+    @validator("client_feedback_url", pre=True)
+    def validate_client_feedback_url(cls, v):
+        """Ensure empty strings are converted to None for HttpUrl validation"""
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
         return v
     
     @validator("start_date", "end_date", pre=True)
