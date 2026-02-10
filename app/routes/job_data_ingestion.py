@@ -182,6 +182,7 @@ async def upload_job_data(
             start_date=stored_job.get("start_date"),
             end_date=stored_job.get("end_date"),
             portfolio_url=stored_job.get("portfolio_url"),
+            is_portfolio_entry=stored_job.get("is_portfolio_entry", False),
             created_at=stored_job.get("created_at", datetime.utcnow().isoformat()),
             updated_at=stored_job.get("updated_at")
         )
@@ -276,6 +277,7 @@ async def list_job_data(
                 start_date=job.get("start_date"),
                 end_date=job.get("end_date"),
                 portfolio_url=job.get("portfolio_url"),
+                is_portfolio_entry=job.get("is_portfolio_entry", False),
                 created_at=job.get("created_at", datetime.utcnow().isoformat()),
                 updated_at=job.get("updated_at")
             )
@@ -345,6 +347,7 @@ async def get_job_data(
             task_type=job_data.get("task_type"),
             platform=job_data.get("platform"),
             urgent_adhoc=job_data.get("urgent_adhoc", False),
+            is_portfolio_entry=job_data.get("is_portfolio_entry", False),
             deliverables=job_data.get("deliverables", []),
             outcomes=job_data.get("outcomes"),
             created_at=job_data.get("created_at", datetime.utcnow().isoformat()),
@@ -560,6 +563,7 @@ async def update_job_data(
             start_date=stored_job.get("start_date"),
             end_date=stored_job.get("end_date"),
             portfolio_url=stored_job.get("portfolio_url"),
+            is_portfolio_entry=stored_job.get("is_portfolio_entry", False),
             created_at=stored_job.get("created_at"),
             updated_at=stored_job.get("updated_at")
         )

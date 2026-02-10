@@ -1250,11 +1250,26 @@
                             <input type="text" name="company_name" id="input-company" placeholder="TechCorp Inc" class="input-field" required>
                         </div>
 
-                        <!-- Industry (shown in both modes) -->
-                        <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Industry <span class="text-neutral-400 text-xs">(Optional)</span></label>
-                            <input type="text" name="industry" placeholder="e.g., SaaS, Finance, E-commerce" class="input-field">
-                            <p class="text-xs text-neutral-500 mt-1">Helps match your portfolio to relevant projects</p>
+                        <!-- Industry & Platform (shown in both modes, side by side) -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Industry <span class="text-neutral-400 text-xs">(Optional)</span></label>
+                                <input type="text" name="industry" placeholder="e.g., SaaS, Finance, E-commerce" class="input-field">
+                                <p class="text-xs text-neutral-500 mt-1">Helps match to relevant projects</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Platform <span class="text-neutral-400 text-xs">(Optional)</span></label>
+                                <div class="flex gap-2">
+                                    <select name="platform" id="portfolio-platform-select" class="input-field flex-1">
+                                        <option value="">Select platform...</option>
+                                        <!-- Options loaded from database -->
+                                    </select>
+                                    <button type="button" onclick="autoDetectPlatform()" class="btn-secondary" title="Auto-detect from skills">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                    </button>
+                                </div>
+                                <p class="text-xs text-neutral-500 mt-1">Auto-detect or select manually</p>
+                            </div>
                         </div>
 
                         <!-- Row: Job Title & Task Type -->
@@ -1276,21 +1291,6 @@
                         <div id="custom-task-group" class="hidden upwork-field">
                             <label class="block text-sm font-600 text-neutral-700 mb-2">Custom Task Type</label>
                             <input type="text" name="other_task_type" placeholder="e.g., Video Editing" class="input-field">
-                        </div>
-
-                        <!-- Platform -->
-                        <div class="upwork-field" id="field-platform">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Platform</label>
-                            <div class="flex gap-2">
-                                <select name="platform" id="platform-select" class="input-field flex-1">
-                                    <option value="">Select or auto-detect...</option>
-                                    <!-- Options loaded from database -->
-                                </select>
-                                <button type="button" onclick="autoDetectPlatform()" class="btn-secondary" title="Auto-detect from skills">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                                </button>
-                            </div>
-                            <p class="text-xs text-neutral-500 mt-1">Auto-detected from skills or select manually</p>
                         </div>
 
                         <!-- Row: Dates & Status -->
@@ -1658,7 +1658,6 @@
             'field-company',
             'field-job-title',
             'custom-task-group',
-            'field-platform',
             'field-dates-status',
             'field-urgent',
             'field-outcomes',
@@ -1761,11 +1760,11 @@
                     '<option value="other">Other (Custom)</option>';
                 
                 // Populate platform dropdown in form
-                const platformSelect = document.getElementById('platform-select');
-                const defaultPlatforms = ['WordPress', 'Shopify', 'Webflow', 'React', 'illustrator'];
+                const platformSelect = document.getElementById('portfolio-platform-select');
+                const defaultPlatforms = ['WordPress', 'Shopify', 'Webflow', 'React', 'illustrator', 'External'];
                 const allPlatforms = [...new Set([...defaultPlatforms, ...platforms])].sort();
                 
-                platformSelect.innerHTML = '<option value="">Select or auto-detect...</option>' + 
+                platformSelect.innerHTML = '<option value="">Select platform...</option>' + 
                     allPlatforms.map(p => `<option value="${p}">${p}</option>`).join('') +
                     '<option value="Custom">Custom/Other</option>';
                 
@@ -1798,9 +1797,9 @@
                 <option value="other">Other</option>
             `;
             
-            const platformSelect = document.getElementById('platform-select');
+            const platformSelect = document.getElementById('portfolio-platform-select');
             platformSelect.innerHTML = `
-                <option value="">Select or auto-detect...</option>
+                <option value="">Select platform...</option>
                 <option value="WordPress">WordPress</option>
                 <option value="Shopify">Shopify</option>
                 <option value="WooCommerce">WooCommerce</option>
@@ -1813,6 +1812,7 @@
                 <option value="Magento">Magento</option>
                 <option value="Drupal">Drupal</option>
                 <option value="Squarespace">Squarespace</option>
+                <option value="External">External</option>
                 <option value="Custom">Custom/Other</option>
             `;
         }
@@ -1936,7 +1936,7 @@
                     industry: formData.get('industry')?.trim() || null,
                     task_type: 'portfolio',
                     project_status: 'completed',
-                    platform: 'External',
+                    platform: formData.get('platform') || 'External',
                     skills_required: currentSkills,
                     start_date: null,
                     end_date: null,
@@ -2021,7 +2021,7 @@
         function autoDetectPlatform() {
             const detected = detectPlatformFromSkills(currentSkills);
             if (detected) {
-                document.getElementById('platform-select').value = detected;
+                document.getElementById('portfolio-platform-select').value = detected;
                 showToast(`Detected: ${detected}`);
             } else {
                 showToast('Could not detect platform from skills');
@@ -2486,7 +2486,7 @@
                 taskSelect.value = taskValue;
                 
                 // Platform - check if exists in options, add if not
-                const platformSelect = document.getElementById('platform-select');
+                const platformSelect = document.getElementById('portfolio-platform-select');
                 const platformValue = entry.platform || '';
                 if (platformValue && ![...platformSelect.options].some(opt => opt.value === platformValue)) {
                     // Add the platform if it doesn't exist in dropdown

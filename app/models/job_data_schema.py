@@ -113,9 +113,9 @@ class JobDataUploadRequest(BaseModel):
         None,
         description="Temporary link/URL for additional resources"
     )
-    client_feedback_url: HttpUrl = Field(
-        ...,
-        description="URL to client feedback (required)"
+    client_feedback_url: Optional[HttpUrl] = Field(
+        None,
+        description="URL to client feedback (optional for portfolio entries)"
     )
     client_feedback_text: Optional[str] = Field(
         None,
@@ -140,6 +140,10 @@ class JobDataUploadRequest(BaseModel):
     urgent_adhoc: bool = Field(
         False,
         description="Whether this was an urgent/adhoc project"
+    )
+    is_portfolio_entry: bool = Field(
+        False,
+        description="Whether this is a portfolio entry (vs standard Upwork training entry)"
     )
     
     # ===== DELIVERABLES & OUTCOMES (Critical for matching) =====
@@ -253,6 +257,7 @@ class UpdateJobDataRequest(BaseModel):
     other_task_type: Optional[str] = Field(None, description="Custom task type")
     platform: Optional[str] = Field(None, description="Platform/technology (WordPress, Shopify, React, etc.)")
     urgent_adhoc: Optional[bool] = Field(None)
+    is_portfolio_entry: Optional[bool] = Field(None, description="Whether this is a portfolio entry")
     
     # ===== DELIVERABLES & OUTCOMES =====
     deliverables: Optional[List[str]] = Field(None, description="What was built/delivered")
@@ -297,6 +302,7 @@ class JobDataResponse(BaseModel):
     start_date: Optional[str] = Field(None, description="Project start date")
     end_date: Optional[str] = Field(None, description="Project end date")
     portfolio_url: Optional[str] = Field(None, description="Portfolio URL")
+    is_portfolio_entry: Optional[bool] = Field(None, description="Whether this is a portfolio entry")
     created_at: datetime = Field(..., description="Created timestamp")
     updated_at: Optional[datetime] = Field(None, description="Updated timestamp")
     
@@ -339,6 +345,7 @@ class JobDataDetailResponse(JobDataResponse):
     task_type: Optional[str] = Field(None, description="Type of task/project")
     platform: Optional[str] = Field(None, description="Platform/technology")
     urgent_adhoc: bool
+    is_portfolio_entry: bool = Field(False, description="Whether this is a portfolio entry")
     deliverables: Optional[List[str]] = Field(None, description="What was built/delivered")
     outcomes: Optional[str] = Field(None, description="Key result achieved")
     chunks_count: Optional[int] = Field(None, description="Number of chunks created")
