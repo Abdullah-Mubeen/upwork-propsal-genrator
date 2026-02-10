@@ -247,6 +247,11 @@
             color: #525252;
         }
 
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
         /* Progress */
         .progress-overlay {
             position: fixed;
@@ -937,6 +942,127 @@
             outline: none;
             border-color: #171717;
         }
+
+        /* Mode Toggle */
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .mode-toggle:has(input:checked) {
+            background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
+            border-color: #fcd34d;
+        }
+
+        .mode-toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .mode-toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .mode-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #d1d5db;
+            border-radius: 24px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mode-toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        .mode-toggle-switch input:checked + .mode-toggle-slider {
+            background: #f59e0b;
+        }
+
+        .mode-toggle-switch input:checked + .mode-toggle-slider::before {
+            transform: translateX(20px);
+        }
+
+        .mode-toggle-label {
+            flex: 1;
+        }
+
+        .mode-toggle-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .mode-toggle-desc {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .mode-toggle:has(input:checked) .mode-toggle-title {
+            color: #92400e;
+        }
+
+        .mode-toggle:has(input:checked) .mode-toggle-desc {
+            color: #a16207;
+        }
+
+        /* Field visibility transitions */
+        .upwork-field {
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .upwork-field.hidden-field {
+            opacity: 0;
+            max-height: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            pointer-events: none;
+        }
+
+        /* Portfolio mode indicator */
+        .portfolio-mode-badge {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: #fef3c7;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #92400e;
+        }
+
+        .portfolio-mode-badge.show {
+            display: inline-flex;
+        }
+
+        .portfolio-mode-badge svg {
+            width: 12px;
+            height: 12px;
+        }
     </style>
 </head>
 <body>
@@ -1097,29 +1223,48 @@
         <div id="tab-upload" class="tab-content active">
             <div class="max-w-2xl">
                 <div class="card p-6">
-                    <h2 class="text-base font-semibold text-neutral-900 mb-6">New Training Entry</h2>
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-base font-semibold text-neutral-900" id="form-title">New Training Entry</h2>
+                        <span class="portfolio-mode-badge" id="portfolio-badge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                            Portfolio Mode
+                        </span>
+                    </div>
                     
                     <form id="proposal-form" class="space-y-5">
-                        <!-- Row: Company & Industry -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Company *</label>
-                                <input type="text" name="company_name" placeholder="TechCorp Inc" class="input-field" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Industry</label>
-                                <input type="text" name="industry" placeholder="e.g., SaaS, Finance, E-commerce" class="input-field">
+                        <!-- Mode Toggle -->
+                        <div class="mode-toggle">
+                            <label class="mode-toggle-switch">
+                                <input type="checkbox" id="portfolio-mode-toggle" onchange="togglePortfolioMode(this.checked)">
+                                <span class="mode-toggle-slider"></span>
+                            </label>
+                            <div class="mode-toggle-label">
+                                <div class="mode-toggle-title" id="mode-title">Standard Mode</div>
+                                <div class="mode-toggle-desc" id="mode-desc">Full training entry with Upwork proposal data</div>
                             </div>
                         </div>
 
+                        <!-- Company (Upwork only) -->
+                        <div class="upwork-field" id="field-company">
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Company <span class="upwork-required">*</span></label>
+                            <input type="text" name="company_name" id="input-company" placeholder="TechCorp Inc" class="input-field" required>
+                        </div>
+
+                        <!-- Industry (shown in both modes) -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Industry <span class="text-neutral-400 text-xs">(Optional)</span></label>
+                            <input type="text" name="industry" placeholder="e.g., SaaS, Finance, E-commerce" class="input-field">
+                            <p class="text-xs text-neutral-500 mt-1">Helps match your portfolio to relevant projects</p>
+                        </div>
+
                         <!-- Row: Job Title & Task Type -->
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-4 upwork-field" id="field-job-title">
                             <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Job Title *</label>
-                                <input type="text" name="job_title" placeholder="Senior Backend Developer" class="input-field" required>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Job Title <span class="upwork-required">*</span></label>
+                                <input type="text" name="job_title" id="input-job-title" placeholder="Senior Backend Developer" class="input-field" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Task Type *</label>
+                                <label class="block text-sm font-600 text-neutral-700 mb-2">Task Type <span class="upwork-required">*</span></label>
                                 <select name="task_type" id="task-type-select" class="input-field" required>
                                     <option value="">Select...</option>
                                     <!-- Options loaded from database -->
@@ -1128,13 +1273,13 @@
                         </div>
 
                         <!-- Custom Task Type -->
-                        <div id="custom-task-group" class="hidden">
+                        <div id="custom-task-group" class="hidden upwork-field">
                             <label class="block text-sm font-600 text-neutral-700 mb-2">Custom Task Type</label>
                             <input type="text" name="other_task_type" placeholder="e.g., Video Editing" class="input-field">
                         </div>
 
                         <!-- Platform -->
-                        <div>
+                        <div class="upwork-field" id="field-platform">
                             <label class="block text-sm font-600 text-neutral-700 mb-2">Platform</label>
                             <div class="flex gap-2">
                                 <select name="platform" id="platform-select" class="input-field flex-1">
@@ -1149,7 +1294,7 @@
                         </div>
 
                         <!-- Row: Dates & Status -->
-                        <div class="grid grid-cols-3 gap-4">
+                        <div class="grid grid-cols-3 gap-4 upwork-field" id="field-dates-status">
                             <div>
                                 <label class="block text-sm font-600 text-neutral-700 mb-2">Start Date</label>
                                 <input type="date" name="start_date" class="input-field">
@@ -1170,7 +1315,7 @@
                         </div>
 
                         <!-- Urgent checkbox -->
-                        <label class="flex items-center gap-3 cursor-pointer py-2">
+                        <label class="flex items-center gap-3 cursor-pointer py-2 upwork-field" id="field-urgent">
                             <input type="checkbox" name="urgent_adhoc" class="w-4 h-4 rounded border-neutral-300 cursor-pointer">
                             <span class="text-sm text-neutral-700">Urgent / Adhoc Project</span>
                         </label>
@@ -1187,7 +1332,7 @@
 
                         <!-- Portfolio URLs -->
                         <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Portfolio Links (Optional)</label>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Portfolio Links <span class="portfolio-required hidden text-amber-600">*</span><span class="upwork-optional text-neutral-400 text-xs">(Optional)</span></label>
                             <div class="flex gap-2 mb-3">
                                 <input type="url" id="portfolio-input" placeholder="https://github.com/..." class="input-field flex-1">
                                 <button type="button" onclick="addPortfolio()" class="btn-secondary">Add</button>
@@ -1195,16 +1340,9 @@
                             <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
-                        <!-- Temporary Link -->
-                        <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Temporary Link (Optional)</label>
-                            <input type="url" id="temporary-link-input" name="temporary_link" placeholder="https://..." class="input-field">
-                            <p class="text-xs text-neutral-500 mt-1">Add a temporary URL for additional resources</p>
-                        </div>
-
                         <!-- DELIVERABLES - What was actually built -->
                         <div class="border-t border-neutral-200 pt-5">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Deliverables (What You Built) *</label>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Deliverables (What You Built) <span class="portfolio-required hidden text-amber-600">*</span><span class="upwork-optional">*</span></label>
                             <p class="text-xs text-neutral-500 mb-3">List specific things you delivered - helps match similar projects</p>
                             <div class="flex gap-2 mb-3">
                                 <input type="text" id="deliverable-input" placeholder="e.g., Custom dashboard, Payment integration, Content migration" class="input-field flex-1">
@@ -1214,26 +1352,26 @@
                         </div>
 
                         <!-- OUTCOMES - Key result achieved -->
-                        <div>
+                        <div class="upwork-field" id="field-outcomes">
                             <label class="block text-sm font-600 text-neutral-700 mb-2">Key Outcome (Optional)</label>
                             <input type="text" name="outcomes" placeholder="e.g., Client can now track inventory in real-time, 40% faster page load" class="input-field">
                             <p class="text-xs text-neutral-500 mt-1">One-line result that shows the impact</p>
                         </div>
 
                         <!-- Job Description -->
-                        <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Job Description *</label>
-                            <textarea name="job_description" placeholder="Describe the job requirements..." rows="4" class="input-field resize-none" required></textarea>
+                        <div class="upwork-field" id="field-job-desc">
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Job Description <span class="upwork-required">*</span></label>
+                            <textarea name="job_description" id="input-job-desc" placeholder="Describe the job requirements..." rows="4" class="input-field resize-none" required></textarea>
                         </div>
 
                         <!-- Proposal -->
-                        <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Your Proposal *</label>
-                            <textarea name="your_proposal_text" placeholder="Your proposal response..." rows="4" class="input-field resize-none" required></textarea>
+                        <div class="upwork-field" id="field-proposal">
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Your Proposal <span class="upwork-required">*</span></label>
+                            <textarea name="your_proposal_text" id="input-proposal" placeholder="Your proposal response..." rows="4" class="input-field resize-none" required></textarea>
                         </div>
 
                         <!-- Client Feedback -->
-                        <div class="border-t border-neutral-200 pt-5">
+                        <div class="border-t border-neutral-200 pt-5 upwork-field" id="field-feedback">
                             <label class="block text-sm font-600 text-neutral-700 mb-4">Client Feedback (Optional)</label>
                             <p class="text-xs text-neutral-500 mb-4">Add one or both - text feedback and/or review link</p>
                             
@@ -1379,7 +1517,6 @@
         
         let currentSkills = [];
         let currentPortfolios = [];
-        let currentTemporaryLink = '';
         let currentDeliverables = [];
         let selectedImage = null;
         let extractedOCRText = '';
@@ -1512,6 +1649,92 @@
             loadStats();
             loadFilterOptions();
             loadFormFromStorage();
+            initPortfolioMode();
+        }
+
+        // ========== PORTFOLIO MODE ==========
+        let isPortfolioMode = false;
+        const upworkFieldIds = [
+            'field-company',
+            'field-job-title',
+            'custom-task-group',
+            'field-platform',
+            'field-dates-status',
+            'field-urgent',
+            'field-outcomes',
+            'field-job-desc',
+            'field-proposal',
+            'field-feedback'
+        ];
+
+        function initPortfolioMode() {
+            // Restore saved mode preference
+            const savedMode = localStorage.getItem('portfolio_mode');
+            if (savedMode === 'true') {
+                document.getElementById('portfolio-mode-toggle').checked = true;
+                togglePortfolioMode(true, false);
+            }
+        }
+
+        function togglePortfolioMode(enabled, animate = true) {
+            isPortfolioMode = enabled;
+            localStorage.setItem('portfolio_mode', enabled);
+
+            // Update toggle labels
+            document.getElementById('mode-title').textContent = enabled ? 'Portfolio Mode' : 'Standard Mode';
+            document.getElementById('mode-desc').textContent = enabled 
+                ? 'Skills, portfolio & deliverables only — no Upwork data needed'
+                : 'Full training entry with Upwork proposal data';
+
+            // Update badge visibility
+            document.getElementById('portfolio-badge').classList.toggle('show', enabled);
+
+            // Update form title
+            document.getElementById('form-title').textContent = enabled 
+                ? (document.getElementById('editing-contract-id').value ? 'Edit Portfolio Entry' : 'New Portfolio Entry')
+                : (document.getElementById('editing-contract-id').value ? 'Edit Training Entry' : 'New Training Entry');
+
+            // Toggle field visibility with optional animation
+            upworkFieldIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (animate) {
+                    el.style.maxHeight = enabled ? '0' : el.scrollHeight + 'px';
+                }
+                el.classList.toggle('hidden-field', enabled);
+            });
+
+            // Update required attributes on Upwork-specific fields
+            const upworkRequiredFields = [
+                { id: 'input-company', name: 'company_name' },
+                { id: 'input-job-title', name: 'job_title' },
+                { id: 'input-job-desc', name: 'job_description' },
+                { id: 'input-proposal', name: 'your_proposal_text' }
+            ];
+
+            upworkRequiredFields.forEach(({id}) => {
+                const input = document.getElementById(id);
+                if (input) {
+                    input.required = !enabled;
+                }
+            });
+
+            // Update task type requirement
+            const taskTypeSelect = document.getElementById('task-type-select');
+            if (taskTypeSelect) {
+                taskTypeSelect.required = !enabled;
+            }
+
+            // Update submit button text
+            document.getElementById('submit-btn').textContent = enabled ? 'Add Portfolio Entry' : 'Submit Entry';
+
+            // Toggle required indicators for portfolio-specific fields
+            document.querySelectorAll('.portfolio-required').forEach(el => {
+                el.classList.toggle('hidden', !enabled);
+            });
+            document.querySelectorAll('.upwork-optional').forEach(el => {
+                el.classList.toggle('hidden', enabled);
+            });
         }
 
         // Load filter options from database
@@ -1681,32 +1904,75 @@
                 return;
             }
 
+            // Portfolio mode requires deliverables and portfolio URLs
+            if (isPortfolioMode) {
+                if (!currentDeliverables.length) {
+                    alert('Please add at least one deliverable');
+                    return;
+                }
+                if (!currentPortfolios.length) {
+                    alert('Please add at least one portfolio link');
+                    return;
+                }
+            }
+
             const form = e.target;
             const formData = new FormData(form);
             const editingId = document.getElementById('editing-contract-id').value;
             const isEditing = !!editingId;
             
-            // Build data object matching the backend schema
-            const data = {
-                company_name: formData.get('company_name').trim(),
-                job_title: formData.get('job_title').trim(),
-                job_description: formData.get('job_description').trim(),
-                your_proposal_text: formData.get('your_proposal_text').trim(),
-                industry: formData.get('industry')?.trim() || null,
-                task_type: formData.get('task_type') === 'other' ? formData.get('other_task_type').trim() : formData.get('task_type'),
-                project_status: formData.get('project_status'),
-                platform: formData.get('platform') || null,
-                skills_required: currentSkills,
-                start_date: formData.get('start_date') || null,
-                end_date: formData.get('end_date') || null,
-                urgent_adhoc: formData.get('urgent_adhoc') === 'on',
-                portfolio_urls: currentPortfolios,
-                temporary_link: formData.get('temporary_link')?.trim() || null,
-                deliverables: currentDeliverables,
-                outcomes: formData.get('outcomes')?.trim() || null,
-                client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
-                client_feedback_url: formData.get('client_feedback_url')?.trim() || null
-            };
+            // Build data object - adapt based on mode
+            let data;
+            
+            if (isPortfolioMode) {
+                // Portfolio mode: minimal required data with auto-generated identifiers
+                const timestamp = Date.now();
+                const skillsStr = currentSkills.slice(0, 3).join('-').substring(0, 30);
+                data = {
+                    company_name: `Portfolio-${skillsStr}-${timestamp}`.substring(0, 50),
+                    job_title: `Portfolio Entry`,
+                    job_description: `Portfolio entry showcasing expertise in: ${currentSkills.join(', ')}. Deliverables: ${currentDeliverables.join(', ')}.`,
+                    your_proposal_text: `This is a portfolio-based entry highlighting my skills and deliverables without platform-specific proposal data.`,
+                    industry: formData.get('industry')?.trim() || null,
+                    task_type: 'portfolio',
+                    project_status: 'completed',
+                    platform: 'External',
+                    skills_required: currentSkills,
+                    start_date: null,
+                    end_date: null,
+                    urgent_adhoc: false,
+                    portfolio_urls: currentPortfolios,
+                    temporary_link: null,
+                    deliverables: currentDeliverables,
+                    outcomes: null,
+                    client_feedback_text: null,
+                    client_feedback_url: null,
+                    is_portfolio_entry: true
+                };
+            } else {
+                // Standard mode: full Upwork training data
+                data = {
+                    company_name: formData.get('company_name').trim(),
+                    job_title: formData.get('job_title').trim(),
+                    job_description: formData.get('job_description').trim(),
+                    your_proposal_text: formData.get('your_proposal_text').trim(),
+                    industry: formData.get('industry')?.trim() || null,
+                    task_type: formData.get('task_type') === 'other' ? formData.get('other_task_type').trim() : formData.get('task_type'),
+                    project_status: formData.get('project_status'),
+                    platform: formData.get('platform') || null,
+                    skills_required: currentSkills,
+                    start_date: formData.get('start_date') || null,
+                    end_date: formData.get('end_date') || null,
+                    urgent_adhoc: formData.get('urgent_adhoc') === 'on',
+                    portfolio_urls: currentPortfolios,
+                    temporary_link: null,
+                    deliverables: currentDeliverables,
+                    outcomes: formData.get('outcomes')?.trim() || null,
+                    client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
+                    client_feedback_url: formData.get('client_feedback_url')?.trim() || null,
+                    is_portfolio_entry: false
+                };
+            }
 
             showProgress(isEditing ? 'Updating entry...' : 'Uploading data...', 'Storing in database');
 
@@ -1720,13 +1986,12 @@
                 
                 if (response.status === 200 || response.status === 201) {
                     hideProgress();
-                    showToast(isEditing ? 'Entry updated successfully!' : 'Entry added successfully!');
+                    showToast(isEditing ? 'Entry updated successfully!' : (isPortfolioMode ? 'Portfolio entry added!' : 'Entry added successfully!'));
                     
                     // Complete reset
                     form.reset();
                     currentSkills = [];
                     currentPortfolios = [];
-                    currentTemporaryLink = '';
                     currentDeliverables = [];
                     renderSkills();
                     renderPortfolios();
@@ -1735,9 +2000,9 @@
                     
                     // Reset edit mode
                     document.getElementById('editing-contract-id').value = '';
-                    document.getElementById('submit-btn').textContent = 'Submit Entry';
+                    document.getElementById('submit-btn').textContent = isPortfolioMode ? 'Add Portfolio Entry' : 'Submit Entry';
                     document.getElementById('cancel-edit-btn').classList.add('hidden');
-                    document.querySelector('#tab-upload h2').textContent = 'New Training Entry';
+                    document.getElementById('form-title').textContent = isPortfolioMode ? 'New Portfolio Entry' : 'New Training Entry';
                     
                     loadStats();
                     
@@ -1794,7 +2059,11 @@
             if (!confirm('Clear all form data?')) return;
             
             const form = document.getElementById('proposal-form');
+            // Preserve portfolio mode toggle
+            const portfolioModeState = document.getElementById('portfolio-mode-toggle').checked;
             form.reset();
+            document.getElementById('portfolio-mode-toggle').checked = portfolioModeState;
+            
             currentSkills = [];
             currentPortfolios = [];
             currentDeliverables = [];
@@ -2146,15 +2415,17 @@
             if (!page.length) {
                 tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-neutral-500">No entries found</td></tr>`;
             } else {
-                tbody.innerHTML = page.map((e, idx) => `
+                tbody.innerHTML = page.map((e, idx) => {
+                    const isPortfolio = e.is_portfolio_entry || e.task_type === 'portfolio' || (e.company_name && e.company_name.startsWith('Portfolio-'));
+                    return `
                     <tr class="border-b border-neutral-200 table-row">
                         <td class="px-4 py-3">
-                            <p class="font-medium text-neutral-900">${e.company_name}</p>
+                            <p class="font-medium text-neutral-900">${isPortfolio ? '📁 ' : ''}${e.company_name}</p>
                             <p class="text-xs text-neutral-500">${e.contract_id}</p>
                         </td>
-                        <td class="px-4 py-3 text-neutral-700">${e.job_title}</td>
+                        <td class="px-4 py-3 text-neutral-700">${e.job_title}${isPortfolio ? ' <span class="text-xs text-amber-600 font-medium">(Portfolio)</span>' : ''}</td>
                         <td class="px-4 py-3">
-                            ${e.platform || e._platform ? `<span class="badge badge-info">${e.platform || e._platform}</span>` : '<span class="text-neutral-400">-</span>'}
+                            ${e.platform || e._platform ? `<span class="badge ${isPortfolio ? 'badge-warning' : 'badge-info'}">${e.platform || e._platform}</span>` : '<span class="text-neutral-400">-</span>'}
                         </td>
                         <td class="px-4 py-3">
                             <span class="badge badge-muted capitalize">${e.task_type || '-'}</span>
@@ -2167,7 +2438,7 @@
                             <button onclick="deleteEntry('${e.contract_id}', '${e.company_name}')" class="btn-danger">Delete</button>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
             }
             
             document.getElementById('showing-count').textContent = Math.min(end, entriesData.length);
@@ -2226,21 +2497,7 @@
                 }
                 platformSelect.value = platformValue;
                 
-                // Skills
-                currentSkills = entry.skills_required || [];
-                renderSkills();
-                
-                // Portfolios
-                currentPortfolios = entry.portfolio_urls || [];
-                renderPortfolios();
-                
-                // Temporary Link
-                document.getElementById('temporary-link-input').value = entry.temporary_link || '';
-                
-                // Deliverables & Outcomes
-                currentDeliverables = entry.deliverables || [];
-                renderDeliverables();
-                form.elements['outcomes'].value = entry.outcomes || '';
+                // Skills\n                currentSkills = entry.skills_required || [];\n                renderSkills();\n                \n                // Portfolios\n                currentPortfolios = entry.portfolio_urls || [];\n                renderPortfolios();\n                \n                // Deliverables & Outcomes\n                currentDeliverables = entry.deliverables || [];\n                renderDeliverables();\n                form.elements['outcomes'].value = entry.outcomes || '';", "oldString": "                // Skills\n                currentSkills = entry.skills_required || [];\n                renderSkills();\n                \n                // Portfolios\n                currentPortfolios = entry.portfolio_urls || [];\n                renderPortfolios();\n                \n                // Temporary Link\n                document.getElementById('temporary-link-input').value = entry.temporary_link || '';\n                \n                // Deliverables & Outcomes\n                currentDeliverables = entry.deliverables || [];\n                renderDeliverables();\n                form.elements['outcomes'].value = entry.outcomes || '';
                 
                 // Set edit mode
                 document.getElementById('editing-contract-id').value = contractId;
@@ -2263,9 +2520,9 @@
         function cancelEdit() {
             clearForm();
             document.getElementById('editing-contract-id').value = '';
-            document.getElementById('submit-btn').textContent = 'Submit Entry';
+            document.getElementById('submit-btn').textContent = isPortfolioMode ? 'Add Portfolio Entry' : 'Submit Entry';
             document.getElementById('cancel-edit-btn').classList.add('hidden');
-            document.querySelector('#tab-upload h2').textContent = 'New Training Entry';
+            document.getElementById('form-title').textContent = isPortfolioMode ? 'New Portfolio Entry' : 'New Training Entry';
         }
 
         async function deleteEntry(id, name) {
