@@ -14,6 +14,13 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
+# Import centralized constants
+from app.domain.constants import (
+    PLATFORM_KEYWORDS,
+    AI_ML_KEYWORDS,
+    COMPLEXITY_LEVELS,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,39 +44,9 @@ class FilterCriteria:
 
 class RetrievalPipeline:
     """Multi-stage retrieval for proposal generation"""
-
-    COMPLEXITY_LEVELS = {"low": 1, "medium": 2, "high": 3}
     
-    # Platform keywords for smart detection
-    # CRITICAL: More specific keywords should come first in each list
-    PLATFORM_KEYWORDS = {
-        "wordpress": ["wordpress", "wp-admin", "elementor", "divi", "theme", "plugin", "gutenberg", "acf", "wp theme", "wp plugin", "geo directory", "geodirectory"],
-        "shopify": ["shopify", "shopify theme", "shopify app", "shopify store", "liquid", "shopify plus"],
-        "woocommerce": ["woocommerce", "woo commerce", "woo membership", "woomembership", "woo subscription", "woo-"],
-        "wix": ["wix", "wix site", "wix website", "wix editor"],
-        "webflow": ["webflow"],
-        "squarespace": ["squarespace"],
-        "magento": ["magento", "adobe commerce"],
-        "drupal": ["drupal"],
-        "joomla": ["joomla"],
-        "react": ["react", "reactjs", "react.js", "next.js", "nextjs", "react native"],
-        "vue": ["vue", "vuejs", "vue.js", "nuxt"],
-        "angular": ["angular", "angularjs"],
-        "html_css": ["static site", "landing page"],  # Removed html/css as they're too generic
-    }
-    
-    # AI/ML keywords for detecting AI-focused jobs
-    # These take precedence over platform detection when found
-    AI_ML_KEYWORDS = [
-        "openai", "gpt", "gpt-4", "gpt-3", "chatgpt", "claude", "anthropic", "llm", "large language model",
-        "ai model", "ai api", "ai integration", "machine learning", "deep learning", "neural network",
-        "langchain", "rag", "retrieval augmented", "embedding", "vector database", "pinecone", "chromadb",
-        "huggingface", "transformers", "pytorch", "tensorflow", "computer vision", "ocr", "nlp",
-        "natural language processing", "text generation", "content generation", "ai-powered",
-        "automated content", "ai automation", "n8n", "make.com", "zapier automation",
-        "stability ai", "dall-e", "midjourney", "image generation", "deepseek", "anthropic",
-        "ai agent", "ai assistant", "chatbot", "conversational ai", "fine-tuning", "prompt engineering"
-    ]
+    # NOTE: Constants moved to app/domain/constants.py
+    # Use PLATFORM_KEYWORDS, AI_ML_KEYWORDS, COMPLEXITY_LEVELS directly (imported at module level)
 
     def __init__(self, db=None, pinecone_service=None):
         """
@@ -232,7 +209,7 @@ class RetrievalPipeline:
         # Count AI/ML keyword matches
         ai_score = 0
         matched_keywords = []
-        for keyword in self.AI_ML_KEYWORDS:
+        for keyword in AI_ML_KEYWORDS:
             if keyword in search_text:
                 ai_score += 3  # Base score for finding the keyword
                 matched_keywords.append(keyword)
@@ -277,7 +254,7 @@ class RetrievalPipeline:
         
         # Check each platform's keywords
         platform_scores = {}
-        for platform, keywords in self.PLATFORM_KEYWORDS.items():
+        for platform, keywords in PLATFORM_KEYWORDS.items():
             score = 0
             for keyword in keywords:
                 if keyword in search_text:
@@ -339,7 +316,7 @@ class RetrievalPipeline:
                 if job_platform in excluded:
                     logger.debug(f"  ✗ Excluding {job.get('company_name')} - platform {job_platform} conflicts")
                     continue
-                if any(kw in job_skills_text for p in excluded for kw in self.PLATFORM_KEYWORDS.get(p, [p])):
+                if any(kw in job_skills_text for p in excluded for kw in PLATFORM_KEYWORDS.get(p, [p])):
                     logger.debug(f"  ✗ Excluding {job.get('company_name')} - has competing platform skill")
                     continue
             
@@ -454,7 +431,7 @@ class RetrievalPipeline:
         skills_text = " ".join(skills)
         
         scores = {}
-        for platform, keywords in self.PLATFORM_KEYWORDS.items():
+        for platform, keywords in PLATFORM_KEYWORDS.items():
             score = sum(
                 4 if kw in skills else 3 if kw in skills_text else 2 if kw in job.get("job_title", "").lower() else 1 if kw in text else 0
                 for kw in keywords

@@ -13,7 +13,7 @@ from datetime import datetime
 from bson.objectid import ObjectId
 
 from app.db import DatabaseManager
-from app.utils.data_chunker import DataChunker
+from app.utils.advanced_chunker import AdvancedChunkProcessor
 from app.utils.openai_service import OpenAIService
 from app.utils.feedback_processor import FeedbackProcessor
 from app.utils.pinecone_service import PineconeService
@@ -38,7 +38,7 @@ class JobDataProcessor:
         self,
         db: DatabaseManager,
         openai_service: OpenAIService,
-        chunker: DataChunker,
+        chunker: AdvancedChunkProcessor,
         feedback_processor: FeedbackProcessor,
         pinecone_service: Optional[PineconeService] = None
     ):
@@ -48,7 +48,7 @@ class JobDataProcessor:
         Args:
             db: Database manager instance
             openai_service: OpenAI service for embeddings
-            chunker: Data chunker instance
+            chunker: Advanced chunk processor instance
             feedback_processor: Feedback processor instance
             pinecone_service: Optional Pinecone service for vector storage
         """

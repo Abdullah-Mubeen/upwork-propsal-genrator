@@ -38,7 +38,7 @@ from app.models.job_data_schema import (
 from app.utils.job_data_processor import JobDataProcessor
 from app.db import get_db
 from app.utils.openai_service import OpenAIService
-from app.utils.data_chunker import DataChunker
+from app.utils.advanced_chunker import AdvancedChunkProcessor
 from app.utils.feedback_processor import FeedbackProcessor
 from app.utils.pinecone_service import PineconeService
 from app.config import settings
@@ -85,12 +85,7 @@ def get_processor() -> JobDataProcessor:
             llm_model=settings.OPENAI_LLM_MODEL,
             vision_model=settings.OPENAI_VISION_MODEL
         )
-        chunker = DataChunker(
-            chunk_size=settings.CHUNK_SIZE,
-            chunk_overlap=settings.CHUNK_OVERLAP,
-            min_chunk_size=settings.MIN_CHUNK_SIZE,
-            max_chunk_size=settings.MAX_CHUNK_SIZE
-        )
+        chunker = AdvancedChunkProcessor()
         feedback_processor = FeedbackProcessor(openai_service)
         pinecone_service = get_pinecone_service()
         

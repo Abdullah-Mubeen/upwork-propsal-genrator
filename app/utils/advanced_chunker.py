@@ -560,6 +560,9 @@ class AdvancedChunkProcessor:
 
         return flat_chunks
 
+    # Backward compatibility alias for DataChunker.chunk_training_data()
+    chunk_training_data = get_all_chunks_flat
+
     def validate_chunk_json(self, chunk: Dict[str, Any]) -> Tuple[bool, str]:
         """
         Validate that a chunk is properly formatted and JSON-serializable.

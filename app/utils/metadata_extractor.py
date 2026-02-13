@@ -17,103 +17,22 @@ import re
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
+# Import centralized constants
+from app.domain.constants import (
+    INDUSTRY_KEYWORDS,
+    BRAND_INDUSTRY_MAP,
+    COMPLEXITY_INDICATORS,
+    CLIENT_INTENT_KEYWORDS,
+)
+
 logger = logging.getLogger(__name__)
 
 
 class MetadataExtractor:
     """Extracts multi-dimensional metadata from job data"""
 
-    # Industry mapping for standardization - ENHANCED with brand references
-    # NOTE: This is used for fast keyword matching. For complex cases (like "similar to TMZ"),
-    # use the LLM-based detect_industry_semantic() method instead.
-    # IMPORTANT: Avoid short/generic words that match unintended contexts (e.g., "press" matches "WordPress")
-    INDUSTRY_KEYWORDS = {
-        "saas": ["saas", "software as a service", "cloud platform", "subscription platform", "web platform", "dashboard app"],
-        "e-commerce": ["e-commerce", "ecommerce", "shopify", "woo commerce", "online store", "products", "cart", "checkout", "shop"],
-        "healthcare": ["healthcare", "health care", "medical", "hospital", "clinic", "telemedicine", "patient portal", "doctor"],
-        "finance": ["finance", "financial", "banking", "fintech", "crypto", "investment", "trading platform"],
-        "education": ["education", "edtech", "learning platform", "course platform", "university", "school", "student", "lms"],
-        "real_estate": ["real estate", "realestate", "property listing", "rental property", "real estate agent", "broker"],
-        "manufacturing": ["manufacturing", "factory", "industrial", "logistics", "warehouse", "supply chain"],
-        "travel": ["travel", "tourism", "booking", "hotel", "flight", "vacation", "resort"],
-        "social": ["social network", "social platform", "community", "forum", "members area", "social media marketing"],
-        # ENHANCED: Media industry with brand references and contextual keywords
-        # NOTE: Use specific terms, avoid generic words like "press" (matches WordPress)
-        "media": [
-            "media company", "entertainment", "streaming", "video platform", "podcast", "news site", "magazine",
-            "celebrity", "gossip", "journalism", "editorial content", "content site", "blog network",
-            "tmz", "justjared", "wwd", "variety", "hollywood reporter", "entertainment news",
-            "media outlet", "publishing company", "news articles", "newsroom", "breaking news"
-        ],
-        "technology": ["technology", "tech", "software", "it services", "consulting", "development"],
-        "professional_services": ["consulting", "agency", "b2b", "services", "professional"],
-        "non_profit": ["non-profit", "nonprofit", "charity", "ngo", "foundation", "donation"],
-    }
-    
-    # Brand-to-industry mapping for contextual detection
-    # When someone says "like X", we can infer the industry
-    BRAND_INDUSTRY_MAP = {
-        # Media/Entertainment brands
-        "tmz": "media", "justjared": "media", "wwd": "media", "variety": "media",
-        "buzzfeed": "media", "huffpost": "media", "cnn": "media", "bbc": "media",
-        "techcrunch": "media", "mashable": "media", "verge": "media", "engadget": "media",
-        "eonline": "media", "people": "media", "us weekly": "media", "entertainment weekly": "media",
-        # E-commerce brands
-        "amazon": "e-commerce", "shopify": "e-commerce", "etsy": "e-commerce", "ebay": "e-commerce",
-        # SaaS brands  
-        "salesforce": "saas", "hubspot": "saas", "slack": "saas", "notion": "saas",
-        # Social brands
-        "facebook": "social", "twitter": "social", "linkedin": "social", "reddit": "social",
-    }
-
-    # Complexity factors
-    COMPLEXITY_INDICATORS = {
-        "high": ["machine learning", "ai", "blockchain", "real-time", "high volume", "complex integration", "multi-tenant", "microservices", "distributed"],
-        "medium": ["api", "database", "authentication", "payment", "integration", "mobile responsive"],
-        "low": ["landing page", "blog", "portfolio", "static", "basic crud"],
-    }
-
-    # CLIENT INTENT CATEGORIES - What the client ACTUALLY wants done
-    # This is CRITICAL for matching jobs by actual requirement, not just platform
-    CLIENT_INTENT_KEYWORDS = {
-        # Migration/Transfer intents
-        "content_migration": ["migrate", "migration", "transfer content", "move content", "import content", "export content", "convert", "transition", "switch from", "move from", "substack", "mailchimp import", "medium import"],
-        "platform_switch": ["switch to wordpress", "move to shopify", "migrate to", "convert to wordpress", "rebuild on", "recreate on"],
-        
-        # Membership/Subscription intents  
-        "membership_setup": ["membership", "woomembership", "subscription site", "paid content", "paywall", "member area", "paid subscriber", "recurring payment", "member pages", "restrict content", "premium content"],
-        "newsletter_email": ["newsletter", "email list", "mailing list", "email marketing", "mailchimp", "convertkit", "email subscribers", "email campaign", "email automation"],
-        
-        # E-commerce intents
-        "store_setup": ["online store", "e-commerce store", "ecommerce store", "sell products", "product listing", "shopping cart", "checkout page"],
-        "payment_integration": ["payment gateway", "stripe integration", "paypal integration", "woocommerce payments", "checkout integration", "buy button", "accept payments"],
-        
-        # Performance/Optimization intents
-        "speed_optimization": ["speed up", "pagespeed", "core web vitals", "performance optimization", "load time", "site optimization", "gtmetrix", "lighthouse score", "website slow", "slow loading"],
-        "seo_optimization": ["seo optimization", "search engine optimization", "google ranking", "keyword optimization", "organic traffic", "meta tags", "on-page seo"],
-        
-        # Design/Development intents - ENHANCED for redesign detection
-        "website_redesign": [
-            "redesign website", "restyle website", "makeover", "new look", "refresh design", 
-            "modernize website", "update design", "update my existing", "more professional",
-            "unique layout", "similar to", "like tmz", "like variety", "like justjared",
-            "redesign", "professional look", "brand aligned", "brand consistency"
-        ],
-        "new_website": ["build website", "create website", "new website", "from scratch", "brand new site", "develop website"],
-        "bug_fixes": ["fix bug", "fix issue", "broken", "not working", "website issue", "website problem", "fix error", "repair"],
-        "feature_addition": ["add feature", "new feature", "add functionality", "integrate", "custom feature", "enhancement", "extend"],
-        
-        # Content/Blog intents - ENHANCED
-        "content_management": ["blog posts", "articles", "content management", "cms setup", "publish content", "editorial", "written articles", "add articles", "easy to add"],
-        "form_setup": ["contact form", "web form", "form submission", "lead capture form", "cf7", "gravity forms", "formidable forms", "form plugin"],
-        
-        # RSS/Content Integration intents - NEW
-        "rss_integration": [
-            "rss integration", "rss feed", "youtube integration", "pull content", 
-            "content syndication", "auto import", "feed integration", "youtube feed",
-            "youtube content", "video feed", "content aggregation", "auto-publish"
-        ],
-    }
+    # NOTE: INDUSTRY_KEYWORDS, BRAND_INDUSTRY_MAP, COMPLEXITY_INDICATORS, CLIENT_INTENT_KEYWORDS
+    # moved to app/domain/constants.py - imported at module level
 
     # RELATED TASK TYPES - Groups of task types that are semantically similar
     # Used for fuzzy matching when exact task_type doesn't match
@@ -173,7 +92,7 @@ class MetadataExtractor:
         detected_intents = []
         intent_scores = {}
         
-        for intent, keywords in MetadataExtractor.CLIENT_INTENT_KEYWORDS.items():
+        for intent, keywords in CLIENT_INTENT_KEYWORDS.items():
             score = 0
             for keyword in keywords:
                 if keyword in search_text:
@@ -391,17 +310,17 @@ class MetadataExtractor:
         score = 0
 
         # High complexity keywords
-        for keyword in MetadataExtractor.COMPLEXITY_INDICATORS["high"]:
+        for keyword in COMPLEXITY_INDICATORS["high"]:
             if keyword in job_desc:
                 score += 3
 
         # Medium complexity keywords
-        for keyword in MetadataExtractor.COMPLEXITY_INDICATORS["medium"]:
+        for keyword in COMPLEXITY_INDICATORS["medium"]:
             if keyword in job_desc:
                 score += 2
 
         # Low complexity keywords
-        for keyword in MetadataExtractor.COMPLEXITY_INDICATORS["low"]:
+        for keyword in COMPLEXITY_INDICATORS["low"]:
             if keyword in job_desc:
                 score += 1
 
@@ -433,7 +352,7 @@ class MetadataExtractor:
         text = f"{industry} {job_desc} {company_name}".lower()
 
         # Match against known industries (keyword-based)
-        for industry_tag, keywords in MetadataExtractor.INDUSTRY_KEYWORDS.items():
+        for industry_tag, keywords in INDUSTRY_KEYWORDS.items():
             for keyword in keywords:
                 if keyword in text:
                     tags.add(industry_tag)
@@ -441,7 +360,7 @@ class MetadataExtractor:
         
         # ENHANCED: Check for brand references (contextual detection)
         # This catches cases like "similar to TMZ" which keyword matching misses
-        for brand, brand_industry in MetadataExtractor.BRAND_INDUSTRY_MAP.items():
+        for brand, brand_industry in BRAND_INDUSTRY_MAP.items():
             if brand.lower() in text:
                 tags.add(brand_industry)
                 logger.debug(f"  Brand detection: '{brand}' → industry '{brand_industry}'")
@@ -482,7 +401,7 @@ class MetadataExtractor:
         detected_brands = []
         
         # Score each industry by keyword matches
-        for industry_tag, keywords in MetadataExtractor.INDUSTRY_KEYWORDS.items():
+        for industry_tag, keywords in INDUSTRY_KEYWORDS.items():
             score = 0
             for keyword in keywords:
                 if keyword in text:
@@ -492,7 +411,7 @@ class MetadataExtractor:
                 industry_scores[industry_tag] = score
         
         # Check brand references (high-confidence signals)
-        for brand, brand_industry in MetadataExtractor.BRAND_INDUSTRY_MAP.items():
+        for brand, brand_industry in BRAND_INDUSTRY_MAP.items():
             if brand.lower() in text:
                 detected_brands.append(brand)
                 # Brand match = strong signal (+5 to industry score)

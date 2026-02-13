@@ -18,6 +18,13 @@ from typing import Dict, List, Any, Optional
 from enum import Enum
 from dataclasses import dataclass
 
+# Import centralized constants
+from app.domain.constants import (
+    PAIN_POINT_INDICATORS,
+    URGENCY_TIMELINE_PROMISES,
+    EMPATHY_RESPONSES,
+)
+
 logger = logging.getLogger(__name__)
 
 # Import the hook strategy engine
@@ -129,62 +136,9 @@ Your response should be:
         ProposalTone.ANALYTICAL: "Focus on facts and analysis. Logical structure, data references, systematic approach.",
         ProposalTone.FRIENDLY: "Warm and approachable. Show personality, use 'we', collaborative language, genuine interest."
     }
-
-    # Pain point keywords that indicate client frustration/urgency
-    PAIN_POINT_INDICATORS = {
-        "frustration": ["frustrated", "struggling", "can't figure out", "doesn't work", "broken", "not working", "issues", "problems", "nightmare", "headache", "stuck"],
-        "urgency": ["urgent", "asap", "immediately", "deadline", "time-sensitive", "need quickly", "fast turnaround", "rush", "critical", "today", "right now", "this week", "costing us", "every hour", "emergency"],
-        "previous_failure": ["previous developer", "last freelancer", "didn't work out", "need someone new", "past experience", "tried before", "went mia", "disappeared", "ghosted"],
-        "business_impact": ["losing sales", "losing customers", "revenue", "customers complaining", "bad reviews", "conversion", "cart abandonment", "costing us money", "affecting business"],
-        "complexity": ["complex", "complicated", "difficult", "challenging", "advanced", "sophisticated"],
-        "growth": ["scaling", "growing", "expansion", "more traffic", "increased demand", "outgrown"]
-    }
-
-    # Urgency timeline responses - faster promises for urgent jobs
-    URGENCY_TIMELINE_PROMISES = {
-        "critical": "I can start right now and have this fixed within hours",
-        "today": "I'm available today - can jump on this immediately",
-        "asap": "Can get started today and have it sorted by tomorrow",
-        "this_week": "I can prioritize this and wrap it up in 2-3 days",
-        "standard": None  # Use normal timeline
-    }
-
-    # Empathy responses for different pain points
-    EMPATHY_RESPONSES = {
-        "frustration": [
-            "I know how frustrating that can be",
-            "That sounds really annoying to deal with", 
-            "I get it - that's a common pain point",
-            "Been there, totally understand the headache"
-        ],
-        "urgency": [
-            "I understand you need this handled quickly - I'm available now",
-            "Time pressure is real - I can start immediately",
-            "No worries, I can prioritize this and jump on it today",
-            "I know every hour counts - let's fix this ASAP",
-            "I can see this is urgent - I'm free to start right now"
-        ],
-        "previous_failure": [
-            "Sorry to hear the last experience didn't work out",
-            "I understand the hesitation after a bad experience",
-            "Let me show you a different approach"
-        ],
-        "business_impact": [
-            "Losing sales is never fun - let's fix that",
-            "I know how much that impacts your bottom line",
-            "Revenue matters, so let's get this working ASAP"
-        ],
-        "complexity": [
-            "I love a good technical challenge",
-            "This is exactly the kind of project I specialize in",
-            "Complex projects are where I do my best work"
-        ],
-        "growth": [
-            "Congrats on the growth - exciting problem to have!",
-            "Scaling challenges are a good sign",
-            "Love helping businesses level up"
-        ]
-    }
+    
+    # NOTE: PAIN_POINT_INDICATORS, URGENCY_TIMELINE_PROMISES, EMPATHY_RESPONSES
+    # moved to app/domain/constants.py - imported at module level
 
     @staticmethod
     def detect_urgency_level(job_description: str, job_title: str = "") -> str:
@@ -230,7 +184,7 @@ Your response should be:
         Returns:
             Timeline promise string or None for standard urgency
         """
-        return PromptEngine.URGENCY_TIMELINE_PROMISES.get(urgency_level)
+        return URGENCY_TIMELINE_PROMISES.get(urgency_level)
 
     @staticmethod
     def extract_pain_points(job_description: str) -> Dict[str, List[str]]:
@@ -245,7 +199,7 @@ Your response should be:
         job_desc_lower = job_description.lower()
         found_pain_points = {}
         
-        for category, keywords in PromptEngine.PAIN_POINT_INDICATORS.items():
+        for category, keywords in PAIN_POINT_INDICATORS.items():
             matches = []
             for keyword in keywords:
                 if keyword in job_desc_lower:
@@ -277,7 +231,7 @@ Your response should be:
         
         for category in priority_order:
             if category in pain_points:
-                responses = PromptEngine.EMPATHY_RESPONSES.get(category, [])
+                responses = EMPATHY_RESPONSES.get(category, [])
                 if responses:
                     return random.choice(responses)
         

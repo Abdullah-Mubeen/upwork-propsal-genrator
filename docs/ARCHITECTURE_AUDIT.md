@@ -61,91 +61,60 @@ This audit identifies cleanup targets and provides a redesign path for multi-ten
 
 ---
 
-### 2. Code Duplication 🔄
+### 2. Code Duplication 🔄 → ✅ RESOLVED
 
-#### A. AI/ML Keywords (Duplicated in 2 files)
+**Status:** ✅ Consolidated into `app/domain/constants.py`
 
-**Location 1:** `retrieval_pipeline.py` (line 63)
-```python
-AI_ML_KEYWORDS = [
-    "openai", "gpt", "gpt-4", "chatgpt", "claude", ...
-]
-```
+All duplicate constants have been moved to a single source of truth:
+- `AI_ML_KEYWORDS` - Merged from retrieval_pipeline.py + hook_strategy.py
+- `PLATFORM_KEYWORDS` - Moved from retrieval_pipeline.py
+- `PAIN_POINT_INDICATORS` - Moved from prompt_engine.py
+- `URGENCY_PATTERNS` - Moved from hook_strategy.py
+- `URGENCY_TIMELINE_PROMISES` - Moved from prompt_engine.py
+- `EMPATHY_RESPONSES` - Moved from prompt_engine.py
+- `INDUSTRY_KEYWORDS` - Moved from metadata_extractor.py
+- `BRAND_INDUSTRY_MAP` - Moved from metadata_extractor.py
+- `COMPLEXITY_INDICATORS` - Moved from metadata_extractor.py
+- `CLIENT_INTENT_KEYWORDS` - Moved from metadata_extractor.py
 
-**Location 2:** `hook_strategy.py` (line 211)
-```python
-AI_ML_KEYWORDS = [
-    "langchain", "llamaindex", "rag", "retrieval", ...
-]
-```
+**Files updated:**
+- `retrieval_pipeline.py` - Now imports from constants
+- `hook_strategy.py` - Now imports from constants
+- `prompt_engine.py` - Now imports from constants
+- `metadata_extractor.py` - Now imports from constants
 
-**Problem:** Different partial lists, no single source of truth.
-
----
-
-#### B. Pain Point Detection (Duplicated in 2 files)
-
-**Location 1:** `prompt_engine.py` (line 134)
-```python
-PAIN_POINT_INDICATORS = {
-    "frustration": ["frustrated", "struggling", ...],
-    "urgency": ["urgent", "asap", "immediately", ...],
-    ...
-}
-```
-
-**Location 2:** `hook_strategy.py` (line 450)
-```python
-def _extract_pain_points(self, text: str) -> List[str]:
-    # Parallel implementation
-```
-
-**Problem:** Same concept, different implementations.
+**Net reduction:** ~330 lines of duplicate code removed
 
 ---
 
-#### C. Industry Detection (3 different implementations!)
+### ~~3.~~ Over-Engineered Components 🔧 → Partially Resolved
 
-| Location | Method |
-|----------|--------|
-| `metadata_extractor.py:456` | `detect_industry_with_context()` |
-| `openai_service.py:762` | `detect_industry_and_intent()` |
-| `retrieval_pipeline.py` | `_detect_platform()` (related) |
-
-**Problem:** Three ways to detect the same thing.
-
----
-
-#### D. Urgency Detection (Duplicated)
-
-**Location 1:** `prompt_engine.py:190` - `detect_urgency_level()`  
-**Location 2:** `hook_strategy.py:180` - `URGENCY_PATTERNS`
-
----
-
-### 3. Over-Engineered Components 🔧
-
-#### A. Chunking System Evolution
+#### A. Chunking System Evolution → ✅ RESOLVED
 
 The chunking went through 3 generations:
 1. **v1:** Basic chunking (now deprecated methods in `data_chunker.py`)
 2. **v2:** 4-chunk strategy (transitional)
 3. **v3:** 5-layer semantic chunking (`advanced_chunker.py`)
 
-**Current state:**
-```
-data_chunker.py (120 lines)
-    └── Just a wrapper → calls advanced_chunker.py
+**Status:** ✅ `data_chunker.py` wrapper DELETED
 
-advanced_chunker.py (619 lines)
-    └── Actual implementation
+The unnecessary 120-line wrapper has been removed. Imports now go directly to `AdvancedChunkProcessor`:
+
+```
+BEFORE: job_data_ingestion.py → DataChunker → AdvancedChunkProcessor
+AFTER:  job_data_ingestion.py → AdvancedChunkProcessor (direct)
 ```
 
-**Problem:** `data_chunker.py` is a pass-through wrapper kept for "backward compatibility" that's not needed.
+**Files updated:**
+- `job_data_ingestion.py` - Uses `AdvancedChunkProcessor` directly
+- `job_data_processor.py` - Uses `AdvancedChunkProcessor` directly  
+- `advanced_chunker.py` - Added `chunk_training_data` alias for backward compatibility
+
+**Impact:** -121 lines, cleaner architecture
 
 ---
 
-#### B. `db.py` is a God Object (1,390 lines)
+#### B. `db.py` is a God Object (1,390 lines) - ⏳ PENDING
 
 This single file handles:
 - MongoDB connection management

@@ -27,6 +27,9 @@ from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 
+# Import centralized constants
+from app.domain.constants import URGENCY_PATTERNS, AI_ML_KEYWORDS
+
 logger = logging.getLogger(__name__)
 
 
@@ -175,17 +178,10 @@ class HookStrategyEngine:
         JobSentiment.AI_TECHNICAL: ["ai_tech_mirror", "ai_specificity", "ai_proof_stack"],
         JobSentiment.AI_BUILDER: ["ai_capability_claim", "ai_proof_stack", "ai_transformation"],
     }
+    
+    # NOTE: URGENCY_PATTERNS and AI_ML_KEYWORDS moved to app/domain/constants.py
 
-    # Urgency detection patterns
-    URGENCY_PATTERNS = {
-        5: ["emergency", "site down", "not working", "broken", "losing sales", "every hour", "critical", "asap today"],
-        4: ["urgent", "asap", "immediately", "rush"],
-        3: ["soon", "this week", "deadline", "time-sensitive", "quickly", "fast"],
-        2: ["when you can", "flexible timeline"],
-        1: ["no rush", "exploring options", "considering", "thinking about", "eventually", "nothing urgent", "not urgent"],
-    }
-
-    # Sentiment detection patterns
+    # Sentiment detection patterns (uses JobSentiment enum - kept here)
     SENTIMENT_PATTERNS = {
         JobSentiment.URGENT: ["urgent", "asap", "immediately", "emergency", "critical", "today", "now", "fast", "quickly", "deadline"],
         JobSentiment.FRUSTRATED: ["frustrated", "struggling", "issues", "problems", "doesn't work", "broken", "nightmare", "headache", "last developer", "went mia", "ghosted", "tried before"],
@@ -207,19 +203,7 @@ class HookStrategyEngine:
         ],
     }
     
-    # AI/ML keywords for comprehensive detection
-    AI_ML_KEYWORDS = [
-        "openai", "gpt", "gpt-4", "gpt-3", "chatgpt", "claude", "anthropic", "llm", "large language model",
-        "ai model", "ai api", "ai integration", "machine learning", "deep learning", "neural network",
-        "langchain", "llamaindex", "rag", "retrieval augmented", "embedding", "vector database", 
-        "pinecone", "chromadb", "weaviate", "huggingface", "transformers", "pytorch", "tensorflow",
-        "computer vision", "ocr", "nlp", "natural language processing", "text generation",
-        "content generation", "ai-powered", "automated content", "ai automation",
-        "document processing", "pdf parsing", "text extraction", "document analyzer",
-        "n8n", "make.com", "zapier automation", "stability ai", "dall-e", "midjourney",
-        "image generation", "deepseek", "ai agent", "ai assistant", "chatbot", "conversational ai",
-        "fine-tuning", "prompt engineering", "unstructured", "llamaparse", "docling",
-    ]
+    # NOTE: AI_ML_KEYWORDS moved to app/domain/constants.py - imported at module level
 
     def __init__(self):
         """Initialize hook strategy engine"""
@@ -390,7 +374,7 @@ class HookStrategyEngine:
         sentiment_scores = {}
         
         # CRITICAL: Check for AI/ML job FIRST - these take precedence
-        ai_score = sum(1 for kw in self.AI_ML_KEYWORDS if kw in text)
+        ai_score = sum(1 for kw in AI_ML_KEYWORDS if kw in text)
         if ai_score >= 3:  # Strong AI signal
             # Determine if it's technical-focused or builder-focused
             builder_words = ["build", "create", "develop", "tool", "system", "platform", "generator", "automate"]
@@ -439,7 +423,7 @@ class HookStrategyEngine:
         if any(p in text for p in no_rush_patterns):
             return 1
         
-        for level, patterns in sorted(self.URGENCY_PATTERNS.items(), reverse=True):
+        for level, patterns in sorted(URGENCY_PATTERNS.items(), reverse=True):
             if any(p in text for p in patterns):
                 return level
         return 2  # Default: normal priority
