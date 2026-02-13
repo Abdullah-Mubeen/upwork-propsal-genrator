@@ -44,6 +44,15 @@ from app.infra.mongodb.repositories.analytics_repo import (
     get_admin_repo,
 )
 
+# Multi-tenant repositories
+from app.infra.mongodb.repositories.tenant_repo import (
+    OrganizationRepository,
+    UserRepository,
+    UserRole,
+    get_org_repo,
+    get_user_repo,
+)
+
 __all__ = [
     # Training Data
     "TrainingDataRepository",
@@ -72,4 +81,10 @@ __all__ = [
     "get_skill_embedding_repo",
     "get_profile_repo",
     "get_admin_repo",
+    # Multi-tenant
+    "OrganizationRepository",
+    "UserRepository",
+    "UserRole",
+    "get_org_repo",
+    "get_user_repo",
 ]
