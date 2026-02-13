@@ -87,35 +87,35 @@ Keywords and constants were duplicated across multiple files. Created `app/domai
 
 ---
 
-#### Issue #3: Consolidate text analysis utilities ⏳ PARTIAL
+#### Issue #3: Consolidate text analysis utilities ✅ COMPLETED
 
 **Labels:** `P1-high`, `refactor`, `backend`
 
+**Status:** ✅ Completed in commit `consolidate: create text_analysis.py, finish sprint 1`
+
 **Description:**
-Pain point detection and urgency detection are implemented multiple times:
+Pain point detection and urgency detection were implemented multiple times. Now consolidated into `app/utils/text_analysis.py`.
 
-**Pain Points:**
-- `prompt_engine.py:134` - `PAIN_POINT_INDICATORS`
-- `prompt_engine.py:236` - `extract_pain_points()`
-- `hook_strategy.py:447` - `_extract_pain_points()`
-
-**Urgency:**
-- `prompt_engine.py:190` - `detect_urgency_level()`
-- `hook_strategy.py:180` - `URGENCY_PATTERNS`
-
-**Industry Detection:**
-- `metadata_extractor.py:456` - `detect_industry_with_context()`
-- `openai_service.py:762` - `detect_industry_and_intent()`
+**Functions consolidated:**
+- `detect_urgency()` - Returns UrgencyResult with level (1-5) AND label
+- `detect_urgency_level()` - Legacy wrapper returning string label
+- `detect_urgency_score()` - Legacy wrapper returning int level
+- `extract_pain_points()` - Returns Dict[str, List[str]] with categories
+- `extract_pain_points_simple()` - Legacy wrapper returning flat list
+- `extract_specific_details()` - Extract numbers, tools, metrics
+- `extract_tone_words()` - Extract emotional/tone words
+- `analyze_job_text()` - Comprehensive analysis combining all functions
 
 **Tasks:**
-- [ ] Create `app/utils/text_analysis.py`
-- [ ] Implement single `detect_pain_points()` function
-- [ ] Implement single `detect_urgency()` function
-- [ ] Implement single `detect_industry()` function
-- [ ] Update all callers to use new utilities
-- [ ] Add unit tests
+- [x] Create `app/utils/text_analysis.py`
+- [x] Implement single `detect_pain_points()` function
+- [x] Implement single `detect_urgency()` function
+- [x] Update prompt_engine.py to delegate to text_analysis
+- [x] Update hook_strategy.py to delegate to text_analysis
+- [ ] Implement single `detect_industry()` function (deferred - already consolidated in metadata_extractor)
+- [ ] Add unit tests (deferred)
 
-**Impact:** ~200 lines consolidated, single source of truth
+**Impact:** ~150 lines of duplicate code consolidated
 
 ---
 

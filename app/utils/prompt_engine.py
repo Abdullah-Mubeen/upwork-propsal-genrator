@@ -25,6 +25,12 @@ from app.domain.constants import (
     EMPATHY_RESPONSES,
 )
 
+# Import consolidated text analysis utilities
+from app.utils.text_analysis import (
+    detect_urgency_level as _detect_urgency_level,
+    extract_pain_points as _extract_pain_points,
+)
+
 logger = logging.getLogger(__name__)
 
 # Import the hook strategy engine
@@ -139,42 +145,21 @@ Your response should be:
     
     # NOTE: PAIN_POINT_INDICATORS, URGENCY_TIMELINE_PROMISES, EMPATHY_RESPONSES
     # moved to app/domain/constants.py - imported at module level
+    
+    # NOTE: detect_urgency_level and extract_pain_points are now consolidated
+    # in app/utils/text_analysis.py - delegating to that module
 
     @staticmethod
     def detect_urgency_level(job_description: str, job_title: str = "") -> str:
         """
         Detect the urgency level of a job to provide appropriate timeline promises.
         
+        Delegates to app/utils/text_analysis.detect_urgency_level()
+        
         Returns:
             Urgency level: 'critical', 'today', 'asap', 'this_week', or 'standard'
         """
-        text = f"{job_title} {job_description}".lower()
-        
-        # Critical urgency indicators (hours matter)
-        critical_keywords = ["emergency", "critical", "site down", "broken", "not working", "right now", "within hours", "losing sales", "costing us", "every hour"]
-        for kw in critical_keywords:
-            if kw in text:
-                return "critical"
-        
-        # Today urgency (same day)
-        today_keywords = ["today", "immediately", "asap", "urgent help"]
-        for kw in today_keywords:
-            if kw in text:
-                return "today"
-        
-        # ASAP urgency (within 1-2 days)
-        asap_keywords = ["asap", "urgent", "rush", "quick turnaround", "fast", "need quickly"]
-        for kw in asap_keywords:
-            if kw in text:
-                return "asap"
-        
-        # This week urgency
-        week_keywords = ["this week", "deadline", "time-sensitive"]
-        for kw in week_keywords:
-            if kw in text:
-                return "this_week"
-        
-        return "standard"
+        return _detect_urgency_level(job_description, job_title)
 
     @staticmethod
     def get_urgency_timeline_promise(urgency_level: str) -> Optional[str]:
@@ -191,28 +176,12 @@ Your response should be:
         """
         Extract specific pain points and frustrations from the job description.
         
-        This helps craft proposals that directly address what's bothering the client.
+        Delegates to app/utils/text_analysis.extract_pain_points()
         
         Returns:
             Dict with pain point categories and matching phrases found
         """
-        job_desc_lower = job_description.lower()
-        found_pain_points = {}
-        
-        for category, keywords in PAIN_POINT_INDICATORS.items():
-            matches = []
-            for keyword in keywords:
-                if keyword in job_desc_lower:
-                    # Extract the sentence containing this keyword for context
-                    sentences = job_description.split('.')
-                    for sentence in sentences:
-                        if keyword in sentence.lower():
-                            matches.append(sentence.strip())
-                            break
-            if matches:
-                found_pain_points[category] = matches[:2]  # Max 2 per category
-        
-        return found_pain_points
+        return _extract_pain_points(job_description)
 
     @staticmethod
     def build_empathy_statement(pain_points: Dict[str, List[str]], tone: str = "friendly") -> str:

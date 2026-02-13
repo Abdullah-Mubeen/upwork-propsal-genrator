@@ -30,6 +30,14 @@ from dataclasses import dataclass
 # Import centralized constants
 from app.domain.constants import URGENCY_PATTERNS, AI_ML_KEYWORDS
 
+# Import consolidated text analysis utilities
+from app.utils.text_analysis import (
+    detect_urgency_score,
+    extract_pain_points_simple,
+    extract_specific_details as _extract_specific_details,
+    extract_tone_words as _extract_tone_words,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -417,72 +425,40 @@ class HookStrategyEngine:
         return max(intent_scores, key=intent_scores.get)
 
     def _detect_urgency(self, text: str) -> int:
-        """Detect urgency level (1-5)"""
-        # Check for explicit "no rush" / "not urgent" first - these override other signals
-        no_rush_patterns = ["no rush", "not urgent", "nothing urgent", "no hurry", "take your time", "flexible"]
-        if any(p in text for p in no_rush_patterns):
-            return 1
+        """
+        Detect urgency level (1-5).
         
-        for level, patterns in sorted(URGENCY_PATTERNS.items(), reverse=True):
-            if any(p in text for p in patterns):
-                return level
-        return 2  # Default: normal priority
+        Delegates to app/utils/text_analysis.detect_urgency_score()
+        """
+        return detect_urgency_score(text)
 
     def _extract_pain_points(self, text: str) -> List[str]:
-        """Extract specific pain points mentioned"""
-        pain_points = []
+        """
+        Extract specific pain points mentioned.
         
-        pain_indicators = [
-            (r"(\w+)\s+(?:is|are)\s+(?:broken|not working|slow)", "issue"),
-            (r"(?:losing|lost)\s+(\w+)", "loss"),
-            (r"(?:can't|cannot)\s+(\w+)", "blocker"),
-            (r"(?:frustrated|struggling)\s+with\s+(\w+)", "frustration"),
-        ]
-        
-        for pattern, category in pain_indicators:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            for match in matches:
-                pain_points.append(f"{category}: {match}")
-        
-        return pain_points[:3]  # Limit to top 3
+        Delegates to app/utils/text_analysis.extract_pain_points_simple()
+        """
+        return extract_pain_points_simple(text)
 
     def _extract_specific_details(self, job_data: Dict[str, Any]) -> List[str]:
-        """Extract specific numbers, tools, metrics from job"""
-        details = []
-        text = f"{job_data.get('job_title', '')} {job_data.get('job_description', '')}"
+        """
+        Extract specific numbers, tools, metrics from job.
         
-        # Numbers with context
-        number_patterns = re.findall(
-            r'(\d+[\+]?\s*(?:subscribers?|products?|pages?|seconds?|ms|visitors?|items?|%|hours?|days?|users?))',
-            text, re.IGNORECASE
-        )
-        details.extend(number_patterns[:3])
-        
-        # Tool/platform mentions
-        tools = ["wordpress", "shopify", "woocommerce", "elementor", "substack", "mailchimp", 
-                 "stripe", "paypal", "gempages", "liquid", "php", "javascript", "react"]
-        for tool in tools:
-            if tool in text.lower():
-                details.append(tool.title())
-        
-        # Speed metrics
-        speed_patterns = re.findall(r'(\d+[\.\d]*\s*(?:seconds?|ms|s)\s*(?:load|time)?)', text, re.IGNORECASE)
-        details.extend(speed_patterns[:2])
-        
-        return details[:5]  # Limit to 5 most important
+        Delegates to app/utils/text_analysis.extract_specific_details()
+        """
+        return _extract_specific_details(job_data)
 
     def _extract_tone_words(self, text: str) -> List[str]:
-        """Extract emotional/tone words"""
+        """
+        Extract emotional/tone words.
+        
+        Delegates to app/utils/text_analysis.extract_tone_words()
+        """
+        result = _extract_tone_words(text)
+        # Flatten the dict to a list for backward compatibility
         tone_words = []
-        
-        positive = ["excited", "love", "great", "awesome", "amazing", "perfect", "excellent"]
-        negative = ["frustrated", "angry", "disappointed", "struggling", "nightmare", "horrible"]
-        urgent = ["urgent", "asap", "immediately", "critical", "emergency", "rush"]
-        
-        for word in positive + negative + urgent:
-            if word in text:
-                tone_words.append(word)
-        
+        for category_words in result.values():
+            tone_words.extend(category_words)
         return tone_words[:5]
 
     def _detect_platform(self, text: str, skills: List[str]) -> str:
