@@ -23,6 +23,8 @@ from app.domain.constants import (
     PAIN_POINT_INDICATORS,
     URGENCY_TIMELINE_PROMISES,
     EMPATHY_RESPONSES,
+    STYLE_INSTRUCTIONS,
+    TONE_INSTRUCTIONS,
 )
 
 # Import consolidated text analysis utilities
@@ -83,71 +85,12 @@ class PromptEngine:
     - Historical success patterns
     - Target style and tone
     - Portfolio and feedback data
+    
+    NOTE: STYLE_INSTRUCTIONS and TONE_INSTRUCTIONS are now in app/domain/constants.py
     """
-
-    # Style-specific instructions
-    STYLE_INSTRUCTIONS = {
-        ProposalStyle.PROFESSIONAL: """
-Your response should be:
-- Formal yet warm
-- Structured with clear sections
-- Emphasis on expertise and credentials
-- Professional formatting with proper grammar
-- Bullet points for key benefits
-- Clear Call-to-Action at end
-""",
-        ProposalStyle.CASUAL: """
-Your response should be:
-- Conversational and approachable
-- Personal and relatable
-- Friendly tone without losing professionalism
-- Shorter paragraphs
-- Genuine enthusiasm visible
-- Direct communication style
-""",
-        ProposalStyle.TECHNICAL: """
-Your response should be:
-- Deep technical details
-- Architecture discussions
-- Technology stack explanation
-- Performance metrics and benchmarks
-- Technical trade-offs explained
-- Implementation approach detailed
-""",
-        ProposalStyle.CREATIVE: """
-Your response should be:
-- Engaging and memorable
-- Unique positioning
-- Creative problem-solving emphasis
-- Innovation highlighted
-- Visual/metaphorical language
-- Storytelling approach
-""",
-        ProposalStyle.DATA_DRIVEN: """
-Your response should be:
-- Backed by metrics and data
-- Success rate references
-- ROI focused
-- Performance guarantees
-- Historical data cited
-- Quantifiable results promised
-"""
-    }
-
-    # Tone-specific instructions
-    TONE_INSTRUCTIONS = {
-        ProposalTone.CONFIDENT: "Convey strong confidence in abilities. Use words like 'will deliver', 'proven', 'guaranteed'.",
-        ProposalTone.HUMBLE: "Show humility while demonstrating competence. Use words like 'eager to', 'honored to', 'privileged'.",
-        ProposalTone.ENTHUSIASTIC: "Show genuine excitement. Use energetic language, exclamation marks, positive energy.",
-        ProposalTone.ANALYTICAL: "Focus on facts and analysis. Logical structure, data references, systematic approach.",
-        ProposalTone.FRIENDLY: "Warm and approachable. Show personality, use 'we', collaborative language, genuine interest."
-    }
     
-    # NOTE: PAIN_POINT_INDICATORS, URGENCY_TIMELINE_PROMISES, EMPATHY_RESPONSES
-    # moved to app/domain/constants.py - imported at module level
-    
-    # NOTE: detect_urgency_level and extract_pain_points are now consolidated
-    # in app/utils/text_analysis.py - delegating to that module
+    # NOTE: PAIN_POINT_INDICATORS, URGENCY_TIMELINE_PROMISES, EMPATHY_RESPONSES,
+    # STYLE_INSTRUCTIONS, TONE_INSTRUCTIONS all moved to app/domain/constants.py!
 
     @staticmethod
     def detect_urgency_level(job_description: str, job_title: str = "") -> str:
@@ -282,12 +225,12 @@ Your response should be:
         """
         logger.debug(f"[PromptEngine] Building proposal prompt (style={style}, tone={tone}, target={max_words} words, timeline={include_timeline})")
 
-        # Get style and tone instructions
-        style_enum = ProposalStyle(style) if isinstance(style, str) else style
-        tone_enum = ProposalTone(tone) if isinstance(tone, str) else tone
+        # Get style and tone instructions from centralized constants
+        style_key = style.value if isinstance(style, ProposalStyle) else style
+        tone_key = tone.value if isinstance(tone, ProposalTone) else tone
 
-        style_guide = self.STYLE_INSTRUCTIONS.get(style_enum, "")
-        tone_guide = self.TONE_INSTRUCTIONS.get(tone_enum, "")
+        style_guide = STYLE_INSTRUCTIONS.get(style_key, "")
+        tone_guide = TONE_INSTRUCTIONS.get(tone_key, "")
 
         # Build sections
         job_section = self._build_job_section(job_data)

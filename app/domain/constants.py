@@ -426,3 +426,72 @@ URGENCY_TIMELINE_PROMISES: Dict[str, str] = {
     "this_week": "I can prioritize this and wrap it up in 2-3 days",
     # NOTE: "standard" returns None - use normal timeline
 }
+
+
+# =============================================================================
+# PROPOSAL STYLE INSTRUCTIONS
+# =============================================================================
+# Style-specific instructions for proposal generation
+# Used by PromptEngine to guide AI response formatting
+
+STYLE_INSTRUCTIONS: Dict[str, str] = {
+    "professional": """
+Your response should be:
+- Formal yet warm
+- Structured with clear sections
+- Emphasis on expertise and credentials
+- Professional formatting with proper grammar
+- Bullet points for key benefits
+- Clear Call-to-Action at end
+""",
+    "casual": """
+Your response should be:
+- Conversational and approachable
+- Personal and relatable
+- Friendly tone without losing professionalism
+- Shorter paragraphs
+- Genuine enthusiasm visible
+- Direct communication style
+""",
+    "technical": """
+Your response should be:
+- Deep technical details
+- Architecture discussions
+- Technology stack explanation
+- Performance metrics and benchmarks
+- Technical trade-offs explained
+- Implementation approach detailed
+""",
+    "creative": """
+Your response should be:
+- Engaging and memorable
+- Unique positioning
+- Creative problem-solving emphasis
+- Innovation highlighted
+- Visual/metaphorical language
+- Storytelling approach
+""",
+    "data_driven": """
+Your response should be:
+- Backed by metrics and data
+- Success rate references
+- ROI focused
+- Performance guarantees
+- Historical data cited
+- Quantifiable results promised
+""",
+}
+
+
+# =============================================================================
+# PROPOSAL TONE INSTRUCTIONS
+# =============================================================================
+# Tone-specific guidance for proposal generation
+
+TONE_INSTRUCTIONS: Dict[str, str] = {
+    "confident": "Convey strong confidence in abilities. Use words like 'will deliver', 'proven', 'guaranteed'.",
+    "humble": "Show humility while demonstrating competence. Use words like 'eager to', 'honored to', 'privileged'.",
+    "enthusiastic": "Show genuine excitement. Use energetic language, exclamation marks, positive energy.",
+    "analytical": "Focus on facts and analysis. Logical structure, data references, systematic approach.",
+    "friendly": "Warm and approachable. Show personality, use 'we', collaborative language, genuine interest.",
+}
