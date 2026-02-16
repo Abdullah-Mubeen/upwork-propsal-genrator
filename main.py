@@ -16,7 +16,7 @@ load_dotenv(dotenv_path=env_path)
 
 from app.config import settings
 from app.db import get_db
-from app.routes import job_data_router
+from app.routes import job_data_router, jobs_router
 from app.routes.proposals import router as proposals_router
 from app.routes.profile import router as profile_router
 from app.routes.portfolio import router as portfolio_router
@@ -72,6 +72,7 @@ async def verify_api_key_endpoint(auth_result: dict = Depends(verify_api_key)):
 
 
 app.include_router(job_data_router, prefix="/api/job-data")
+app.include_router(jobs_router)  # New clean job ingestion: /api/jobs
 app.include_router(proposals_router)
 app.include_router(profile_router)
 app.include_router(portfolio_router)

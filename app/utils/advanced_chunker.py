@@ -1,10 +1,20 @@
 """
 Advanced Data Chunking Strategy for RAG-Optimized Proposal Generation
 
-⚠️ DEPRECATED: This 5-chunk strategy is being replaced by single-vector-per-project.
-Use app/services/embedding_service.py and app/infra/mongodb/repositories/portfolio_repo.py instead.
-This file is kept for backward compatibility with existing training_data ingestion.
-Will be removed in issue #22.
+╔══════════════════════════════════════════════════════════════════════╗
+║  ⚠️  LEGACY / DEPRECATED - DO NOT USE FOR NEW CODE                  ║
+║                                                                      ║
+║  This 5-chunk strategy has been replaced by single-vector-per-project║
+║                                                                      ║
+║  NEW ARCHITECTURE:                                                   ║
+║  - app/services/embedding_service.py - Single vector embeddings      ║
+║  - app/services/job_ingestion_service.py - Clean job ingestion       ║
+║  - app/infra/mongodb/repositories/portfolio_repo.py - Portfolio items║
+║                                                                      ║
+║  This file is ONLY kept for backward compatibility with existing     ║
+║  training_data ingestion via /api/job-data/upload endpoint.          ║
+║  Will be removed in a future major version.                          ║
+╚══════════════════════════════════════════════════════════════════════╝
 
 Implements the 5-layer SEMANTIC chunking strategy:
 1. CONTEXT_SNAPSHOT → Company, Industry, Job Title, Task Type, Urgency

@@ -1,6 +1,13 @@
 """
 Test suite for Advanced Data Chunking Strategy (5-Layer Semantic)
 
+⚠️ LEGACY TEST FILE
+This tests the deprecated 5-chunk strategy. The new architecture uses:
+- Single-vector-per-project (app/services/embedding_service.py)
+- Portfolio items (app/infra/mongodb/repositories/portfolio_repo.py)
+
+This file is kept for backward compatibility testing only.
+
 Tests the 5-layer semantic strategy:
 1. CONTEXT_SNAPSHOT
 2. REQUIREMENTS_PROFILE
@@ -8,6 +15,8 @@ Tests the 5-layer semantic strategy:
 4. DELIVERABLES_PORTFOLIO
 5. FEEDBACK_OUTCOMES
 """
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import json
 import sys

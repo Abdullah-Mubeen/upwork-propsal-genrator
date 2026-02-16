@@ -1,5 +1,13 @@
 """
-Job Data Ingestion Routes
+Job Data Ingestion Routes (LEGACY)
+
+⚠️ DEPRECATED: This uses the old 5-chunk strategy.
+For new implementations, use:
+- POST /api/jobs/ingest - Clean job ingestion (app/routes/jobs.py)
+- app/services/job_ingestion_service.py
+
+These endpoints are maintained for backward compatibility with existing
+training data pipelines. New code should use the /api/jobs endpoints.
 
 API endpoints for:
 - Upload job training data
