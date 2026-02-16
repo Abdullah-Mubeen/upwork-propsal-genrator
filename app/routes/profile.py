@@ -203,3 +203,69 @@ async def delete_profile(
     except Exception as e:
         logger.error(f"Error deleting profile: {e}")
         raise HTTPException(500, str(e))
+
+
+# ===================== IMPORT ENDPOINTS =====================
+
+class UpworkImportRequest(BaseModel):
+    """Import profile from Upwork data."""
+    org_id: str = Field(..., description="Organization ID")
+    name: str = Field(..., min_length=2, max_length=100)
+    title: str = Field(..., min_length=2, max_length=200)
+    overview: Optional[str] = Field(None, max_length=5000)
+    hourly_rate: Optional[float] = Field(None, ge=0)
+    skills: List[str] = Field(default_factory=list)
+    job_success_score: Optional[int] = Field(None, ge=0, le=100)
+    total_earnings: Optional[float] = Field(None, ge=0)
+    total_jobs: Optional[int] = Field(None, ge=0)
+    total_hours: Optional[float] = Field(None, ge=0)
+    profile_url: Optional[str] = None
+
+
+@router.post("/import/upwork", response_model=ProfileResponse, status_code=201)
+async def import_upwork_profile(
+    request: UpworkImportRequest,
+    _: str = Depends(verify_api_key)
+):
+    """
+    Import a profile from Upwork.
+    
+    User provides their Upwork profile data as JSON.
+    This respects Upwork ToS by not scraping - user consents to share their own data.
+    """
+    from app.services.profile_import_service import ProfileImportService, UpworkProfileInput
+    
+    try:
+        repo = get_freelancer_profile_repo()
+        service = ProfileImportService(repo)
+        
+        # Convert to UpworkProfileInput
+        profile_input = UpworkProfileInput(
+            name=request.name,
+            title=request.title,
+            overview=request.overview,
+            hourly_rate=request.hourly_rate,
+            skills=request.skills,
+            job_success_score=request.job_success_score,
+            total_earnings=request.total_earnings,
+            total_jobs=request.total_jobs,
+            total_hours=request.total_hours,
+            profile_url=request.profile_url
+        )
+        
+        result = service.import_from_upwork(request.org_id, profile_input)
+        
+        if not result.success:
+            raise HTTPException(400, result.errors[0] if result.errors else "Import failed")
+        
+        # Fetch created profile
+        profile = repo.get_by_profile_id(result.profile_id)
+        profile["_id"] = str(profile.get("_id", ""))
+        
+        return ProfileResponse(success=True, profile=profile)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upwork import error: {e}")
+        raise HTTPException(500, str(e))
