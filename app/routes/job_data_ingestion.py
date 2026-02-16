@@ -53,8 +53,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize router
-router = APIRouter()
+# Initialize router with LEGACY tag - Use /api/jobs endpoints instead
+router = APIRouter(tags=["job-data (LEGACY)"])
 
 # Service instances (lazy loaded)
 _processor: Optional[JobDataProcessor] = None
@@ -113,7 +113,8 @@ def get_processor() -> JobDataProcessor:
     "/upload",
     response_model=UploadResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload job training data",
+    summary="[LEGACY] Upload job training data",
+    deprecated=True,
     responses={
         201: {"description": "Job data uploaded successfully"},
         400: {"model": ErrorResponse, "description": "Validation error"},
@@ -217,7 +218,8 @@ async def upload_job_data(
 @router.get(
     "/list",
     response_model=ListResponse,
-    summary="List all job data",
+    summary="[LEGACY] List all job data",
+    deprecated=True,
     responses={
         200: {"description": "Jobs retrieved"},
         401: {"description": "API key required"},
@@ -304,7 +306,8 @@ async def list_job_data(
 @router.get(
     "/{contract_id}",
     response_model=JobDataDetailResponse,
-    summary="Get job data by contract ID",
+    summary="[LEGACY] Get job data by contract ID",
+    deprecated=True,
     responses={
         200: {"description": "Job data retrieved"},
         401: {"description": "API key required"},
@@ -371,7 +374,8 @@ async def get_job_data(
 @router.get(
     "/{contract_id}/chunks",
     response_model=ListResponse,
-    summary="Get chunks for a contract",
+    summary="[LEGACY] Get chunks for a contract",
+    deprecated=True,
     responses={
         200: {"description": "Chunks retrieved"},
         401: {"description": "API key required"},
@@ -460,7 +464,8 @@ async def get_job_chunks(
 @router.put(
     "/update/{contract_id}",
     response_model=UploadResponse,
-    summary="Update job data by contract ID",
+    summary="[LEGACY] Update job data by contract ID",
+    deprecated=True,
     responses={
         200: {"description": "Job updated successfully"},
         401: {"description": "API key required"},
@@ -593,7 +598,8 @@ async def update_job_data(
 @router.delete(
     "/delete/{contract_id}",
     response_model=DeleteResponse,
-    summary="Delete job data by contract ID",
+    summary="[LEGACY] Delete job data by contract ID",
+    deprecated=True,
     responses={
         200: {"description": "Job deleted"},
         401: {"description": "API key required"},
@@ -642,7 +648,8 @@ async def delete_job_data(
 @router.post(
     "/bulk-delete",
     response_model=DeleteResponse,
-    summary="Bulk delete jobs",
+    summary="[LEGACY] Bulk delete jobs",
+    deprecated=True,
     responses={
         200: {"description": "Jobs deleted"},
         400: {"model": ErrorResponse, "description": "Validation error"},
@@ -696,6 +703,7 @@ async def bulk_delete_jobs(
 @router.post(
     "/extract-ocr",
     summary="Extract text from image using OCR (GPT-4 Vision)",
+    deprecated=True,
     responses={
         200: {"description": "Text extracted successfully"},
         400: {"model": ErrorResponse, "description": "Invalid image or no image provided"},
@@ -831,7 +839,8 @@ If this is a review/feedback screenshot, extract the complete feedback text."""
 @router.get(
     "/stats/overview",
     response_model=JobStatisticsResponse,
-    summary="Get job data statistics",
+    summary="[LEGACY] Get job data statistics",
+    deprecated=True,
     responses={
         200: {"description": "Statistics retrieved"},
         401: {"description": "API key required"},
@@ -864,7 +873,8 @@ async def get_statistics(
 
 @router.get(
     "/stats/filter-options",
-    summary="Get unique filter options from database",
+    summary="[LEGACY] Get unique filter options from database",
+    deprecated=True,
     responses={
         200: {"description": "Filter options retrieved"},
         401: {"description": "API key required"},
