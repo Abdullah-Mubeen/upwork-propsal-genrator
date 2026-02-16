@@ -60,14 +60,18 @@ async def root():
 
 @app.get("/api/auth/verify")
 async def verify_api_key_endpoint(auth_result: dict = Depends(verify_api_key)):
-    """Verify API key and return role/permissions"""
+    """Verify API key and return role/permissions with tenant context"""
     role = auth_result.get("role", "user")
     return {
         "valid": True,
         "role": role,
         "permissions": auth_result.get("permissions", []),
         "is_admin": role in ("admin", "super_admin"),
-        "is_super_admin": role == "super_admin"
+        "is_super_admin": role == "super_admin",
+        # Multi-tenant context
+        "org_id": auth_result.get("org_id"),
+        "user_id": auth_result.get("user_id"),
+        "name": auth_result.get("name"),
     }
 
 

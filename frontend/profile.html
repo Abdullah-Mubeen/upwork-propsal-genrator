@@ -124,6 +124,8 @@
     <script>
         let apiKey = localStorage.getItem('app_api_key') || '';
         let skills = [];
+        let orgId = null;
+        let profileId = null;
 
         axios.interceptors.request.use(c => { if (apiKey) c.headers['X-API-Key'] = apiKey; return c; });
         axios.interceptors.response.use(r => r, e => {
@@ -142,8 +144,12 @@
         function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
 
         async function verify() {
-            try { await axios.get(`${API}/auth/verify`); hideAuth(); loadProfile(); }
-            catch { showAuth(); }
+            try {
+                const { data } = await axios.get(`${API}/auth/verify`);
+                orgId = data.org_id;
+                hideAuth();
+                loadProfile();
+            } catch { showAuth(); }
         }
 
         async function authenticate(e) {
@@ -152,7 +158,8 @@
             apiKey = document.getElementById('api-key-input').value.trim();
             btn.disabled = true; btn.textContent = 'Verifying...'; err.textContent = '';
             try {
-                await axios.get(`${API}/auth/verify`);
+                const { data } = await axios.get(`${API}/auth/verify`);
+                orgId = data.org_id;
                 if (document.getElementById('remember-key').checked) localStorage.setItem('app_api_key', apiKey);
                 hideAuth(); loadProfile();
             } catch { err.textContent = 'Invalid key'; apiKey = ''; }
@@ -161,12 +168,34 @@
 
         async function loadProfile() {
             try {
-                const { data } = await axios.get(`${API}/profile`);
-                const p = data.profile;
-                ['name', 'email', 'upwork_url', 'bio', 'timezone'].forEach(f => document.getElementById(f).value = p[f] || '');
-                document.getElementById('hourly_rate').value = p.hourly_rate || '';
-                skills = p.skills || [];
-                renderSkills();
+                // For super_admin without org, show empty form
+                if (!orgId) {
+                    toast('No organization assigned. Contact admin.');
+                    return;
+                }
+                
+                // Get profiles for this org
+                const { data } = await axios.get(`${API}/profiles?org_id=${orgId}`);
+                const profiles = data.profiles || [];
+                
+                if (profiles.length > 0) {
+                    // Use first profile
+                    const p = profiles[0];
+                    profileId = p.profile_id;
+                    document.getElementById('name').value = p.name || '';
+                    document.getElementById('email').value = p.email || '';
+                    document.getElementById('upwork_url').value = p.source_urls?.[0] || '';
+                    document.getElementById('bio').value = p.bio || '';
+                    document.getElementById('timezone').value = p.timezone || '';
+                    document.getElementById('hourly_rate').value = p.hourly_rate || '';
+                    skills = p.skills || [];
+                    renderSkills();
+                } else {
+                    // No profile yet - show empty form
+                    profileId = null;
+                    skills = [];
+                    renderSkills();
+                }
             } catch (e) { console.error('Load error:', e); toast('Failed to load profile'); }
         }
 
@@ -174,19 +203,36 @@
             e.preventDefault();
             const btn = document.getElementById('save-btn');
             btn.disabled = true; btn.textContent = 'Saving...';
+            
+            if (!orgId) {
+                toast('No organization assigned');
+                btn.disabled = false; btn.textContent = 'Save Changes';
+                return;
+            }
+            
             try {
-                const data = {
-                    name: document.getElementById('name').value.trim(),
-                    email: document.getElementById('email').value.trim() || null,
-                    upwork_url: document.getElementById('upwork_url').value.trim() || null,
+                const profileData = {
+                    name: document.getElementById('name').value.trim() || 'Freelancer',
+                    title: document.getElementById('bio').value.trim().substring(0, 50) || 'Freelancer',
+                    bio: document.getElementById('bio').value.trim() || 'Professional freelancer',
+                    skills: skills.length > 0 ? skills : ['General'],
                     hourly_rate: parseFloat(document.getElementById('hourly_rate').value) || null,
-                    timezone: document.getElementById('timezone').value.trim() || null,
-                    bio: document.getElementById('bio').value.trim() || null,
-                    skills
                 };
-                await axios.put(`${API}/profile`, data);
+                
+                if (profileId) {
+                    // Update existing profile
+                    await axios.put(`${API}/profiles/${profileId}`, profileData);
+                } else {
+                    // Create new profile
+                    profileData.org_id = orgId;
+                    const { data } = await axios.post(`${API}/profiles`, profileData);
+                    profileId = data.profile?.profile_id;
+                }
                 toast('Profile saved!');
-            } catch (e) { console.error('Save error:', e); toast('Failed to save'); }
+            } catch (e) { 
+                console.error('Save error:', e); 
+                toast(e.response?.data?.detail || 'Failed to save'); 
+            }
             finally { btn.disabled = false; btn.textContent = 'Save Changes'; }
         }
 

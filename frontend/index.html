@@ -334,8 +334,19 @@
             try {
                 const { data } = await axios.get(`${API}/auth/verify`);
                 userRole = data.role;
+                currentOrgId = data.org_id;  // Multi-tenant context
+                currentUserId = data.user_id;
                 hideAuth();
                 updateNav();
+                // Get first profile for this org
+                if (currentOrgId) {
+                    try {
+                        const profileRes = await axios.get(`${API}/profiles?org_id=${currentOrgId}`);
+                        if (profileRes.data.profiles?.length > 0) {
+                            currentProfileId = profileRes.data.profiles[0].profile_id;
+                        }
+                    } catch (e) { console.log('No profiles yet'); }
+                }
             } catch { apiKey = ''; localStorage.removeItem(KEY_NAME); showAuth(); }
         }
 
@@ -349,9 +360,20 @@
             try {
                 const { data } = await axios.get(`${API}/auth/verify`);
                 userRole = data.role;
+                currentOrgId = data.org_id;  // Multi-tenant context
+                currentUserId = data.user_id;
                 if (document.getElementById('remember-key').checked) localStorage.setItem(KEY_NAME, apiKey);
                 hideAuth();
                 updateNav();
+                // Get first profile for this org
+                if (currentOrgId) {
+                    try {
+                        const profileRes = await axios.get(`${API}/profiles?org_id=${currentOrgId}`);
+                        if (profileRes.data.profiles?.length > 0) {
+                            currentProfileId = profileRes.data.profiles[0].profile_id;
+                        }
+                    } catch (e) { console.log('No profiles yet'); }
+                }
             } catch { err.textContent = 'Invalid API key'; apiKey = ''; }
             btn.disabled = false; btn.innerHTML = '<span>Continue</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
         }
@@ -483,7 +505,10 @@
                 job_description: jobDesc, skills_required: currentSkills, industry: 'general', task_type: 'auto',
                 proposal_style: 'professional', tone: 'confident', max_word_count: 150, similar_projects_count: 3,
                 include_portfolio: true, include_feedback: true, include_previous_proposals: true,
-                include_timeline: includeTimeline, timeline_duration: document.getElementById('timeline_duration').value.trim() || null
+                include_timeline: includeTimeline, timeline_duration: document.getElementById('timeline_duration').value.trim() || null,
+                // Multi-tenant context for personalized retrieval
+                org_id: currentOrgId || null,
+                profile_id: currentProfileId || null
             };
             lastRequestData = data;
             document.getElementById('empty-state').classList.add('hidden');
