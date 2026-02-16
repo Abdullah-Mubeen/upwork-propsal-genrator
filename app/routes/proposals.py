@@ -336,12 +336,12 @@ async def generate_proposal(request: GenerateProposalRequest):
         
         # Step 4.5: Get freelancer profile for personalization (if provided)
         profile_context = None
-        if request.profile_id and request.org_id:
+        if request.profile_id:
             from app.infra.mongodb.repositories.profile_repo import FreelancerProfileRepository
             profile_repo = FreelancerProfileRepository(db)
-            profile_context = profile_repo.get_by_profile_id(request.org_id, request.profile_id)
+            profile_context = profile_repo.get_by_profile_id(request.profile_id)
             if profile_context:
-                logger.info(f"[ProposalAPI] Loaded profile '{profile_context.get('display_name', '')}' for personalization")
+                logger.info(f"[ProposalAPI] Loaded profile '{profile_context.get('name', '')}' for personalization")
         
         # Step 5: Build prompt with all context
         logger.info(f"[ProposalAPI] Step 5: Building enhanced prompt with historical context...")

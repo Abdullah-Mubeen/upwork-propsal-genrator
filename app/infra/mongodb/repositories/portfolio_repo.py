@@ -75,16 +75,16 @@ class PortfolioRepository(BaseRepository[Dict[str, Any]]):
     def get_by_item_id(self, item_id: str) -> Optional[Dict[str, Any]]:
         return self.find_one({"item_id": item_id})
     
-    def list_by_profile(self, profile_id: str) -> List[Dict[str, Any]]:
+    def list_by_profile(self, profile_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Get all portfolio items for a profile."""
-        results = list(self.collection.find({"profile_id": profile_id}))
+        results = list(self.collection.find({"profile_id": profile_id}).limit(limit))
         for r in results:
             r["_id"] = str(r["_id"])
         return results
     
-    def list_by_org(self, org_id: str) -> List[Dict[str, Any]]:
+    def list_by_org(self, org_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Get all portfolio items for an organization."""
-        results = list(self.collection.find({"org_id": org_id}))
+        results = list(self.collection.find({"org_id": org_id}).limit(limit))
         for r in results:
             r["_id"] = str(r["_id"])
         return results

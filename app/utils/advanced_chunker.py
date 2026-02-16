@@ -1,6 +1,11 @@
 """
 Advanced Data Chunking Strategy for RAG-Optimized Proposal Generation
 
+⚠️ DEPRECATED: This 5-chunk strategy is being replaced by single-vector-per-project.
+Use app/services/embedding_service.py and app/infra/mongodb/repositories/portfolio_repo.py instead.
+This file is kept for backward compatibility with existing training_data ingestion.
+Will be removed in issue #22.
+
 Implements the 5-layer SEMANTIC chunking strategy:
 1. CONTEXT_SNAPSHOT → Company, Industry, Job Title, Task Type, Urgency
 2. REQUIREMENTS_PROFILE → Skills Required, Job Description, Task Complexity
@@ -11,6 +16,12 @@ Implements the 5-layer SEMANTIC chunking strategy:
 Each chunk is purpose-built for specific retrieval patterns and learning outcomes.
 Metadata is multi-dimensional for optimal filtering and context assembly.
 """
+import warnings
+warnings.warn(
+    "advanced_chunker is deprecated. Use embedding_service.py + portfolio_repo.py instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 import logging
 import re
