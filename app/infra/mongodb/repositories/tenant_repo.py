@@ -29,7 +29,6 @@ class UserRole(str, Enum):
 
     @property
     def permissions(self) -> List[str]:
-        """Get permissions for this role."""
         if self == UserRole.SUPER_ADMIN:
             return ["admin", "generate", "read", "write", "training", "manage_org"]
         elif self == UserRole.ADMIN:
@@ -37,24 +36,36 @@ class UserRole(str, Enum):
         return ["generate"]
 
 
+class OrgType(str, Enum):
+    """Organization type - determines multi-profile support."""
+    INDIVIDUAL = "individual"  # Solo freelancer (1 profile)
+    AGENCY = "agency"          # Agency with multiple profiles
+
+
 class OrganizationRepository(BaseRepository[Dict[str, Any]]):
     """Repository for organizations (tenants)."""
     
     collection_name = "organizations"
     
-    def create(self, name: str, settings: Dict[str, Any] = None) -> Dict[str, str]:
-        """Create a new organization."""
+    def create(
+        self, 
+        name: str, 
+        org_type: OrgType = OrgType.INDIVIDUAL,
+        settings: Dict[str, Any] = None
+    ) -> Dict[str, str]:
+        """Create organization. Individual = 1 profile, Agency = multiple."""
         org_id = f"org_{uuid.uuid4().hex[:12]}"
         doc = {
             "org_id": org_id,
             "name": name,
+            "org_type": org_type.value if isinstance(org_type, OrgType) else org_type,
             "settings": settings or {},
             "is_active": True,
             "created_at": datetime.utcnow()
         }
         db_id = self.insert_one(doc)
-        logger.info(f"Created organization: {org_id} ({name})")
-        return {"org_id": org_id, "db_id": db_id}
+        logger.info(f"Created {org_type} org: {org_id} ({name})")
+        return {"org_id": org_id, "db_id": db_id, "org_type": doc["org_type"]}
     
     def get_by_org_id(self, org_id: str) -> Optional[Dict[str, Any]]:
         """Get organization by org_id."""
