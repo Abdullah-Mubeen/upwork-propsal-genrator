@@ -193,7 +193,8 @@ class PromptEngine:
         include_portfolio: bool = True,
         include_feedback: bool = True,
         include_timeline: bool = False,
-        timeline_duration: str = None
+        timeline_duration: str = None,
+        profile_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Build an optimized prompt for proposal generation using HOOK→PROOF→APPROACH→(TIMELINE)→CTA structure.
@@ -237,6 +238,9 @@ class PromptEngine:
         projects_section = self._build_projects_section(similar_projects, include_portfolio, include_feedback)
         patterns_section = self._build_patterns_section(success_patterns)
         structure_section = self._build_hook_proof_approach_structure(job_data, similar_projects, include_timeline, timeline_duration)
+        
+        # Build freelancer profile section if available
+        profile_section = self._build_profile_section(profile_context) if profile_context else ""
 
         # Build timeline instruction based on include_timeline flag
         timeline_instruction = ""
@@ -255,6 +259,8 @@ class PromptEngine:
 {self._get_proposal_system_rules(include_timeline, job_data, similar_projects)}
 
 {job_section}
+
+{profile_section}
 
 {projects_section}
 
@@ -826,6 +832,35 @@ REQUIRED SKILLS:
 JOB DESCRIPTION:
 {job_data.get('job_description', 'No description provided')}
 """
+
+    def _build_profile_section(self, profile_context: Optional[Dict[str, Any]]) -> str:
+        """Build freelancer profile context section for personalization."""
+        if not profile_context:
+            return ""
+        
+        # Extract relevant profile fields
+        name = profile_context.get('display_name', '')
+        headline = profile_context.get('headline', '')
+        skills = profile_context.get('skills', [])[:12]  # Top 12 skills
+        bio = profile_context.get('bio', '')[:500]  # First 500 chars
+        hourly_rate = profile_context.get('hourly_rate')
+        years_exp = profile_context.get('years_experience')
+        
+        parts = ["FREELANCER PROFILE (use to personalize voice):"]
+        if name:
+            parts.append(f"Name: {name}")
+        if headline:
+            parts.append(f"Title: {headline}")
+        if skills:
+            parts.append(f"Core Skills: {', '.join(skills)}")
+        if years_exp:
+            parts.append(f"Experience: {years_exp}+ years")
+        if hourly_rate:
+            parts.append(f"Rate: ${hourly_rate}/hr")
+        if bio:
+            parts.append(f"Bio Summary: {bio}")
+        
+        return "\n".join(parts) + "\n"
 
     def _build_projects_section(
         self,

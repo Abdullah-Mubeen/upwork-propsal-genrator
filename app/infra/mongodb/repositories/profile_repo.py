@@ -3,7 +3,7 @@ Freelancer Profile Repository - For proposal personalization.
 
 Supports:
 - Manual profile data entry
-- URL import (Upwork, LinkedIn, portfolio sites)
+- Upwork profile import
 - Multiple profiles for agencies
 - Single profile for individuals
 """
@@ -22,16 +22,14 @@ class ImportSource(str, Enum):
     """Where profile data was imported from."""
     MANUAL = "manual"
     UPWORK = "upwork"
-    LINKEDIN = "linkedin"
-    PORTFOLIO = "portfolio"  # Custom portfolio site
 
 
 class FreelancerProfileRepository(BaseRepository[Dict[str, Any]]):
     """
     Freelancer profiles for proposal personalization.
     
-    Individual org: 1 profile
-    Agency org: Multiple profiles (one per bidder)
+    Individual org: 1 profile (FREE tier)
+    Agency org: Multiple profiles (STARTER=3, PRO=10, ENTERPRISE=unlimited)
     """
     
     collection_name = "freelancer_profiles"
@@ -46,9 +44,34 @@ class FreelancerProfileRepository(BaseRepository[Dict[str, Any]]):
         hourly_rate: float = None,
         years_experience: int = None,
         source: ImportSource = ImportSource.MANUAL,
-        source_url: str = None
+        source_url: str = None,
+        enforce_limit: bool = True
     ) -> Dict[str, Any]:
-        """Create a freelancer profile."""
+        """
+        Create a freelancer profile.
+        
+        Args:
+            enforce_limit: If True, checks org profile limit before creating.
+                          Set to False for migrations/admin operations.
+        
+        Returns:
+            {"profile_id": ..., "db_id": ...} on success
+            {"error": ..., "limit": ..., "current": ...} if limit exceeded
+        """
+        # Check profile limit before creating
+        if enforce_limit:
+            from app.infra.mongodb.repositories.tenant_repo import OrganizationRepository
+            org_repo = OrganizationRepository()
+            limit_check = org_repo.can_create_profile(org_id)
+            
+            if not limit_check["allowed"]:
+                logger.warning(f"Profile limit reached for org {org_id}: {limit_check['reason']}")
+                return {
+                    "error": limit_check["reason"],
+                    "limit": limit_check["limit"],
+                    "current": limit_check["current_count"]
+                }
+        
         profile_id = f"prof_{uuid.uuid4().hex[:12]}"
         
         doc = {

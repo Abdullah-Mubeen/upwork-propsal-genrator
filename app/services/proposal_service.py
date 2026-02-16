@@ -38,6 +38,9 @@ class ProposalRequest:
     include_previous_proposals: bool = True
     include_portfolio: bool = True
     include_feedback: bool = True
+    # Multi-tenant fields (optional - for org-scoped queries)
+    org_id: Optional[str] = None
+    profile_id: Optional[str] = None
 
 
 @dataclass
@@ -112,8 +115,8 @@ class ProposalService:
             # Prepare job data
             job_data = self._prepare_job_data(request)
             
-            # Step 1: Get historical jobs
-            all_jobs = self._get_historical_jobs()
+            # Step 1: Get historical jobs (org-scoped if org_id provided)
+            all_jobs = self._get_historical_jobs(request.org_id)
             
             # Step 2: Find similar projects
             retrieval_result = self._find_similar_projects(job_data, all_jobs, request.similar_projects_count)
@@ -136,6 +139,11 @@ class ProposalService:
                 request.include_feedback
             )
             
+            # Step 4.5: Get freelancer profile context if available
+            profile_context = None
+            if request.profile_id and request.org_id:
+                profile_context = self._get_freelancer_profile(request.org_id, request.profile_id)
+            
             # Step 5: Build prompt
             prompt = self._build_prompt(
                 job_data=job_data,
@@ -143,7 +151,8 @@ class ProposalService:
                 previous_insights=previous_insights,
                 portfolio_links=portfolio_links,
                 feedback_urls=feedback_urls,
-                request=request
+                request=request,
+                profile_context=profile_context
             )
             
             # Step 6: Generate proposal
@@ -207,15 +216,52 @@ class ProposalService:
             logger.debug(f"Industry detection failed: {e}")
         return job_data.get("industry", "general")
     
-    def _get_historical_jobs(self) -> List[Dict[str, Any]]:
-        """Get all historical jobs from database."""
+    def _get_historical_jobs(self, org_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get historical jobs - from portfolio_items if org_id, else training_data."""
         if not self.db:
             return []
         try:
+            # Try new portfolio_items if org_id provided
+            if org_id:
+                from app.infra.mongodb.repositories import get_portfolio_repo
+                portfolio_repo = get_portfolio_repo()
+                items = portfolio_repo.list_by_org(org_id)
+                if items:
+                    # Convert portfolio items to job-like format for retrieval
+                    return [self._portfolio_to_job_format(item) for item in items]
+            
+            # Fall back to training_data (backward compatible)
             return list(self.db.db.training_data.find({}))
         except Exception as e:
             logger.error(f"Error fetching historical jobs: {e}")
             return []
+    
+    def _portfolio_to_job_format(self, item: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert lean portfolio item to job format for retrieval compatibility."""
+        return {
+            "contract_id": item.get("item_id"),
+            "job_title": item.get("project_title", ""),
+            "skills_required": item.get("skills", []),
+            "industry": item.get("industry", "general"),
+            "deliverables": item.get("deliverables", []),
+            "outcomes": item.get("outcome", ""),
+            "portfolio_urls": [item.get("portfolio_url")] if item.get("portfolio_url") else [],
+            "client_feedback_text": item.get("client_feedback", ""),
+            "duration_days": item.get("duration_days"),
+        }
+    
+    def _get_freelancer_profile(self, org_id: str, profile_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Get freelancer profile for proposal personalization."""
+        try:
+            from app.infra.mongodb.repositories import get_freelancer_profile_repo
+            profile_repo = get_freelancer_profile_repo()
+            
+            if profile_id:
+                return profile_repo.get_by_profile_id(profile_id)
+            return profile_repo.get_default_profile(org_id)
+        except Exception as e:
+            logger.debug(f"Profile fetch failed: {e}")
+            return None
     
     def _find_similar_projects(
         self,
@@ -352,12 +398,13 @@ class ProposalService:
         previous_insights: Optional[Dict[str, Any]],
         portfolio_links: List[str],
         feedback_urls: List[str],
-        request: ProposalRequest
+        request: ProposalRequest,
+        profile_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build the proposal generation prompt."""
         if not self.prompt_engine:
             # Fallback to basic prompt
-            return self._build_basic_prompt(job_data, request)
+            return self._build_basic_prompt(job_data, request, profile_context)
         
         success_patterns = []
         if previous_insights:
@@ -373,18 +420,34 @@ class ProposalService:
             include_portfolio=request.include_portfolio and bool(portfolio_links),
             include_feedback=request.include_feedback and bool(feedback_urls),
             include_timeline=request.include_timeline,
-            timeline_duration=request.timeline_duration
+            timeline_duration=request.timeline_duration,
+            profile_context=profile_context
         )
     
-    def _build_basic_prompt(self, job_data: Dict[str, Any], request: ProposalRequest) -> str:
+    def _build_basic_prompt(
+        self, 
+        job_data: Dict[str, Any], 
+        request: ProposalRequest,
+        profile_context: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Build a basic prompt when prompt engine is not available."""
+        profile_section = ""
+        if profile_context:
+            profile_section = f"""
+Freelancer Profile:
+- Name: {profile_context.get('display_name', 'Freelancer')}
+- Title: {profile_context.get('headline', '')}
+- Skills: {', '.join(profile_context.get('skills', [])[:10])}
+- Bio: {profile_context.get('bio', '')[:300]}
+"""
+        
         return f"""Generate a {request.proposal_style} proposal for:
 
 Job Title: {job_data['job_title']}
 Company: {job_data['company_name']}
 Description: {job_data['job_description']}
-Skills: {', '.join(job_data['skills_required'])}
-
+Skills Required: {', '.join(job_data['skills_required'])}
+{profile_section}
 Write a {request.tone} proposal in approximately {request.max_word_count} words."""
     
     def _generate_with_ai(self, prompt: str, max_word_count: int) -> tuple:

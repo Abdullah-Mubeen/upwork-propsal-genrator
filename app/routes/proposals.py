@@ -64,6 +64,10 @@ class GenerateProposalRequest(BaseModel):
     project_duration_days: Optional[int] = Field(None, description="Project duration in days")
     urgent_adhoc: Optional[bool] = Field(False, description="Is this urgent/adhoc project?")
     
+    # Multi-tenant context (optional for backward compatibility)
+    org_id: Optional[str] = Field(None, description="Organization ID for multi-tenant data scoping")
+    profile_id: Optional[str] = Field(None, description="Freelancer profile ID for personalization")
+    
     # Proposal customization
     proposal_style: str = Field("professional", description="Style: professional, casual, technical, creative, data_driven")
     tone: str = Field("confident", description="Tone: confident, humble, enthusiastic, analytical, friendly")
@@ -208,9 +212,32 @@ async def generate_proposal(request: GenerateProposalRequest):
                 job_data["industry"] = context_result["industry"]
                 logger.info(f"[ProposalAPI] Industry detected: '{context_result['industry']}' (brands: {context_result.get('detected_brands', [])})")
         
-        # Step 1: Get historical jobs
+        # Step 1: Get historical jobs (org-scoped if org_id provided)
         logger.info(f"[ProposalAPI] Step 1: Fetching historical job data...")
-        all_jobs = list(db.db.training_data.find({}))
+        all_jobs = []
+        
+        if request.org_id:
+            # Multi-tenant: fetch from PortfolioRepository
+            from app.infra.mongodb.repositories.portfolio_repo import PortfolioRepository
+            portfolio_repo = PortfolioRepository(db)
+            portfolio_items = portfolio_repo.list_by_org(request.org_id, limit=100)
+            
+            # Convert portfolio items to job format for retrieval pipeline
+            for item in portfolio_items:
+                all_jobs.append({
+                    "company": item.get("project_title", ""),
+                    "industry": item.get("industry", "general"),
+                    "skills": item.get("skills", []),
+                    "deliverables": item.get("deliverables", ""),
+                    "outcome": item.get("outcome", ""),
+                    "portfolio_urls": [item.get("portfolio_url")] if item.get("portfolio_url") else [],
+                    "client_feedback": item.get("client_feedback", ""),
+                    "_id": str(item.get("_id", ""))
+                })
+            logger.info(f"[ProposalAPI] Found {len(all_jobs)} portfolio items for org {request.org_id}")
+        else:
+            # Backward compat: legacy global training_data
+            all_jobs = list(db.db.training_data.find({}))
         
         if not all_jobs:
             logger.warning("No historical job data available - generating proposal with basic context")
@@ -307,6 +334,15 @@ async def generate_proposal(request: GenerateProposalRequest):
             
             logger.info(f"[ProposalAPI] Collected {len(portfolio_links_used)} portfolio links, {len(feedback_urls_used)} feedback URLs")
         
+        # Step 4.5: Get freelancer profile for personalization (if provided)
+        profile_context = None
+        if request.profile_id and request.org_id:
+            from app.infra.mongodb.repositories.profile_repo import FreelancerProfileRepository
+            profile_repo = FreelancerProfileRepository(db)
+            profile_context = profile_repo.get_by_profile_id(request.org_id, request.profile_id)
+            if profile_context:
+                logger.info(f"[ProposalAPI] Loaded profile '{profile_context.get('display_name', '')}' for personalization")
+        
         # Step 5: Build prompt with all context
         logger.info(f"[ProposalAPI] Step 5: Building enhanced prompt with historical context...")
         
@@ -320,7 +356,8 @@ async def generate_proposal(request: GenerateProposalRequest):
             include_portfolio=request.include_portfolio and bool(portfolio_links_used),
             include_feedback=request.include_feedback and bool(feedback_urls_used),
             include_timeline=request.include_timeline,
-            timeline_duration=request.timeline_duration
+            timeline_duration=request.timeline_duration,
+            profile_context=profile_context
         )
         
         # Step 6: Generate proposal
