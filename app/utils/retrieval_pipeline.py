@@ -570,6 +570,18 @@ class RetrievalPipeline:
             else:
                 # Fall back to metadata only
                 combined_score = metadata_sim
+            
+            # PORTFOLIO BOOST: Prioritize portfolio entries as they have verified work samples
+            # Portfolio entries have real portfolio URLs that can be referenced in proposals
+            is_portfolio_entry = job.get("is_portfolio_entry", False)
+            portfolio_urls = job.get("portfolio_urls", [])
+            
+            if is_portfolio_entry and portfolio_urls:
+                # 15% boost for portfolio entries with actual URLs
+                # This ensures portfolio entries compete well against regular entries
+                portfolio_boost = 0.15
+                combined_score = combined_score + portfolio_boost
+                logger.debug(f"  → Portfolio boost applied to {job.get('company_name')}: +{portfolio_boost}")
 
             ranked.append((job, combined_score))
 

@@ -684,7 +684,7 @@ class JobDataProcessor:
                 "by_task_type": {}
             }
     
-    def save_embeddings_to_pinecone(
+    def xsave_embeddings_to_pinecone(
         self,
         contract_id: str,
         chunk_ids: List[str] = None
@@ -757,8 +757,8 @@ class JobDataProcessor:
                     continue
                 
                 # Create rich metadata for AI training
-                # Ensure skills is a proper array, not a string
-                skills = chunk.get("skills_required", [])
+                # CRITICAL FIX: Use job_data for skills, not chunk (chunks often have empty skills)
+                skills = job_data.get("skills_required", [])
                 if isinstance(skills, str):
                     try:
                         import json
@@ -770,6 +770,14 @@ class JobDataProcessor:
                 deliverables = chunk.get("deliverables") or job_data.get("deliverables", [])
                 if isinstance(deliverables, str):
                     deliverables = [deliverables] if deliverables else []
+                
+                # Get portfolio URLs from job_data (prioritize list, fallback to single URL)
+                portfolio_urls = job_data.get("portfolio_urls", [])
+                if not portfolio_urls:
+                    single_url = job_data.get("portfolio_url", "")
+                    portfolio_urls = [single_url] if single_url else []
+                if isinstance(portfolio_urls, str):
+                    portfolio_urls = [portfolio_urls] if portfolio_urls else []
                 
                 metadata = {
                     "contract_id": contract_id,
@@ -784,11 +792,13 @@ class JobDataProcessor:
                     "urgent": job_data.get("urgent_adhoc", False),
                     "project_status": job_data.get("project_status", "completed"),
                     "portfolio_url": job_data.get("portfolio_url", ""),
+                    "portfolio_urls": portfolio_urls,  # Include all portfolio URLs
                     "client_feedback_url": str(job_data.get("client_feedback_url", "")),
                     "client_feedback_text": job_data.get("client_feedback_text", ""),
                     "deliverables": deliverables,  # What was built
                     "outcomes": chunk.get("outcomes") or job_data.get("outcomes", ""),  # Key result
-                    "created_at": str(job_data.get("created_at", ""))
+                    "created_at": str(job_data.get("created_at", "")),
+                    "is_portfolio_entry": job_data.get("is_portfolio_entry", False)  # Mark portfolio entries
                 }
                 
                 # Generate clean vector ID: contract_id_chunk_type_index (no duplicate)
