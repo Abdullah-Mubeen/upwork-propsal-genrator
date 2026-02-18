@@ -11,6 +11,11 @@ from app.services.analytics_service import AnalyticsService
 from app.services.embedding_service import EmbeddingService, get_embedding_service
 from app.services.job_ingestion_service import JobIngestionService, get_job_ingestion_service
 from app.services.profile_import_service import ProfileImportService
+from app.services.job_requirements_service import (
+    JobRequirementsService,
+    JobRequirements,
+    get_job_requirements_service,
+)
 
 __all__ = [
     "ProposalService",
@@ -21,4 +26,7 @@ __all__ = [
     "JobIngestionService",
     "get_job_ingestion_service",
     "ProfileImportService",
+    "JobRequirementsService",
+    "JobRequirements",
+    "get_job_requirements_service",
 ]

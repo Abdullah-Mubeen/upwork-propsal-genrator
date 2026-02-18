@@ -96,7 +96,8 @@ class PromptEngine:
         include_feedback: bool = True,
         include_timeline: bool = False,
         timeline_duration: str = None,
-        profile_context: Optional[Dict[str, Any]] = None
+        profile_context: Optional[Dict[str, Any]] = None,
+        requirements_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build optimized prompt using HOOK→PROOF→APPROACH→CTA structure."""
         
@@ -112,11 +113,17 @@ class PromptEngine:
         projects_section = self._build_projects_section(similar_projects, include_portfolio, include_feedback)
         profile_section = self._build_profile_section(profile_context) if profile_context else ""
         
+        # NEW: Build requirements section from extracted job understanding
+        requirements_section = self._build_requirements_section(requirements_context) if requirements_context else ""
+        
         # Dynamic hook generation
         hook_section = self._build_hook_section(job_data, similar_projects)
         
         # Timeline instruction
         timeline_inst = self._get_timeline_instruction(include_timeline, timeline_duration)
+        
+        # Build anti-hallucination rules (enhanced with do_not_assume)
+        anti_hallucination = self._build_anti_hallucination_rules(requirements_context)
 
         return f"""
 {system_role}
@@ -124,6 +131,7 @@ class PromptEngine:
 {self._get_core_rules()}
 
 {job_section}
+{requirements_section}
 {profile_section}
 {projects_section}
 
@@ -136,7 +144,7 @@ class PromptEngine:
 
 Generate the proposal NOW. Target: {max_words} words (ideal: 200-350).
 
-{ANTI_HALLUCINATION_RULES}
+{anti_hallucination}
 
 CRITICAL RULES:
 1. NO "As an AI" - sound like a REAL person
@@ -229,6 +237,83 @@ CONVERSATIONAL TONE:
             dur = duration or "2-3 weeks"
             return f'5. Include casual timeline: "Looking at about {dur} to wrap this up"'
         return "5. NO timeline - skip timeline section"
+
+    def _build_requirements_section(self, requirements: Dict[str, Any]) -> str:
+        """
+        Build section from extracted job requirements.
+        
+        This provides the LLM with structured understanding of what the client
+        ACTUALLY wants, improving proposal relevance and reducing hallucination.
+        """
+        if not requirements:
+            return ""
+        
+        sections = []
+        
+        # Exact task (most important)
+        if requirements.get("exact_task"):
+            sections.append(f"📌 EXACT CLIENT NEED: {requirements['exact_task']}")
+        
+        # Deliverables
+        if requirements.get("deliverables"):
+            delivs = ", ".join(requirements["deliverables"][:5])
+            sections.append(f"📦 EXPECTED DELIVERABLES: {delivs}")
+        
+        # Client tone (for matching communication style)
+        if requirements.get("client_tone"):
+            tone_guide = {
+                "urgent": "⚡ Client is URGENT - emphasize availability and speed",
+                "frustrated": "😤 Client is FRUSTRATED - show empathy, highlight reliability",
+                "technical": "🔧 Client is TECHNICAL - use precise language, show expertise",
+                "casual": "😊 Client is CASUAL - keep it friendly and relaxed",
+                "professional": "💼 Client is PROFESSIONAL - formal but warm",
+                "exploratory": "🤔 Client is EXPLORING - educate and guide gently"
+            }
+            sections.append(tone_guide.get(requirements["client_tone"], ""))
+        
+        # Problems mentioned (for empathy)
+        if requirements.get("problems"):
+            probs = ", ".join(requirements["problems"][:3])
+            sections.append(f"🎯 CLIENT PAIN POINTS: {probs}")
+        
+        # Constraints
+        if requirements.get("constraints"):
+            cons = ", ".join(requirements["constraints"][:3])
+            sections.append(f"⚠️ CONSTRAINTS: {cons}")
+        
+        # Resources provided
+        if requirements.get("resources_provided"):
+            res = ", ".join(requirements["resources_provided"][:3])
+            sections.append(f"📁 RESOURCES CLIENT WILL PROVIDE: {res}")
+        
+        if sections:
+            return "\n🧠 EXTRACTED JOB UNDERSTANDING:\n" + "\n".join(sections) + "\n"
+        return ""
+
+    def _build_anti_hallucination_rules(self, requirements: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Build anti-hallucination rules, enhanced with do_not_assume from extraction.
+        
+        The do_not_assume field is CRITICAL - it lists things the client did NOT
+        specify that the proposal writer should NOT invent or assume.
+        """
+        base_rules = ANTI_HALLUCINATION_RULES
+        
+        if requirements and requirements.get("do_not_assume"):
+            do_not_assume = requirements["do_not_assume"]
+            if do_not_assume:
+                avoid_list = "\n".join(f"   ❌ {item}" for item in do_not_assume[:5])
+                enhanced_rules = f"""
+{base_rules}
+
+🚫 DO NOT ASSUME OR MENTION (client did not specify):
+{avoid_list}
+
+If you need to discuss any of the above, ask questions instead of assuming!
+"""
+                return enhanced_rules
+        
+        return base_rules
 
     def _build_job_section(self, job_data: Dict[str, Any]) -> str:
         """Build job details section."""

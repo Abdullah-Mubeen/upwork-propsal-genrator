@@ -368,23 +368,6 @@ CLIENT_INTENT_KEYWORDS: Dict[str, List[str]] = {
 
 
 # =============================================================================
-# RELATED TASK TYPES
-# =============================================================================
-# Groups of task types that are semantically similar
-# Used for fuzzy matching when exact task_type doesn't match
-
-RELATED_TASK_TYPES: Dict[str, List[str]] = {
-    "backend_api": ["backend", "api", "rest_api", "graphql", "microservices"],
-    "frontend": ["frontend", "ui", "react", "vue", "angular", "web_app"],
-    "full_stack": ["full_stack", "web_development", "app_development"],
-    "mobile": ["mobile", "ios", "android", "react_native", "flutter"],
-    "data": ["data_engineering", "etl", "analytics", "data_pipeline"],
-    "ai_ml": ["ai", "ml", "machine_learning", "deep_learning", "nlp"],
-    "devops": ["devops", "infrastructure", "cloud", "deployment", "ci_cd"],
-}
-
-
-# =============================================================================
 # EMPATHY RESPONSES
 # =============================================================================
 # Pre-written empathy responses for different pain points

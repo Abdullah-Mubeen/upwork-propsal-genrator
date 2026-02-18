@@ -33,6 +33,9 @@ from app.infra.mongodb.repositories.proposal_repo import get_sent_proposal_repo
 from app.infra.mongodb.repositories.analytics_repo import get_analytics_repo
 from app.config import settings
 
+# NEW: Import JobRequirementsService for deep job understanding (Issue #23/#24)
+from app.services.job_requirements_service import JobRequirementsService, get_job_requirements_service
+
 logger = logging.getLogger(__name__)
 
 # Initialize router
@@ -196,6 +199,12 @@ async def generate_proposal(request: GenerateProposalRequest):
         retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
         prompt_engine = PromptEngine()
         
+        # NEW: Initialize JobRequirementsService for deep understanding (Issue #23/#24)
+        job_requirements_service = get_job_requirements_service(
+            openai_service=openai_service,
+            db_manager=db
+        )
+        
         # Prepare job data
         job_data = {
             "job_title": request.job_title,
@@ -246,12 +255,35 @@ async def generate_proposal(request: GenerateProposalRequest):
         else:
             logger.info(f"[ProposalAPI] Found {len(all_jobs)} historical jobs")
         
-        # Step 2: Find similar projects
+        # Step 1.5: Extract structured job requirements BEFORE retrieval (Issue #23/#24)
+        # This gives the LLM a deep understanding of what the client actually wants
+        logger.info(f"[ProposalAPI] Step 1.5: Extracting structured job requirements...")
+        job_requirements = None
+        requirements_context = None
+        try:
+            job_requirements = job_requirements_service.extract_job_requirements(
+                job_description=request.job_description,
+                job_title=request.job_title,
+                skills_required=request.skills_required
+            )
+            if job_requirements and job_requirements.extraction_confidence > 0:
+                logger.info(f"[ProposalAPI] ✓ Extracted requirements: task='{job_requirements.exact_task[:60]}...' "
+                           f"tone={job_requirements.client_tone}, confidence={job_requirements.extraction_confidence:.2f}")
+                logger.info(f"[ProposalAPI]   - Deliverables: {len(job_requirements.specific_deliverables)}, "
+                           f"Problems: {len(job_requirements.problems_mentioned)}, "
+                           f"Do NOT assume: {len(job_requirements.do_not_assume)}")
+                # Get prompt context for later use
+                requirements_context = job_requirements_service.get_prompt_context(job_requirements)
+        except Exception as e:
+            logger.warning(f"[ProposalAPI] Job requirements extraction failed (continuing without): {e}")
+        
+        # Step 2: Find similar projects (ENHANCED with job_requirements - Issue #24)
         logger.info(f"[ProposalAPI] Step 2: Finding similar past projects...")
         retrieval_result = retrieval_pipeline.retrieve_for_proposal(
             job_data,
             all_jobs,
-            top_k=request.similar_projects_count
+            top_k=request.similar_projects_count,
+            job_requirements=job_requirements  # NEW: Pass requirements for better semantic matching
         )
         
         similar_projects = retrieval_result.get("similar_projects", [])
@@ -345,7 +377,7 @@ async def generate_proposal(request: GenerateProposalRequest):
             if profile_context:
                 logger.info(f"[ProposalAPI] Loaded profile '{profile_context.get('name', '')}' for personalization")
         
-        # Step 5: Build prompt with all context
+        # Step 5: Build prompt with all context (ENHANCED with requirements - Issue #24)
         logger.info(f"[ProposalAPI] Step 5: Building enhanced prompt with historical context...")
         
         prompt = prompt_engine.build_proposal_prompt(
@@ -359,7 +391,8 @@ async def generate_proposal(request: GenerateProposalRequest):
             include_feedback=request.include_feedback and bool(feedback_urls_used),
             include_timeline=request.include_timeline,
             timeline_duration=request.timeline_duration,
-            profile_context=profile_context
+            profile_context=profile_context,
+            requirements_context=requirements_context  # NEW: Add extracted job understanding (Issue #24)
         )
         
         # Step 6: Generate proposal

@@ -10,7 +10,7 @@ Returns ranked similar projects with actionable insights for proposal generation
 """
 
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from enum import Enum
 
@@ -20,6 +20,10 @@ from app.domain.constants import (
     AI_ML_KEYWORDS,
     COMPLEXITY_LEVELS,
 )
+
+# Type hint for JobRequirements (avoid circular import)
+if TYPE_CHECKING:
+    from app.services.job_requirements_service import JobRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +69,8 @@ class RetrievalPipeline:
         new_job_requirements: Dict[str, Any],
         all_jobs: List[Dict[str, Any]],
         top_k: int = 5,
-        use_semantic_search: bool = True
+        use_semantic_search: bool = True,
+        job_requirements: Optional["JobRequirements"] = None
     ) -> Dict[str, Any]:
         """
         Complete retrieval pipeline for a new job requiring a proposal.
@@ -75,16 +80,22 @@ class RetrievalPipeline:
             all_jobs: All historical jobs in the system
             top_k: Number of similar projects to return
             use_semantic_search: Whether to use semantic search (requires embeddings)
+            job_requirements: Extracted structured requirements (Issue #24 enhancement)
             
         Returns:
             Comprehensive retrieval result with context for proposal generation
         """
         job_id = new_job_requirements.get("contract_id", "unknown")
         logger.info(f"[Retrieval] Starting pipeline for {job_id}")
+        
+        # Log extracted requirements if available (Issue #24)
+        if job_requirements:
+            logger.info(f"  → Using extracted requirements: deliverables={len(job_requirements.specific_deliverables)}, "
+                       f"problems={len(job_requirements.problems_mentioned)}, tone={job_requirements.client_tone}")
 
         # STAGE 1: METADATA FILTERING
         logger.debug(f"[Stage 1] Filtering by metadata...")
-        filter_criteria = self._build_filter_criteria(new_job_requirements)
+        filter_criteria = self._build_filter_criteria(new_job_requirements, job_requirements)
         filtered_jobs = self._metadata_filter(all_jobs, filter_criteria)
         logger.info(f"  → Filtered: {len(all_jobs)} jobs → {len(filtered_jobs)} matches")
 
@@ -92,12 +103,13 @@ class RetrievalPipeline:
             logger.warning(f"  ⚠ No jobs match filter criteria, using all jobs")
             filtered_jobs = all_jobs[:20]  # Fallback to top 20
 
-        # STAGE 2: SEMANTIC SEARCH
+        # STAGE 2: SEMANTIC SEARCH (enhanced with JobRequirements - Issue #24)
         logger.debug(f"[Stage 2] Semantic similarity search...")
         ranked_projects = self._semantic_rank(
             new_job_requirements,
             filtered_jobs,
-            use_semantic_search=use_semantic_search
+            use_semantic_search=use_semantic_search,
+            job_requirements=job_requirements
         )
         ranked_projects = ranked_projects[:top_k]
         logger.info(f"  → Ranked: {len(ranked_projects)} top similar projects")
@@ -141,7 +153,11 @@ class RetrievalPipeline:
 
         return result
 
-    def _build_filter_criteria(self, job_data: Dict[str, Any]) -> FilterCriteria:
+    def _build_filter_criteria(
+        self,
+        job_data: Dict[str, Any],
+        job_requirements: Optional["JobRequirements"] = None
+    ) -> FilterCriteria:
         """
         Build intelligent filter criteria from new job requirements.
         
@@ -150,6 +166,8 @@ class RetrievalPipeline:
         
         CRITICAL: Now uses LLM-based semantic industry detection when needed,
         and extracts CLIENT INTENTS (what they actually want done).
+        
+        ENHANCED (Issue #24): Uses JobRequirements for better filtering when available.
         """
         from app.utils.metadata_extractor import MetadataExtractor
         
@@ -158,6 +176,21 @@ class RetrievalPipeline:
         task_type = job_data.get("task_type", "")
         complexity = job_data.get("task_complexity", "medium")
         urgency = job_data.get("urgent_adhoc", False)
+        
+        # ENHANCED: Use extracted requirements if available (Issue #24)
+        if job_requirements:
+            # Use extracted tech stack as additional skills
+            if job_requirements.tech_stack_mentioned:
+                skills = list(set(skills + job_requirements.tech_stack_mentioned))
+            # Use inferred industry if job_data doesn't have one
+            if not industry and job_requirements.inferred_industry:
+                industry = job_requirements.inferred_industry
+            # Use extracted complexity
+            if job_requirements.complexity_level:
+                complexity = job_requirements.complexity_level
+            # Urgent tone means urgent job
+            if job_requirements.client_tone == "urgent":
+                urgency = True
         
         # CRITICAL: Detect platform from job description and skills
         platform = self._detect_platform(job_data)
@@ -477,7 +510,8 @@ class RetrievalPipeline:
         self,
         new_job: Dict[str, Any],
         candidate_jobs: List[Dict[str, Any]],
-        use_semantic_search: bool = True
+        use_semantic_search: bool = True,
+        job_requirements: Optional["JobRequirements"] = None
     ) -> List[Tuple[Dict[str, Any], float]]:
         """
         STAGE 2: Semantic ranking using Pinecone embeddings + metadata.
@@ -486,6 +520,10 @@ class RetrievalPipeline:
         1. Semantic similarity from Pinecone embeddings (if available)
         2. Metadata similarity from project attributes
         3. Diversity boost to avoid returning the same portfolios repeatedly
+        
+        ENHANCED (Issue #24): Uses JobRequirements for better query construction:
+        - specific_deliverables boost semantic matching
+        - problems_mentioned add context for better relevance
         """
         from app.utils.metadata_extractor import MetadataExtractor
 
@@ -505,8 +543,10 @@ class RetrievalPipeline:
                     
                 openai_service = OpenAIService(api_key=api_key)
                 
-                # Create query text from new job
-                query_text = f"{new_job.get('job_title', '')} {new_job.get('job_description', '')[:500]}"
+                # Create query text from new job (ENHANCED with JobRequirements - Issue #24)
+                query_text = self._build_enhanced_query(new_job, job_requirements)
+                logger.debug(f"  → Enhanced query: {query_text[:100]}...")
+                
                 query_embedding = openai_service.get_embedding(query_text)
                 
                 if query_embedding:
@@ -637,6 +677,63 @@ class RetrievalPipeline:
         unique_companies = len(seen_companies)
         logger.info(f"  → Diversity filter: {len(ranked_projects)} → {len(diversified)} unique projects ({unique_companies} companies, {unique_urls} unique portfolio URLs)")
         return diversified
+
+    def _build_enhanced_query(
+        self,
+        job_data: Dict[str, Any],
+        job_requirements: Optional["JobRequirements"] = None
+    ) -> str:
+        """
+        Build enhanced semantic search query using JobRequirements.
+        
+        Issue #24: Uses extracted specific_deliverables and problems_mentioned
+        to create a more targeted query for finding relevant past projects.
+        
+        Args:
+            job_data: Basic job data dict
+            job_requirements: Extracted structured requirements (optional)
+            
+        Returns:
+            Enhanced query string for semantic search
+        """
+        # Base query from job data
+        title = job_data.get("job_title", "")
+        description = job_data.get("job_description", "")[:400]
+        
+        # Start with basic query
+        query_parts = [title, description]
+        
+        # ENHANCED: Add extracted requirements for better matching (Issue #24)
+        if job_requirements:
+            # Add exact task understanding (most important)
+            if job_requirements.exact_task:
+                query_parts.append(f"Task: {job_requirements.exact_task}")
+            
+            # Add specific deliverables for precise matching
+            if job_requirements.specific_deliverables:
+                deliverables_text = " | ".join(job_requirements.specific_deliverables[:4])
+                query_parts.append(f"Deliverables: {deliverables_text}")
+            
+            # Add pain points/problems to find projects that solved similar issues
+            if job_requirements.problems_mentioned:
+                problems_text = " | ".join(job_requirements.problems_mentioned[:3])
+                query_parts.append(f"Problems to solve: {problems_text}")
+            
+            # Add tech stack for technical matching
+            if job_requirements.tech_stack_mentioned:
+                tech_text = " ".join(job_requirements.tech_stack_mentioned[:5])
+                query_parts.append(f"Tech: {tech_text}")
+            
+            logger.info(f"  → Query enhanced with {len(job_requirements.specific_deliverables)} deliverables, "
+                       f"{len(job_requirements.problems_mentioned)} problems")
+        
+        # Combine and truncate to reasonable length
+        query_text = " ".join(query_parts)
+        max_length = 1500  # Reasonable limit for embedding
+        if len(query_text) > max_length:
+            query_text = query_text[:max_length]
+        
+        return query_text
 
     def _extract_insights(
         self,

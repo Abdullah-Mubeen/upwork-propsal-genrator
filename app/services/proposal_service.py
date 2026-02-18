@@ -64,6 +64,7 @@ class ProposalService:
     Service for intelligent proposal generation.
     
     Orchestrates:
+    - JobRequirementsService for deep job understanding (NEW)
     - RetrievalPipeline for finding similar projects
     - PromptEngine for building prompts
     - OpenAI for text generation
@@ -74,7 +75,8 @@ class ProposalService:
         db_manager=None,
         openai_service=None,
         retrieval_pipeline=None,
-        prompt_engine=None
+        prompt_engine=None,
+        job_requirements_service=None
     ):
         """
         Initialize with dependencies.
@@ -84,11 +86,13 @@ class ProposalService:
             openai_service: OpenAI service for text generation
             retrieval_pipeline: Pipeline for finding similar projects
             prompt_engine: Engine for building prompts
+            job_requirements_service: Service for extracting structured job requirements (NEW)
         """
         self.db = db_manager
         self.openai_service = openai_service
         self.retrieval_pipeline = retrieval_pipeline
         self.prompt_engine = prompt_engine
+        self.job_requirements_service = job_requirements_service
     
     def generate_proposal(self, request: ProposalRequest) -> ProposalResult:
         """
@@ -115,11 +119,22 @@ class ProposalService:
             # Prepare job data
             job_data = self._prepare_job_data(request)
             
+            # Step 0: Extract structured job requirements (NEW - Issue #23)
+            job_requirements = self._extract_job_requirements(request)
+            if job_requirements:
+                logger.info(f"[ProposalService] Extracted requirements: task='{job_requirements.exact_task[:50]}...' "
+                           f"tone={job_requirements.client_tone}, confidence={job_requirements.extraction_confidence:.2f}")
+                # Enhance job_data with extracted requirements
+                job_data = self._enhance_job_data_with_requirements(job_data, job_requirements)
+            
             # Step 1: Get historical jobs (org-scoped if org_id provided)
             all_jobs = self._get_historical_jobs(request.org_id)
             
-            # Step 2: Find similar projects
-            retrieval_result = self._find_similar_projects(job_data, all_jobs, request.similar_projects_count)
+            # Step 2: Find similar projects (ENHANCED with job_requirements - Issue #24)
+            retrieval_result = self._find_similar_projects(
+                job_data, all_jobs, request.similar_projects_count,
+                job_requirements=job_requirements
+            )
             similar_projects = retrieval_result.get("similar_projects", [])
             
             # Filter to projects with portfolio
@@ -144,7 +159,7 @@ class ProposalService:
             if request.profile_id and request.org_id:
                 profile_context = self._get_freelancer_profile(request.org_id, request.profile_id)
             
-            # Step 5: Build prompt
+            # Step 5: Build prompt (now with job requirements context)
             prompt = self._build_prompt(
                 job_data=job_data,
                 similar_projects=similar_projects[:request.similar_projects_count],
@@ -152,7 +167,8 @@ class ProposalService:
                 portfolio_links=portfolio_links,
                 feedback_urls=feedback_urls,
                 request=request,
-                profile_context=profile_context
+                profile_context=profile_context,
+                job_requirements=job_requirements if 'job_requirements' in dir() else None
             )
             
             # Step 6: Generate proposal
@@ -201,6 +217,79 @@ class ProposalService:
         # Enhance industry detection if needed
         if not request.industry or request.industry == "general":
             job_data["industry"] = self._detect_industry(job_data)
+        
+        return job_data
+    
+    def _extract_job_requirements(self, request: ProposalRequest) -> Optional[Any]:
+        """
+        Extract structured job requirements using JobRequirementsService.
+        
+        This is the NEW job understanding layer that deeply analyzes the job
+        description BEFORE retrieval and generation.
+        
+        Args:
+            request: ProposalRequest with job details
+            
+        Returns:
+            JobRequirements dataclass or None if service unavailable
+        """
+        if not self.job_requirements_service:
+            logger.debug("[ProposalService] JobRequirementsService not available, skipping extraction")
+            return None
+        
+        try:
+            from app.services.job_requirements_service import JobRequirements
+            
+            requirements = self.job_requirements_service.extract_job_requirements(
+                job_description=request.job_description,
+                job_title=request.job_title,
+                skills_required=request.skills_required
+            )
+            
+            return requirements
+            
+        except Exception as e:
+            logger.warning(f"[ProposalService] Job requirements extraction failed: {e}")
+            return None
+    
+    def _enhance_job_data_with_requirements(
+        self,
+        job_data: Dict[str, Any],
+        requirements: Any
+    ) -> Dict[str, Any]:
+        """
+        Enhance job_data with extracted requirements for better retrieval.
+        
+        This merges the LLM-extracted understanding into the job_data dict
+        so the retrieval pipeline can find truly relevant projects.
+        
+        Args:
+            job_data: Original job data dict
+            requirements: JobRequirements dataclass
+            
+        Returns:
+            Enhanced job_data dict
+        """
+        # Add extracted understanding to job_data
+        job_data["exact_task"] = requirements.exact_task
+        job_data["client_tone"] = requirements.client_tone
+        job_data["client_problems"] = requirements.problems_mentioned
+        job_data["client_constraints"] = requirements.constraints
+        job_data["tech_stack"] = requirements.tech_stack_mentioned
+        job_data["do_not_assume"] = requirements.do_not_assume
+        
+        # Override industry if extracted with high confidence
+        if requirements.inferred_industry and requirements.inferred_industry != "general":
+            if requirements.extraction_confidence >= 0.6:
+                job_data["industry"] = requirements.inferred_industry
+                logger.debug(f"[ProposalService] Industry overridden to: {requirements.inferred_industry}")
+        
+        # Add complexity for retrieval filtering
+        job_data["task_complexity"] = requirements.complexity_level
+        
+        # Add deliverables for better semantic matching
+        if requirements.specific_deliverables:
+            job_data["expected_deliverables"] = requirements.specific_deliverables
         
         return job_data
     
@@ -267,15 +356,24 @@ class ProposalService:
         self,
         job_data: Dict[str, Any],
         all_jobs: List[Dict[str, Any]],
-        top_k: int
+        top_k: int,
+        job_requirements: Optional[Any] = None
     ) -> Dict[str, Any]:
-        """Find similar projects using retrieval pipeline."""
+        """
+        Find similar projects using retrieval pipeline.
+        
+        ENHANCED (Issue #24): Now passes JobRequirements to retrieval for:
+        - Better semantic search queries using specific_deliverables
+        - Problem-based matching using problems_mentioned
+        - More accurate filtering using extracted tech stack and complexity
+        """
         if not self.retrieval_pipeline:
             return {"similar_projects": [], "insights": None}
         
         try:
             return self.retrieval_pipeline.retrieve_for_proposal(
-                job_data, all_jobs, top_k=top_k
+                job_data, all_jobs, top_k=top_k,
+                job_requirements=job_requirements
             )
         except Exception as e:
             logger.error(f"Error in retrieval: {e}")
@@ -399,16 +497,30 @@ class ProposalService:
         portfolio_links: List[str],
         feedback_urls: List[str],
         request: ProposalRequest,
-        profile_context: Optional[Dict[str, Any]] = None
+        profile_context: Optional[Dict[str, Any]] = None,
+        job_requirements: Optional[Any] = None
     ) -> str:
-        """Build the proposal generation prompt."""
+        """Build the proposal generation prompt with enhanced job understanding."""
         if not self.prompt_engine:
             # Fallback to basic prompt
-            return self._build_basic_prompt(job_data, request, profile_context)
+            return self._build_basic_prompt(job_data, request, profile_context, job_requirements)
         
         success_patterns = []
         if previous_insights:
             success_patterns = previous_insights.get("common_patterns", [])
+        
+        # Build job requirements context for the prompt engine
+        requirements_context = None
+        if job_requirements:
+            requirements_context = {
+                "exact_task": job_requirements.exact_task,
+                "deliverables": job_requirements.specific_deliverables,
+                "client_tone": job_requirements.client_tone,
+                "problems": job_requirements.problems_mentioned,
+                "constraints": job_requirements.constraints,
+                "do_not_assume": job_requirements.do_not_assume,  # CRITICAL: Anti-hallucination
+                "resources_provided": job_requirements.resources_provided,
+            }
         
         return self.prompt_engine.build_proposal_prompt(
             job_data=job_data,
@@ -421,14 +533,16 @@ class ProposalService:
             include_feedback=request.include_feedback and bool(feedback_urls),
             include_timeline=request.include_timeline,
             timeline_duration=request.timeline_duration,
-            profile_context=profile_context
+            profile_context=profile_context,
+            requirements_context=requirements_context  # NEW: Pass extracted requirements
         )
     
     def _build_basic_prompt(
         self, 
         job_data: Dict[str, Any], 
         request: ProposalRequest,
-        profile_context: Optional[Dict[str, Any]] = None
+        profile_context: Optional[Dict[str, Any]] = None,
+        job_requirements: Optional[Any] = None
     ) -> str:
         """Build a basic prompt when prompt engine is not available."""
         profile_section = ""
@@ -441,13 +555,24 @@ Freelancer Profile:
 - Bio: {profile_context.get('bio', '')[:300]}
 """
         
+        # Add requirements section if available (NEW - Issue #23)
+        requirements_section = ""
+        if job_requirements:
+            requirements_section = f"""
+EXTRACTED JOB UNDERSTANDING:
+- Exact Task: {job_requirements.exact_task}
+- Client Tone: {job_requirements.client_tone}
+- Problems Mentioned: {', '.join(job_requirements.problems_mentioned) if job_requirements.problems_mentioned else 'None stated'}
+- DO NOT ASSUME (avoid mentioning these unless client specified): {', '.join(job_requirements.do_not_assume) if job_requirements.do_not_assume else 'N/A'}
+"""
+        
         return f"""Generate a {request.proposal_style} proposal for:
 
 Job Title: {job_data['job_title']}
 Company: {job_data['company_name']}
 Description: {job_data['job_description']}
 Skills Required: {', '.join(job_data['skills_required'])}
-{profile_section}
+{profile_section}{requirements_section}
 Write a {request.tone} proposal in approximately {request.max_word_count} words."""
     
     def _generate_with_ai(self, prompt: str, max_word_count: int) -> tuple:
