@@ -247,6 +247,21 @@ class SentProposalRepository(BaseRepository[Dict[str, Any]]):
         except Exception as e:
             logger.error(f"Error getting effective proposals: {e}")
             return []
+    
+    def delete_all(self) -> int:
+        """
+        Delete all sent proposals (for testing/cleanup).
+        
+        Returns:
+            Number of deleted documents
+        """
+        try:
+            result = self.collection.delete_many({})
+            logger.info(f"Deleted {result.deleted_count} sent proposals")
+            return result.deleted_count
+        except Exception as e:
+            logger.error(f"Error deleting all sent proposals: {e}")
+            raise
 
 
 class FeedbackRepository(BaseRepository[Dict[str, Any]]):

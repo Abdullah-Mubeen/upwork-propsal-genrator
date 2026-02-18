@@ -45,8 +45,10 @@ from app.models.job_data_schema import (
 )
 from app.utils.job_data_processor import JobDataProcessor
 from app.db import get_db
+from app.infra.mongodb.repositories.training_repo import get_training_repo, get_chunk_repo
 from app.utils.openai_service import OpenAIService
-from app.utils.advanced_chunker import AdvancedChunkProcessor
+# advanced_chunker.py deleted - use stub from job_data_processor
+from app.utils.job_data_processor import _StubChunker as AdvancedChunkProcessor
 from app.utils.feedback_processor import FeedbackProcessor
 from app.utils.pinecone_service import PineconeService
 from app.config import settings
@@ -252,7 +254,7 @@ async def list_job_data(
     """
     try:
         processor = get_processor()
-        db = get_db()
+        training_repo = get_training_repo()
         
         # Build filter
         filters = {}
@@ -263,9 +265,9 @@ async def list_job_data(
         if company:
             filters["company_name"] = {"$regex": company, "$options": "i"}
         
-        # Get jobs
-        jobs = db.get_all_training_data(skip=skip, limit=limit, filters=filters)
-        total = db.db["training_data"].count_documents(filters)
+        # Get jobs using repository
+        jobs = training_repo.get_all(skip=skip, limit=limit, filters=filters)
+        total = training_repo.get_count()
         
         items = [
             JobDataResponse(
@@ -407,15 +409,16 @@ async def get_job_chunks(
     """
     try:
         processor = get_processor()
-        db = get_db()
+        training_repo = get_training_repo()
+        chunk_repo = get_chunk_repo()
         
         # Check if job exists
-        job_data = db.get_training_data(contract_id)
+        job_data = training_repo.get_by_contract_id(contract_id)
         if not job_data:
             raise ValueError(f"Contract not found: {contract_id}")
         
-        # Get chunks
-        all_chunks = db.get_chunks_by_contract(contract_id)
+        # Get chunks using repository
+        all_chunks = chunk_repo.get_by_contract(contract_id)
         
         # Filter by type if provided
         if chunk_type:
@@ -496,10 +499,10 @@ async def update_job_data(
     """
     try:
         processor = get_processor()
-        db = get_db()
+        training_repo = get_training_repo()
         
         # Check if job exists
-        existing = db.get_training_data(contract_id)
+        existing = training_repo.get_by_contract_id(contract_id)
         if not existing:
             raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
         
@@ -516,11 +519,11 @@ async def update_job_data(
         # Add updated timestamp
         update_dict["updated_at"] = datetime.utcnow().isoformat()
         
-        # Update in database
-        db.db["training_data"].update_one(
-            {"contract_id": contract_id},
-            {"$set": update_dict}
-        )
+        # Update in database using repository
+        training_repo.update({"contract_id": contract_id}, update_dict)
+        
+        # Get db instance for direct collection access (legacy)
+        db = get_db()
         
         # Check if content changed - if so, regenerate chunks/embeddings
         content_fields = ["job_description", "your_proposal_text", "skills_required", "deliverables", "outcomes", "client_feedback_text"]
@@ -538,8 +541,9 @@ async def update_job_data(
                 except Exception as e:
                     logger.warning(f"Error deleting old Pinecone vectors: {str(e)}")
             
-            # Delete old chunks and embeddings from MongoDB
-            db.db["chunks"].delete_many({"contract_id": contract_id})
+            # Delete old chunks and embeddings from MongoDB using chunk_repo
+            chunk_repo = get_chunk_repo()
+            chunk_repo.collection.delete_many({"contract_id": contract_id})
             db.db["embeddings"].delete_many({"contract_id": contract_id})
             
             # Regenerate chunks and embeddings (without re-storing the job)

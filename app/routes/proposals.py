@@ -29,6 +29,8 @@ from app.utils.retrieval_pipeline import RetrievalPipeline
 from app.utils.openai_service import OpenAIService
 from app.utils.prompt_engine import PromptEngine
 from app.db import get_db
+from app.infra.mongodb.repositories.proposal_repo import get_sent_proposal_repo
+from app.infra.mongodb.repositories.analytics_repo import get_analytics_repo
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -589,9 +591,9 @@ async def save_sent_proposal(
     Even if not hired (budget/timing), the proposal text is proven effective.
     """
     try:
-        db = get_db()
+        repo = get_sent_proposal_repo()
         
-        result = db.save_sent_proposal({
+        result = repo.save_sent_proposal({
             "job_title": request.job_title,
             "company_name": request.company_name,
             "job_description": request.job_description,
@@ -650,9 +652,9 @@ async def update_proposal_outcome(
     **Message-Market Fit** and should be weighted highly by AI.
     """
     try:
-        db = get_db()
+        repo = get_sent_proposal_repo()
         
-        result = db.update_proposal_outcome(
+        result = repo.update_outcome(
             proposal_id=proposal_id,
             outcome=request.outcome.value,
             discussion_initiated=request.discussion_initiated,
@@ -713,10 +715,11 @@ async def get_proposal_history(
     3. Identify winning proposal patterns
     """
     try:
-        db = get_db()
+        repo = get_sent_proposal_repo()
+        analytics = get_analytics_repo()
         
-        proposals = db.get_sent_proposals(skip=skip, limit=limit, outcome_filter=outcome)
-        stats = db.get_proposal_conversion_stats()
+        proposals = repo.get_sent_proposals(skip=skip, limit=limit, outcome_filter=outcome)
+        stats = analytics.get_conversion_stats()
         
         items = []
         for p in proposals:
@@ -771,8 +774,8 @@ async def get_conversion_stats(
     Not closing (budget/timing) is a logistics issue, not communication.
     """
     try:
-        db = get_db()
-        stats = db.get_proposal_conversion_stats()
+        analytics = get_analytics_repo()
+        stats = analytics.get_conversion_stats()
         
         return ConversionStatsResponse(
             success=True,
@@ -798,8 +801,8 @@ async def get_sent_proposal(
 ):
     """Get details of a specific sent proposal"""
     try:
-        db = get_db()
-        proposal = db.get_sent_proposal(proposal_id)
+        repo = get_sent_proposal_repo()
+        proposal = repo.get_by_proposal_id(proposal_id)
         
         if not proposal:
             raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
@@ -832,10 +835,10 @@ async def delete_proposal(
 ):
     """Delete a specific sent proposal by ID"""
     try:
-        db = get_db()
-        result = db.db["sent_proposals"].delete_one({"proposal_id": proposal_id})
+        repo = get_sent_proposal_repo()
+        deleted = repo.delete_one({"proposal_id": proposal_id})
         
-        if result.deleted_count == 0:
+        if not deleted:
             raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
         
         return {
@@ -863,12 +866,12 @@ async def clear_all_proposals(
 ):
     """Delete all sent proposals from database"""
     try:
-        db = get_db()
-        result = db.db["sent_proposals"].delete_many({})
+        repo = get_sent_proposal_repo()
+        deleted_count = repo.delete_all()
         return {
             "success": True,
-            "deleted_count": result.deleted_count,
-            "message": f"Deleted {result.deleted_count} proposals"
+            "deleted_count": deleted_count,
+            "message": f"Deleted {deleted_count} proposals"
         }
     except Exception as e:
         logger.error(f"Error clearing proposals: {str(e)}")

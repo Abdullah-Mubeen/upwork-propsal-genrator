@@ -13,15 +13,13 @@ import logging
 from typing import Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field, HttpUrl, validator
-from enum import Enum
+
+from app.domain.constants import ImportSource
 
 logger = logging.getLogger(__name__)
 
 
-class ImportSource(str, Enum):
-    UPWORK = "upwork"
-    LINKEDIN = "linkedin"
-    MANUAL = "manual"
+# NOTE: ImportSource enum moved to app/domain/constants.py (single source of truth)
 
 
 class UpworkProfileInput(BaseModel):

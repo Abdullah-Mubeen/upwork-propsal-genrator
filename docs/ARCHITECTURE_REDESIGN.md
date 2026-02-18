@@ -437,8 +437,9 @@ app/
 
 ```
 app/utils/
-├── proposal_generator.py        # UNUSED - DELETE
-├── data_chunker.py              # WRAPPER - DELETE (use advanced_chunker)
+├── proposal_generator.py        # ✅ DELETED
+├── data_chunker.py              # ✅ DELETED
+├── advanced_chunker.py          # ✅ DELETED (stub in job_data_processor.py)
 ├── hook_strategy.py             # MERGE into prompt_builder.py
 └── metadata_extractor.py        # MERGE into text_analysis.py
 

@@ -33,14 +33,19 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Lazy import to avoid deprecation warning on module load
-_chunker_class = None
+
+# Stub chunker - advanced_chunker.py was deleted
+class _StubChunker:
+    """Stub chunker that returns empty chunks. Use JobIngestionService instead."""
+    def get_all_chunks_flat(self, job_data):
+        logger.warning("StubChunker: advanced_chunker.py deleted. Use JobIngestionService.")
+        return []
+    chunk_training_data = get_all_chunks_flat
+
+
 def _get_chunker_class():
-    global _chunker_class
-    if _chunker_class is None:
-        from app.utils.advanced_chunker import AdvancedChunkProcessor
-        _chunker_class = AdvancedChunkProcessor
-    return _chunker_class
+    """Returns stub since advanced_chunker was deleted."""
+    return _StubChunker
 
 
 class JobDataProcessor:

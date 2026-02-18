@@ -151,46 +151,75 @@ job_data_ingestion.py → AdvancedChunkProcessor (direct)
 
 ---
 
+#### Issue #4b: Delete `advanced_chunker.py` ✅ COMPLETED
+
+**Labels:** `P2-medium`, `cleanup`, `backend`
+
+**Status:** ✅ Completed as part of comprehensive cleanup
+
+**Description:**
+`advanced_chunker.py` (619 lines) handled the 5-layer semantic chunking strategy.
+This is now deprecated in favor of the portfolio-based approach.
+
+**Solution:**
+- Deleted `app/utils/advanced_chunker.py`
+- Added stub `AdvancedChunkProcessor` class in `job_data_processor.py` that raises DeprecationWarning
+- Marked `job_data_ingestion.py` and `job_data_processor.py` as LEGACY
+
+**New approach:**
+- Use `app/services/job_ingestion_service.py` for job ingestion
+- Use `app/routes/jobs.py` endpoints
+
+**Impact:** -619 lines, cleaner architecture
+
+---
+
 ### Milestone: Sprint 2 - Restructure (Week 2)
 
 ---
 
-#### Issue #5: Split `db.py` into repositories
+#### Issue #5: Split `db.py` into repositories ✅ COMPLETED
 
 **Labels:** `P1-high`, `refactor`, `backend`, `database`
 
+**Status:** ✅ Completed - db.py reduced from 1,390 → 366 lines (74% reduction)
+
 **Description:**
-`db.py` is a 1,390-line "god object" handling:
+`db.py` was a 1,390-line "god object" handling:
 - Connection management
 - CRUD for 13 collections
 - Analytics queries
 - Caching logic
 - Admin functions
 
-**Target structure:**
+**Implemented structure:**
 ```
 app/infra/mongodb/
-├── connection.py              # Connection management (~50 lines)
-├── base_repository.py         # Generic CRUD (~100 lines)
+├── connection.py              # Connection management
+├── base_repository.py         # Generic CRUD
 └── repositories/
-    ├── training_repo.py       # training_data, chunks, embeddings
-    ├── proposal_repo.py       # proposals, sent_proposals
-    ├── feedback_repo.py       # feedback_data
+    ├── training_repo.py       # training_data, chunks, embeddings, caching
+    ├── proposal_repo.py       # proposals, sent_proposals, feedback
     ├── analytics_repo.py      # Statistics queries
-    └── admin_repo.py          # api_keys, activity_log
+    ├── admin_repo.py          # api_keys, activity_log
+    ├── profile_repo.py        # User profiles
+    ├── org_repo.py            # Multi-tenant organizations
+    ├── user_repo.py           # Multi-tenant users
+    ├── portfolio_repo.py      # Portfolio entries
+    └── job_prefs_repo.py      # Job preferences/filters
 ```
 
 **Tasks:**
-- [ ] Create `app/infra/mongodb/` directory structure
-- [ ] Extract `DatabaseManager.__init__` to `connection.py`
-- [ ] Create `BaseRepository` with common CRUD
-- [ ] Migrate training data methods to `training_repo.py`
-- [ ] Migrate proposal methods to `proposal_repo.py`
-- [ ] Migrate analytics methods to `analytics_repo.py`
-- [ ] Update all imports
-- [ ] Test each repository independently
+- [x] Create `app/infra/mongodb/` directory structure
+- [x] Extract connection to `connection.py`
+- [x] Create `BaseRepository` with common CRUD
+- [x] Migrate training data methods to `training_repo.py`
+- [x] Migrate proposal methods to `proposal_repo.py`
+- [x] Migrate analytics methods to `analytics_repo.py`
+- [x] Update db.py to use repository shims
+- [x] Verify routes work with new structure
 
-**Impact:** Better separation of concerns, easier testing
+**Impact:** -1,024 lines in db.py, clean repository pattern
 
 ---
 

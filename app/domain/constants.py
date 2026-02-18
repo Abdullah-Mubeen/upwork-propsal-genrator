@@ -8,6 +8,18 @@ Created: Sprint 1 - Consolidation Phase
 """
 
 from typing import Dict, List, Set
+from enum import Enum
+
+
+# =============================================================================
+# SHARED ENUMS
+# =============================================================================
+
+class ImportSource(str, Enum):
+    """Where profile data was imported from."""
+    MANUAL = "manual"
+    UPWORK = "upwork"
+    LINKEDIN = "linkedin"  # Future support
 
 
 # =============================================================================

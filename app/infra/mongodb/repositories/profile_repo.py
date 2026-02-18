@@ -14,14 +14,11 @@ from datetime import datetime
 from enum import Enum
 
 from app.infra.mongodb.base_repository import BaseRepository
+from app.domain.constants import ImportSource
 
 logger = logging.getLogger(__name__)
 
 
-class ImportSource(str, Enum):
-    """Where profile data was imported from."""
-    MANUAL = "manual"
-    UPWORK = "upwork"
 
 
 class FreelancerProfileRepository(BaseRepository[Dict[str, Any]]):

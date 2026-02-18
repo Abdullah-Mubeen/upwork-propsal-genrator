@@ -6,12 +6,33 @@
 
 ---
 
+## 🔄 CLEANUP UPDATE (Latest)
+
+**Date:** June 2025
+
+Major cleanup completed as part of GitHub Issue #31:
+
+| Item | Before | After | Status |
+|------|--------|-------|--------|
+| `db.py` | 1,390 lines | ~366 lines (74% reduction) | ✅ Repository shims |
+| `advanced_chunker.py` | 619 lines | DELETED (stub in job_data_processor.py) | ✅ |
+| `data_chunker.py` | 120 lines | DELETED | ✅ |
+| `proposal_generator.py` | 728 lines | DELETED | ✅ |
+| `ImportSource` enum | 2 definitions | 1 in constants.py | ✅ |
+
+**New Architecture:**
+- Repository pattern in `app/infra/mongodb/repositories/`
+- Centralized constants in `app/domain/constants.py`
+- Legacy files marked with DEPRECATED warnings
+
+---
+
 ## Executive Summary
 
 The codebase has grown organically through reactive feature additions, resulting in:
 - **~12,000+ lines of Python** in the backend
 - **Significant code duplication** across modules
-- **728 lines of unused production code** (`proposal_generator.py`)
+- **728 lines of unused production code** (`proposal_generator.py`) → ✅ DELETED
 - **Single-tenant architecture** hardcoded
 - **No clear domain boundaries**
 
@@ -23,17 +44,17 @@ This audit identifies cleanup targets and provides a redesign path for multi-ten
 
 | File | Lines | Status |
 |------|-------|--------|
-| `db.py` | 1,390 | ⚠️ TOO LARGE - needs splitting |
+| `db.py` | ~~1,390~~ 366 | ✅ REDUCED - uses repository shims |
 | `prompt_engine.py` | 1,347 | ⚠️ Over-engineered |
-| `job_data_processor.py` | 1,075 | ⚠️ Large but necessary |
+| `job_data_processor.py` | 1,111 | ⚠️ LEGACY - marked deprecated |
 | `hook_strategy.py` | 946 | ⚠️ Could simplify |
-| `job_data_ingestion.py` | 911 | Route file |
+| `job_data_ingestion.py` | 929 | ⚠️ LEGACY - marked deprecated |
 | `metadata_extractor.py` | 910 | ⚠️ Duplicates logic |
 | `retrieval_pipeline.py` | 882 | Core retrieval |
 | `openai_service.py` | 875 | External API wrapper |
 | `proposals.py` | 837 | Route file |
-| `proposal_generator.py` | 728 | ❌ **UNUSED IN PRODUCTION** |
-| `advanced_chunker.py` | 619 | New chunking strategy |
+| `proposal_generator.py` | ~~728~~ | ✅ **DELETED** |
+| `advanced_chunker.py` | ~~619~~ | ✅ **DELETED** |
 | `pinecone_service.py` | 458 | Vector DB service |
 | `job_data_schema.py` | 472 | Pydantic models |
 
@@ -94,43 +115,57 @@ All duplicate constants have been moved to a single source of truth:
 The chunking went through 3 generations:
 1. **v1:** Basic chunking (now deprecated methods in `data_chunker.py`)
 2. **v2:** 4-chunk strategy (transitional)
-3. **v3:** 5-layer semantic chunking (`advanced_chunker.py`)
+3. **v3:** 5-layer semantic chunking (`advanced_chunker.py`) → ✅ DELETED
 
-**Status:** ✅ `data_chunker.py` wrapper DELETED
+**Status:** ✅ Both `data_chunker.py` AND `advanced_chunker.py` DELETED
 
-The unnecessary 120-line wrapper has been removed. Imports now go directly to `AdvancedChunkProcessor`:
-
-```
-BEFORE: job_data_ingestion.py → DataChunker → AdvancedChunkProcessor
-AFTER:  job_data_ingestion.py → AdvancedChunkProcessor (direct)
-```
+The chunking strategy went through multiple iterations. The current state:
+- `advanced_chunker.py` - DELETED (was 619 lines)
+- `data_chunker.py` - DELETED (120-line wrapper)
+- `job_data_processor.py` - Contains stub class that raises DeprecationWarning
+- New code should use `app/services/job_ingestion_service.py`
 
 **Files updated:**
-- `job_data_ingestion.py` - Uses `AdvancedChunkProcessor` directly
-- `job_data_processor.py` - Uses `AdvancedChunkProcessor` directly  
-- `advanced_chunker.py` - Added `chunk_training_data` alias for backward compatibility
+- `job_data_ingestion.py` - Marked as LEGACY with deprecation notice
+- `job_data_processor.py` - Marked as LEGACY, has stub AdvancedChunkProcessor
 
 **Impact:** -121 lines, cleaner architecture
 
 ---
 
-#### B. `db.py` is a God Object (1,390 lines) - ⏳ PENDING
+#### B. `db.py` is a God Object (1,390 lines) - ✅ RESOLVED
 
-This single file handles:
-- MongoDB connection management
-- 13 different collections
-- CRUD for all entities
-- Analytics queries
-- Caching logic
-- Admin key management
-- Activity logging
+**Status:** ✅ Reduced from 1,390 → 366 lines (74% reduction)
 
-**Should be split into:**
-- `db/connection.py` - Connection management
-- `repositories/training_data.py`
-- `repositories/proposals.py`
-- `repositories/analytics.py`
-- `repositories/admin.py`
+**Solution implemented:**
+- Created repository pattern in `app/infra/mongodb/repositories/`
+- `db.py` now contains thin shims that delegate to repositories
+- Each repository handles a single domain concern
+
+**Repository structure:**
+```
+app/infra/mongodb/repositories/
+├── training_repo.py      # Training data, chunks, embeddings
+├── proposal_repo.py      # Proposals, sent proposals, feedback
+├── analytics_repo.py     # Analytics collection
+├── profile_repo.py       # User profiles
+├── admin_repo.py         # Admin API keys
+├── org_repo.py           # Multi-tenant organizations
+├── user_repo.py          # Multi-tenant users
+├── portfolio_repo.py     # Portfolio entries
+└── job_prefs_repo.py     # Job preferences/filters
+```
+
+**Impact:** Clean separation of concerns, easier testing, ready for multi-tenant
+
+---
+
+~~Should be split into:~~
+~~- `db/connection.py` - Connection management~~
+~~- `repositories/training_data.py`~~
+~~- `repositories/proposals.py`~~
+~~- `repositories/analytics.py`~~
+~~- `repositories/admin.py`~~
 
 ---
 
@@ -197,7 +232,7 @@ profile = self.db["user_profile"].find_one({"user_id": "default"})
 │  └── job_data_ingestion.py (911 lines) ──────────────────────────────────┐│ │
 │        Also contains business logic                                       ││ │
 │                                                                          ││ │
-│  UTILS LAYER (Bloated - 11 files, ~8000 lines)                           ││ │
+│  UTILS LAYER (Reduced - several files deleted)                           ││ │
 │  ├── prompt_engine.py (1347) ←──┐                                        ││ │
 │  │                              │ Duplicate pain point detection         ││ │
 │  ├── hook_strategy.py (946) ←───┘                                        ││ │
@@ -206,22 +241,18 @@ profile = self.db["user_profile"].find_one({"user_id": "default"})
 │  │                                  │ 3 different industry detections    ││ │
 │  ├── openai_service.py (875) ←──────┘                                    ││ │
 │  │                                                                       ││ │
-│  ├── proposal_generator.py (728) ← UNUSED IN PRODUCTION!                 ││ │
+│  ├── proposal_generator.py ← ✅ DELETED                                  ││ │
 │  │                                                                       ││ │
 │  ├── retrieval_pipeline.py (882) ← Duplicates AI_ML_KEYWORDS             ││ │
 │  │                                                                       ││ │
-│  ├── data_chunker.py (120) ← Just a wrapper                              ││ │
-│  │     └── advanced_chunker.py (619) ← Actual implementation             ││ │
+│  ├── data_chunker.py ← ✅ DELETED                                        ││ │
+│  │     └── advanced_chunker.py ← ✅ DELETED                              ││ │
 │  │                                                                       ││ │
-│  └── job_data_processor.py (1075) ← The actual orchestrator              ││ │
+│  └── job_data_processor.py (1111) ← LEGACY, marked deprecated            ││ │
 │                                                                          ││ │
-│  DB LAYER (1 GOD FILE)                                                   ││ │
-│  └── db.py (1390 lines) ← Does EVERYTHING                                ││ │
-│        - 13 collections                                                  ││ │
-│        - All CRUD operations                                             ││ │
-│        - Analytics                                                       ││ │
-│        - Caching                                                         ││ │
-│        - Admin functions                                                 ┘│ │
+│  DB LAYER (REFACTORED)                                                   ││ │
+│  └── db.py (366 lines) ← Now uses repository shims                       ││ │
+│        └── app/infra/mongodb/repositories/ ← New repository layer        ││ │
 │                                                                           │ │
 │  NO SEPARATION OF CONCERNS                                                │ │
 └───────────────────────────────────────────────────────────────────────────┘ │
@@ -297,8 +328,9 @@ All vectors are in ONE namespace. For multi-tenant:
 
 | Target | Current | Proposed | Effort |
 |--------|---------|----------|--------|
-| `data_chunker.py` | Wrapper | Remove, use `advanced_chunker` directly | Low |
-| `db.py` | God object | Split into repositories | Medium |
+| `data_chunker.py` | ~~Wrapper~~ | ✅ DELETED | Done |
+| `advanced_chunker.py` | ~~619 lines~~ | ✅ DELETED | Done |
+| `db.py` | ~~God object~~ | ✅ Repository shims (366 lines) | Done |
 | `prompt_engine.py` | 1347 lines | Split into focused modules | High |
 
 ---

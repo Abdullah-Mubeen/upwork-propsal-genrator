@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 from app.middleware.auth import verify_api_key
-from app.db import get_db
 from app.infra.mongodb.repositories.profile_repo import (
     FreelancerProfileRepository, 
     ImportSource,
