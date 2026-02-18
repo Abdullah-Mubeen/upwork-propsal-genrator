@@ -507,3 +507,72 @@ TONE_INSTRUCTIONS: Dict[str, str] = {
     "analytical": "Focus on facts and analysis. Logical structure, data references, systematic approach.",
     "friendly": "Warm and approachable. Show personality, use 'we', collaborative language, genuine interest.",
 }
+
+
+# =============================================================================
+# PROMPT TEMPLATES - SINGLE SOURCE OF TRUTH
+# =============================================================================
+# Consolidated prompt rules - defined ONCE, used everywhere
+
+HOOK_STRATEGIES: List[str] = [
+    'SOLUTION LEAD: "I know exactly why [problem] is happening and how to fix it."',
+    'IMMEDIATE VALUE: "Just wrapped up something nearly identical - [portfolio_url]"',
+    'EMPATHY FIRST: "That\'s a frustrating situation - [show you understand their pain]"',
+    'QUESTION HOOK: "Quick question: Is the [issue] affecting [business impact]?"',
+    'RESULT LEAD: "Got a similar site from [before metric] to [after metric] last week."',
+    'AVAILABILITY: "I can start right now - this shouldn\'t take more than [timeframe]."',
+]
+
+STALE_OPENINGS: List[str] = [
+    "I see you're dealing with...",
+    "I came across your job post...",
+    "I'm excited to help...",
+    "I have X years of experience...",
+]
+
+ANTI_HALLUCINATION_RULES: str = """
+🚨 ANTI-HALLUCINATION RULES (CRITICAL):
+1. ONLY reference projects listed in "VERIFIED PAST PROJECTS" section
+2. If NO verified projects: Focus on APPROACH, not past work
+3. NEVER invent company names, deliverables, or outcomes
+4. Match client's NEED to project DELIVERABLES
+5. Use ONLY portfolio URLs provided - if none, include ZERO links
+"""
+
+PROPOSAL_FORMAT_RULES: str = """
+CRITICAL FORMAT RULES:
+1. Use PLAIN URLs (https://example.com) - NOT markdown [text](url)
+2. NO MARKDOWN - no **bold**, no *italic*, no # headers
+3. Target: 200-350 words MAXIMUM
+4. Sound human - casual, genuine, conversational
+5. PLATFORM MATCH: WordPress job = WordPress examples ONLY
+"""
+
+PROPOSAL_STRUCTURE: str = """
+SUCCESS PATTERN (HOOK→PROOF→APPROACH→CTA):
+1. HOOK (1-2 sentences): Varied opening + portfolio link in preview
+2. PROOF (2 bullets): Past projects + links (IF available)
+3. APPROACH (2-3 sentences): Specific solution for THEIR situation
+4. CTA (1 sentence): Casual "Happy to chat" or "Let me know"
+"""
+
+CONVERSATIONAL_EXAMPLES: List[str] = [
+    "This is right up my alley - just finished something similar",
+    "I've tackled this exact issue before",
+    "Here's what worked for a similar client",
+    "Happy to hop on a quick call if you want to discuss",
+]
+
+FORBIDDEN_PHRASES: List[str] = [
+    "As an AI", "I'm an AI", "I would be delighted", "I am eager to",
+    "Best regards", "Sincerely", "Looking forward to hearing from you",
+]
+
+SYSTEM_ROLES: Dict[str, str] = {
+    "professional": "You are an expert proposal writer with 10+ years winning high-value contracts.",
+    "casual": "You are a friendly freelancer who writes approachable, personable proposals.",
+    "technical": "You are a senior technical architect demonstrating deep expertise.",
+    "creative": "You are a creative innovator who writes memorable, unique proposals.",
+    "data_driven": "You are a data analyst who writes proposals backed by metrics and ROI.",
+}
+
