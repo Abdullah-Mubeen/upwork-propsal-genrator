@@ -1,5 +1,13 @@
 """
-Job Data Ingestion Routes
+Job Data Ingestion Routes (LEGACY)
+
+⚠️ DEPRECATED: This uses the old 5-chunk strategy.
+For new implementations, use:
+- POST /api/jobs/ingest - Clean job ingestion (app/routes/jobs.py)
+- app/services/job_ingestion_service.py
+
+These endpoints are maintained for backward compatibility with existing
+training data pipelines. New code should use the /api/jobs endpoints.
 
 API endpoints for:
 - Upload job training data
@@ -37,16 +45,18 @@ from app.models.job_data_schema import (
 )
 from app.utils.job_data_processor import JobDataProcessor
 from app.db import get_db
+from app.infra.mongodb.repositories.training_repo import get_training_repo, get_chunk_repo
 from app.utils.openai_service import OpenAIService
-from app.utils.data_chunker import DataChunker
+# advanced_chunker.py deleted - use stub from job_data_processor
+from app.utils.job_data_processor import _StubChunker as AdvancedChunkProcessor
 from app.utils.feedback_processor import FeedbackProcessor
 from app.utils.pinecone_service import PineconeService
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize router
-router = APIRouter()
+# Initialize router with LEGACY tag - Use /api/jobs endpoints instead
+router = APIRouter(tags=["job-data (LEGACY)"])
 
 # Service instances (lazy loaded)
 _processor: Optional[JobDataProcessor] = None
@@ -85,12 +95,7 @@ def get_processor() -> JobDataProcessor:
             llm_model=settings.OPENAI_LLM_MODEL,
             vision_model=settings.OPENAI_VISION_MODEL
         )
-        chunker = DataChunker(
-            chunk_size=settings.CHUNK_SIZE,
-            chunk_overlap=settings.CHUNK_OVERLAP,
-            min_chunk_size=settings.MIN_CHUNK_SIZE,
-            max_chunk_size=settings.MAX_CHUNK_SIZE
-        )
+        chunker = AdvancedChunkProcessor()
         feedback_processor = FeedbackProcessor(openai_service)
         pinecone_service = get_pinecone_service()
         
@@ -110,7 +115,8 @@ def get_processor() -> JobDataProcessor:
     "/upload",
     response_model=UploadResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload job training data",
+    summary="[LEGACY] Upload job training data",
+    deprecated=True,
     responses={
         201: {"description": "Job data uploaded successfully"},
         400: {"model": ErrorResponse, "description": "Validation error"},
@@ -214,7 +220,8 @@ async def upload_job_data(
 @router.get(
     "/list",
     response_model=ListResponse,
-    summary="List all job data",
+    summary="[LEGACY] List all job data",
+    deprecated=True,
     responses={
         200: {"description": "Jobs retrieved"},
         401: {"description": "API key required"},
@@ -247,7 +254,7 @@ async def list_job_data(
     """
     try:
         processor = get_processor()
-        db = get_db()
+        training_repo = get_training_repo()
         
         # Build filter
         filters = {}
@@ -258,9 +265,9 @@ async def list_job_data(
         if company:
             filters["company_name"] = {"$regex": company, "$options": "i"}
         
-        # Get jobs
-        jobs = db.get_all_training_data(skip=skip, limit=limit, filters=filters)
-        total = db.db["training_data"].count_documents(filters)
+        # Get jobs using repository
+        jobs = training_repo.get_all(skip=skip, limit=limit, filters=filters)
+        total = training_repo.get_count()
         
         items = [
             JobDataResponse(
@@ -301,7 +308,8 @@ async def list_job_data(
 @router.get(
     "/{contract_id}",
     response_model=JobDataDetailResponse,
-    summary="Get job data by contract ID",
+    summary="[LEGACY] Get job data by contract ID",
+    deprecated=True,
     responses={
         200: {"description": "Job data retrieved"},
         401: {"description": "API key required"},
@@ -368,7 +376,8 @@ async def get_job_data(
 @router.get(
     "/{contract_id}/chunks",
     response_model=ListResponse,
-    summary="Get chunks for a contract",
+    summary="[LEGACY] Get chunks for a contract",
+    deprecated=True,
     responses={
         200: {"description": "Chunks retrieved"},
         401: {"description": "API key required"},
@@ -400,15 +409,16 @@ async def get_job_chunks(
     """
     try:
         processor = get_processor()
-        db = get_db()
+        training_repo = get_training_repo()
+        chunk_repo = get_chunk_repo()
         
         # Check if job exists
-        job_data = db.get_training_data(contract_id)
+        job_data = training_repo.get_by_contract_id(contract_id)
         if not job_data:
             raise ValueError(f"Contract not found: {contract_id}")
         
-        # Get chunks
-        all_chunks = db.get_chunks_by_contract(contract_id)
+        # Get chunks using repository
+        all_chunks = chunk_repo.get_by_contract(contract_id)
         
         # Filter by type if provided
         if chunk_type:
@@ -457,7 +467,8 @@ async def get_job_chunks(
 @router.put(
     "/update/{contract_id}",
     response_model=UploadResponse,
-    summary="Update job data by contract ID",
+    summary="[LEGACY] Update job data by contract ID",
+    deprecated=True,
     responses={
         200: {"description": "Job updated successfully"},
         401: {"description": "API key required"},
@@ -488,10 +499,10 @@ async def update_job_data(
     """
     try:
         processor = get_processor()
-        db = get_db()
+        training_repo = get_training_repo()
         
         # Check if job exists
-        existing = db.get_training_data(contract_id)
+        existing = training_repo.get_by_contract_id(contract_id)
         if not existing:
             raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
         
@@ -508,11 +519,11 @@ async def update_job_data(
         # Add updated timestamp
         update_dict["updated_at"] = datetime.utcnow().isoformat()
         
-        # Update in database
-        db.db["training_data"].update_one(
-            {"contract_id": contract_id},
-            {"$set": update_dict}
-        )
+        # Update in database using repository
+        training_repo.update({"contract_id": contract_id}, update_dict)
+        
+        # Get db instance for direct collection access (legacy)
+        db = get_db()
         
         # Check if content changed - if so, regenerate chunks/embeddings
         content_fields = ["job_description", "your_proposal_text", "skills_required", "deliverables", "outcomes", "client_feedback_text"]
@@ -530,8 +541,9 @@ async def update_job_data(
                 except Exception as e:
                     logger.warning(f"Error deleting old Pinecone vectors: {str(e)}")
             
-            # Delete old chunks and embeddings from MongoDB
-            db.db["chunks"].delete_many({"contract_id": contract_id})
+            # Delete old chunks and embeddings from MongoDB using chunk_repo
+            chunk_repo = get_chunk_repo()
+            chunk_repo.collection.delete_many({"contract_id": contract_id})
             db.db["embeddings"].delete_many({"contract_id": contract_id})
             
             # Regenerate chunks and embeddings (without re-storing the job)
@@ -590,7 +602,8 @@ async def update_job_data(
 @router.delete(
     "/delete/{contract_id}",
     response_model=DeleteResponse,
-    summary="Delete job data by contract ID",
+    summary="[LEGACY] Delete job data by contract ID",
+    deprecated=True,
     responses={
         200: {"description": "Job deleted"},
         401: {"description": "API key required"},
@@ -639,7 +652,8 @@ async def delete_job_data(
 @router.post(
     "/bulk-delete",
     response_model=DeleteResponse,
-    summary="Bulk delete jobs",
+    summary="[LEGACY] Bulk delete jobs",
+    deprecated=True,
     responses={
         200: {"description": "Jobs deleted"},
         400: {"model": ErrorResponse, "description": "Validation error"},
@@ -693,6 +707,7 @@ async def bulk_delete_jobs(
 @router.post(
     "/extract-ocr",
     summary="Extract text from image using OCR (GPT-4 Vision)",
+    deprecated=True,
     responses={
         200: {"description": "Text extracted successfully"},
         400: {"model": ErrorResponse, "description": "Invalid image or no image provided"},
@@ -828,7 +843,8 @@ If this is a review/feedback screenshot, extract the complete feedback text."""
 @router.get(
     "/stats/overview",
     response_model=JobStatisticsResponse,
-    summary="Get job data statistics",
+    summary="[LEGACY] Get job data statistics",
+    deprecated=True,
     responses={
         200: {"description": "Statistics retrieved"},
         401: {"description": "API key required"},
@@ -861,7 +877,8 @@ async def get_statistics(
 
 @router.get(
     "/stats/filter-options",
-    summary="Get unique filter options from database",
+    summary="[LEGACY] Get unique filter options from database",
+    deprecated=True,
     responses={
         200: {"description": "Filter options retrieved"},
         401: {"description": "API key required"},

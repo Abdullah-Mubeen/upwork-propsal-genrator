@@ -27,6 +27,17 @@ from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 
+# Import centralized constants
+from app.domain.constants import URGENCY_PATTERNS, AI_ML_KEYWORDS
+
+# Import consolidated text analysis utilities
+from app.utils.text_analysis import (
+    detect_urgency_score,
+    extract_pain_points_simple,
+    extract_specific_details as _extract_specific_details,
+    extract_tone_words as _extract_tone_words,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -175,17 +186,10 @@ class HookStrategyEngine:
         JobSentiment.AI_TECHNICAL: ["ai_tech_mirror", "ai_specificity", "ai_proof_stack"],
         JobSentiment.AI_BUILDER: ["ai_capability_claim", "ai_proof_stack", "ai_transformation"],
     }
+    
+    # NOTE: URGENCY_PATTERNS and AI_ML_KEYWORDS moved to app/domain/constants.py
 
-    # Urgency detection patterns
-    URGENCY_PATTERNS = {
-        5: ["emergency", "site down", "not working", "broken", "losing sales", "every hour", "critical", "asap today"],
-        4: ["urgent", "asap", "immediately", "rush"],
-        3: ["soon", "this week", "deadline", "time-sensitive", "quickly", "fast"],
-        2: ["when you can", "flexible timeline"],
-        1: ["no rush", "exploring options", "considering", "thinking about", "eventually", "nothing urgent", "not urgent"],
-    }
-
-    # Sentiment detection patterns
+    # Sentiment detection patterns (uses JobSentiment enum - kept here)
     SENTIMENT_PATTERNS = {
         JobSentiment.URGENT: ["urgent", "asap", "immediately", "emergency", "critical", "today", "now", "fast", "quickly", "deadline"],
         JobSentiment.FRUSTRATED: ["frustrated", "struggling", "issues", "problems", "doesn't work", "broken", "nightmare", "headache", "last developer", "went mia", "ghosted", "tried before"],
@@ -207,19 +211,7 @@ class HookStrategyEngine:
         ],
     }
     
-    # AI/ML keywords for comprehensive detection
-    AI_ML_KEYWORDS = [
-        "openai", "gpt", "gpt-4", "gpt-3", "chatgpt", "claude", "anthropic", "llm", "large language model",
-        "ai model", "ai api", "ai integration", "machine learning", "deep learning", "neural network",
-        "langchain", "llamaindex", "rag", "retrieval augmented", "embedding", "vector database", 
-        "pinecone", "chromadb", "weaviate", "huggingface", "transformers", "pytorch", "tensorflow",
-        "computer vision", "ocr", "nlp", "natural language processing", "text generation",
-        "content generation", "ai-powered", "automated content", "ai automation",
-        "document processing", "pdf parsing", "text extraction", "document analyzer",
-        "n8n", "make.com", "zapier automation", "stability ai", "dall-e", "midjourney",
-        "image generation", "deepseek", "ai agent", "ai assistant", "chatbot", "conversational ai",
-        "fine-tuning", "prompt engineering", "unstructured", "llamaparse", "docling",
-    ]
+    # NOTE: AI_ML_KEYWORDS moved to app/domain/constants.py - imported at module level
 
     def __init__(self):
         """Initialize hook strategy engine"""
@@ -390,7 +382,7 @@ class HookStrategyEngine:
         sentiment_scores = {}
         
         # CRITICAL: Check for AI/ML job FIRST - these take precedence
-        ai_score = sum(1 for kw in self.AI_ML_KEYWORDS if kw in text)
+        ai_score = sum(1 for kw in AI_ML_KEYWORDS if kw in text)
         if ai_score >= 3:  # Strong AI signal
             # Determine if it's technical-focused or builder-focused
             builder_words = ["build", "create", "develop", "tool", "system", "platform", "generator", "automate"]
@@ -433,72 +425,40 @@ class HookStrategyEngine:
         return max(intent_scores, key=intent_scores.get)
 
     def _detect_urgency(self, text: str) -> int:
-        """Detect urgency level (1-5)"""
-        # Check for explicit "no rush" / "not urgent" first - these override other signals
-        no_rush_patterns = ["no rush", "not urgent", "nothing urgent", "no hurry", "take your time", "flexible"]
-        if any(p in text for p in no_rush_patterns):
-            return 1
+        """
+        Detect urgency level (1-5).
         
-        for level, patterns in sorted(self.URGENCY_PATTERNS.items(), reverse=True):
-            if any(p in text for p in patterns):
-                return level
-        return 2  # Default: normal priority
+        Delegates to app/utils/text_analysis.detect_urgency_score()
+        """
+        return detect_urgency_score(text)
 
     def _extract_pain_points(self, text: str) -> List[str]:
-        """Extract specific pain points mentioned"""
-        pain_points = []
+        """
+        Extract specific pain points mentioned.
         
-        pain_indicators = [
-            (r"(\w+)\s+(?:is|are)\s+(?:broken|not working|slow)", "issue"),
-            (r"(?:losing|lost)\s+(\w+)", "loss"),
-            (r"(?:can't|cannot)\s+(\w+)", "blocker"),
-            (r"(?:frustrated|struggling)\s+with\s+(\w+)", "frustration"),
-        ]
-        
-        for pattern, category in pain_indicators:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            for match in matches:
-                pain_points.append(f"{category}: {match}")
-        
-        return pain_points[:3]  # Limit to top 3
+        Delegates to app/utils/text_analysis.extract_pain_points_simple()
+        """
+        return extract_pain_points_simple(text)
 
     def _extract_specific_details(self, job_data: Dict[str, Any]) -> List[str]:
-        """Extract specific numbers, tools, metrics from job"""
-        details = []
-        text = f"{job_data.get('job_title', '')} {job_data.get('job_description', '')}"
+        """
+        Extract specific numbers, tools, metrics from job.
         
-        # Numbers with context
-        number_patterns = re.findall(
-            r'(\d+[\+]?\s*(?:subscribers?|products?|pages?|seconds?|ms|visitors?|items?|%|hours?|days?|users?))',
-            text, re.IGNORECASE
-        )
-        details.extend(number_patterns[:3])
-        
-        # Tool/platform mentions
-        tools = ["wordpress", "shopify", "woocommerce", "elementor", "substack", "mailchimp", 
-                 "stripe", "paypal", "gempages", "liquid", "php", "javascript", "react"]
-        for tool in tools:
-            if tool in text.lower():
-                details.append(tool.title())
-        
-        # Speed metrics
-        speed_patterns = re.findall(r'(\d+[\.\d]*\s*(?:seconds?|ms|s)\s*(?:load|time)?)', text, re.IGNORECASE)
-        details.extend(speed_patterns[:2])
-        
-        return details[:5]  # Limit to 5 most important
+        Delegates to app/utils/text_analysis.extract_specific_details()
+        """
+        return _extract_specific_details(job_data)
 
     def _extract_tone_words(self, text: str) -> List[str]:
-        """Extract emotional/tone words"""
+        """
+        Extract emotional/tone words.
+        
+        Delegates to app/utils/text_analysis.extract_tone_words()
+        """
+        result = _extract_tone_words(text)
+        # Flatten the dict to a list for backward compatibility
         tone_words = []
-        
-        positive = ["excited", "love", "great", "awesome", "amazing", "perfect", "excellent"]
-        negative = ["frustrated", "angry", "disappointed", "struggling", "nightmare", "horrible"]
-        urgent = ["urgent", "asap", "immediately", "critical", "emergency", "rush"]
-        
-        for word in positive + negative + urgent:
-            if word in text:
-                tone_words.append(word)
-        
+        for category_words in result.values():
+            tone_words.extend(category_words)
         return tone_words[:5]
 
     def _detect_platform(self, text: str, skills: List[str]) -> str:

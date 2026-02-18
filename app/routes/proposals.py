@@ -29,7 +29,12 @@ from app.utils.retrieval_pipeline import RetrievalPipeline
 from app.utils.openai_service import OpenAIService
 from app.utils.prompt_engine import PromptEngine
 from app.db import get_db
+from app.infra.mongodb.repositories.proposal_repo import get_sent_proposal_repo
+from app.infra.mongodb.repositories.analytics_repo import get_analytics_repo
 from app.config import settings
+
+# NEW: Import JobRequirementsService for deep job understanding (Issue #23/#24)
+from app.services.job_requirements_service import JobRequirementsService, get_job_requirements_service
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +68,10 @@ class GenerateProposalRequest(BaseModel):
     estimated_budget: Optional[float] = Field(None, description="Estimated budget in USD")
     project_duration_days: Optional[int] = Field(None, description="Project duration in days")
     urgent_adhoc: Optional[bool] = Field(False, description="Is this urgent/adhoc project?")
+    
+    # Multi-tenant context (optional for backward compatibility)
+    org_id: Optional[str] = Field(None, description="Organization ID for multi-tenant data scoping")
+    profile_id: Optional[str] = Field(None, description="Freelancer profile ID for personalization")
     
     # Proposal customization
     proposal_style: str = Field("professional", description="Style: professional, casual, technical, creative, data_driven")
@@ -190,6 +199,12 @@ async def generate_proposal(request: GenerateProposalRequest):
         retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
         prompt_engine = PromptEngine()
         
+        # NEW: Initialize JobRequirementsService for deep understanding (Issue #23/#24)
+        job_requirements_service = get_job_requirements_service(
+            openai_service=openai_service,
+            db_manager=db
+        )
+        
         # Prepare job data
         job_data = {
             "job_title": request.job_title,
@@ -208,21 +223,67 @@ async def generate_proposal(request: GenerateProposalRequest):
                 job_data["industry"] = context_result["industry"]
                 logger.info(f"[ProposalAPI] Industry detected: '{context_result['industry']}' (brands: {context_result.get('detected_brands', [])})")
         
-        # Step 1: Get historical jobs
+        # Step 1: Get historical jobs (org-scoped if org_id provided)
         logger.info(f"[ProposalAPI] Step 1: Fetching historical job data...")
-        all_jobs = list(db.db.training_data.find({}))
+        all_jobs = []
+        
+        if request.org_id:
+            # Multi-tenant: fetch from PortfolioRepository
+            from app.infra.mongodb.repositories.portfolio_repo import PortfolioRepository
+            portfolio_repo = PortfolioRepository(db)
+            portfolio_items = portfolio_repo.list_by_org(request.org_id, limit=100)
+            
+            # Convert portfolio items to job format for retrieval pipeline
+            for item in portfolio_items:
+                all_jobs.append({
+                    "company": item.get("project_title", ""),
+                    "industry": item.get("industry", "general"),
+                    "skills": item.get("skills", []),
+                    "deliverables": item.get("deliverables", ""),
+                    "outcome": item.get("outcome", ""),
+                    "portfolio_urls": [item.get("portfolio_url")] if item.get("portfolio_url") else [],
+                    "client_feedback": item.get("client_feedback", ""),
+                    "_id": str(item.get("_id", ""))
+                })
+            logger.info(f"[ProposalAPI] Found {len(all_jobs)} portfolio items for org {request.org_id}")
+        else:
+            # Backward compat: legacy global training_data
+            all_jobs = list(db.db.training_data.find({}))
         
         if not all_jobs:
             logger.warning("No historical job data available - generating proposal with basic context")
         else:
             logger.info(f"[ProposalAPI] Found {len(all_jobs)} historical jobs")
         
-        # Step 2: Find similar projects
+        # Step 1.5: Extract structured job requirements BEFORE retrieval (Issue #23/#24)
+        # This gives the LLM a deep understanding of what the client actually wants
+        logger.info(f"[ProposalAPI] Step 1.5: Extracting structured job requirements...")
+        job_requirements = None
+        requirements_context = None
+        try:
+            job_requirements = job_requirements_service.extract_job_requirements(
+                job_description=request.job_description,
+                job_title=request.job_title,
+                skills_required=request.skills_required
+            )
+            if job_requirements and job_requirements.extraction_confidence > 0:
+                logger.info(f"[ProposalAPI] ✓ Extracted requirements: task='{job_requirements.exact_task[:60]}...' "
+                           f"tone={job_requirements.client_tone}, confidence={job_requirements.extraction_confidence:.2f}")
+                logger.info(f"[ProposalAPI]   - Deliverables: {len(job_requirements.specific_deliverables)}, "
+                           f"Problems: {len(job_requirements.problems_mentioned)}, "
+                           f"Do NOT assume: {len(job_requirements.do_not_assume)}")
+                # Get prompt context for later use
+                requirements_context = job_requirements_service.get_prompt_context(job_requirements)
+        except Exception as e:
+            logger.warning(f"[ProposalAPI] Job requirements extraction failed (continuing without): {e}")
+        
+        # Step 2: Find similar projects (ENHANCED with job_requirements - Issue #24)
         logger.info(f"[ProposalAPI] Step 2: Finding similar past projects...")
         retrieval_result = retrieval_pipeline.retrieve_for_proposal(
             job_data,
             all_jobs,
-            top_k=request.similar_projects_count
+            top_k=request.similar_projects_count,
+            job_requirements=job_requirements  # NEW: Pass requirements for better semantic matching
         )
         
         similar_projects = retrieval_result.get("similar_projects", [])
@@ -307,7 +368,16 @@ async def generate_proposal(request: GenerateProposalRequest):
             
             logger.info(f"[ProposalAPI] Collected {len(portfolio_links_used)} portfolio links, {len(feedback_urls_used)} feedback URLs")
         
-        # Step 5: Build prompt with all context
+        # Step 4.5: Get freelancer profile for personalization (if provided)
+        profile_context = None
+        if request.profile_id:
+            from app.infra.mongodb.repositories.profile_repo import FreelancerProfileRepository
+            profile_repo = FreelancerProfileRepository(db)
+            profile_context = profile_repo.get_by_profile_id(request.profile_id)
+            if profile_context:
+                logger.info(f"[ProposalAPI] Loaded profile '{profile_context.get('name', '')}' for personalization")
+        
+        # Step 5: Build prompt with all context (ENHANCED with requirements - Issue #24)
         logger.info(f"[ProposalAPI] Step 5: Building enhanced prompt with historical context...")
         
         prompt = prompt_engine.build_proposal_prompt(
@@ -320,7 +390,9 @@ async def generate_proposal(request: GenerateProposalRequest):
             include_portfolio=request.include_portfolio and bool(portfolio_links_used),
             include_feedback=request.include_feedback and bool(feedback_urls_used),
             include_timeline=request.include_timeline,
-            timeline_duration=request.timeline_duration
+            timeline_duration=request.timeline_duration,
+            profile_context=profile_context,
+            requirements_context=requirements_context  # NEW: Add extracted job understanding (Issue #24)
         )
         
         # Step 6: Generate proposal
@@ -552,9 +624,9 @@ async def save_sent_proposal(
     Even if not hired (budget/timing), the proposal text is proven effective.
     """
     try:
-        db = get_db()
+        repo = get_sent_proposal_repo()
         
-        result = db.save_sent_proposal({
+        result = repo.save_sent_proposal({
             "job_title": request.job_title,
             "company_name": request.company_name,
             "job_description": request.job_description,
@@ -613,9 +685,9 @@ async def update_proposal_outcome(
     **Message-Market Fit** and should be weighted highly by AI.
     """
     try:
-        db = get_db()
+        repo = get_sent_proposal_repo()
         
-        result = db.update_proposal_outcome(
+        result = repo.update_outcome(
             proposal_id=proposal_id,
             outcome=request.outcome.value,
             discussion_initiated=request.discussion_initiated,
@@ -676,10 +748,11 @@ async def get_proposal_history(
     3. Identify winning proposal patterns
     """
     try:
-        db = get_db()
+        repo = get_sent_proposal_repo()
+        analytics = get_analytics_repo()
         
-        proposals = db.get_sent_proposals(skip=skip, limit=limit, outcome_filter=outcome)
-        stats = db.get_proposal_conversion_stats()
+        proposals = repo.get_sent_proposals(skip=skip, limit=limit, outcome_filter=outcome)
+        stats = analytics.get_conversion_stats()
         
         items = []
         for p in proposals:
@@ -734,8 +807,8 @@ async def get_conversion_stats(
     Not closing (budget/timing) is a logistics issue, not communication.
     """
     try:
-        db = get_db()
-        stats = db.get_proposal_conversion_stats()
+        analytics = get_analytics_repo()
+        stats = analytics.get_conversion_stats()
         
         return ConversionStatsResponse(
             success=True,
@@ -761,8 +834,8 @@ async def get_sent_proposal(
 ):
     """Get details of a specific sent proposal"""
     try:
-        db = get_db()
-        proposal = db.get_sent_proposal(proposal_id)
+        repo = get_sent_proposal_repo()
+        proposal = repo.get_by_proposal_id(proposal_id)
         
         if not proposal:
             raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
@@ -795,10 +868,10 @@ async def delete_proposal(
 ):
     """Delete a specific sent proposal by ID"""
     try:
-        db = get_db()
-        result = db.db["sent_proposals"].delete_one({"proposal_id": proposal_id})
+        repo = get_sent_proposal_repo()
+        deleted = repo.delete_one({"proposal_id": proposal_id})
         
-        if result.deleted_count == 0:
+        if not deleted:
             raise HTTPException(status_code=404, detail=f"Proposal {proposal_id} not found")
         
         return {
@@ -826,12 +899,12 @@ async def clear_all_proposals(
 ):
     """Delete all sent proposals from database"""
     try:
-        db = get_db()
-        result = db.db["sent_proposals"].delete_many({})
+        repo = get_sent_proposal_repo()
+        deleted_count = repo.delete_all()
         return {
             "success": True,
-            "deleted_count": result.deleted_count,
-            "message": f"Deleted {result.deleted_count} proposals"
+            "deleted_count": deleted_count,
+            "message": f"Deleted {deleted_count} proposals"
         }
     except Exception as e:
         logger.error(f"Error clearing proposals: {str(e)}")

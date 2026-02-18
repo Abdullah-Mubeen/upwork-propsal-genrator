@@ -16,7 +16,7 @@ from pathlib import Path
 # Add parent directory to path to enable imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.utils.proposal_generator import ProposalGenerator
+# NOTE: ProposalGenerator was removed - production code uses RetrievalPipeline + PromptEngine directly
 from app.utils.retrieval_pipeline import RetrievalPipeline
 from app.utils.prompt_engine import PromptEngine
 from app.utils.openai_service import OpenAIService

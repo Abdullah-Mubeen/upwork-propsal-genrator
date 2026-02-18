@@ -1,19 +1,31 @@
 """
 Job Data Processor
 
+⚠️ LEGACY: This processor uses the old 5-chunk strategy.
+For new code, use:
+- app/services/job_ingestion_service.py for job ingestion
+- app/services/embedding_service.py for embeddings
+- app/infra/mongodb/repositories/portfolio_repo.py for storage
+
 Business logic for:
 - Processing job data
 - Creating chunks
 - Managing embeddings
 - Handling feedback
 """
+import warnings
+warnings.warn(
+    "JobDataProcessor is deprecated. Use JobIngestionService instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 import logging
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from bson.objectid import ObjectId
 
 from app.db import DatabaseManager
-from app.utils.data_chunker import DataChunker
 from app.utils.openai_service import OpenAIService
 from app.utils.feedback_processor import FeedbackProcessor
 from app.utils.pinecone_service import PineconeService
@@ -22,13 +34,29 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
+# Stub chunker - advanced_chunker.py was deleted
+class _StubChunker:
+    """Stub chunker that returns empty chunks. Use JobIngestionService instead."""
+    def get_all_chunks_flat(self, job_data):
+        logger.warning("StubChunker: advanced_chunker.py deleted. Use JobIngestionService.")
+        return []
+    chunk_training_data = get_all_chunks_flat
+
+
+def _get_chunker_class():
+    """Returns stub since advanced_chunker was deleted."""
+    return _StubChunker
+
+
 class JobDataProcessor:
     """
     Process job data and prepare for embedding and retrieval
     
+    ⚠️ DEPRECATED: Use JobIngestionService for new implementations.
+    
     Handles:
     - Data validation and enrichment
-    - Smart chunking
+    - Smart chunking (legacy 5-chunk strategy)
     - Embedding generation
     - Metadata extraction
     - Pinecone vector storage
@@ -38,8 +66,8 @@ class JobDataProcessor:
         self,
         db: DatabaseManager,
         openai_service: OpenAIService,
-        chunker: DataChunker,
-        feedback_processor: FeedbackProcessor,
+        chunker=None,  # Now optional - will lazy load if needed
+        feedback_processor: FeedbackProcessor = None,
         pinecone_service: Optional[PineconeService] = None
     ):
         """
@@ -48,16 +76,23 @@ class JobDataProcessor:
         Args:
             db: Database manager instance
             openai_service: OpenAI service for embeddings
-            chunker: Data chunker instance
+            chunker: DEPRECATED - Advanced chunk processor instance
             feedback_processor: Feedback processor instance
             pinecone_service: Optional Pinecone service for vector storage
         """
         self.db = db
         self.openai_service = openai_service
-        self.chunker = chunker
+        self._chunker = chunker  # Store but don't use unless needed
         self.feedback_processor = feedback_processor
         self.pinecone_service = pinecone_service
-        self.openai_service = openai_service
+    
+    @property
+    def chunker(self):
+        """Lazy load chunker only when accessed."""
+        if self._chunker is None:
+            ChunkerClass = _get_chunker_class()
+            self._chunker = ChunkerClass()
+        return self._chunker
         self.chunker = chunker
         self.feedback_processor = feedback_processor
     

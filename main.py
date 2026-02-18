@@ -1,7 +1,5 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -15,10 +13,10 @@ env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path=env_path)
 
 from app.config import settings
-from app.db import get_db
-from app.routes import job_data_router
+from app.routes import job_data_router, jobs_router
 from app.routes.proposals import router as proposals_router
 from app.routes.profile import router as profile_router
+from app.routes.portfolio import router as portfolio_router
 from app.routes.analytics import router as analytics_router
 from app.routes.admin import router as admin_router
 from app.middleware.auth import verify_api_key
@@ -59,20 +57,26 @@ async def root():
 
 @app.get("/api/auth/verify")
 async def verify_api_key_endpoint(auth_result: dict = Depends(verify_api_key)):
-    """Verify API key and return role/permissions"""
+    """Verify API key and return role/permissions with tenant context"""
     role = auth_result.get("role", "user")
     return {
         "valid": True,
         "role": role,
         "permissions": auth_result.get("permissions", []),
         "is_admin": role in ("admin", "super_admin"),
-        "is_super_admin": role == "super_admin"
+        "is_super_admin": role == "super_admin",
+        # Multi-tenant context
+        "org_id": auth_result.get("org_id"),
+        "user_id": auth_result.get("user_id"),
+        "name": auth_result.get("name"),
     }
 
 
-app.include_router(job_data_router, prefix="/api/job-data")
+app.include_router(job_data_router, prefix="/api/job-data")  # LEGACY
+app.include_router(jobs_router)  # New job ingestion: /api/jobs
 app.include_router(proposals_router)
 app.include_router(profile_router)
+app.include_router(portfolio_router)
 app.include_router(analytics_router)
 app.include_router(admin_router)
 
