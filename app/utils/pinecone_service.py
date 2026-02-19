@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List, Dict, Any, Tuple, Optional
 from pinecone import Pinecone, ServerlessSpec
 from tenacity import retry, wait_exponential, stop_after_attempt
@@ -6,8 +7,18 @@ import json
 
 logger = logging.getLogger(__name__)
 
+
 class PineconeService:
-    """Service for managing Pinecone vector database with smart retrieval strategy"""
+    """Service for managing Pinecone vector database with smart retrieval strategy.
+    
+    Supports:
+    - Multi-tenant namespace isolation (portfolio_{org_slug})
+    - Legacy namespace backward compatibility
+    - Smart retrieval with metadata filtering
+    """
+    
+    # Namespace prefix for multi-tenant isolation
+    NAMESPACE_PREFIX = "portfolio_"
     
     def __init__(
         self,
@@ -24,18 +35,225 @@ class PineconeService:
             api_key: Pinecone API key
             environment: Pinecone environment region
             index_name: Name of the index
-            namespace: Namespace for organizing vectors
+            namespace: Default namespace for organizing vectors
             dimension: Dimension of embeddings (3072 for text-embedding-3-large)
         """
-        self. pc = Pinecone(api_key=api_key)
+        self.pc = Pinecone(api_key=api_key)
         self.index_name = index_name
-        self.namespace = namespace
+        self.namespace = namespace  # Default namespace
         self.environment = environment
         self.dimension = dimension
         
         # Initialize or get index
         self.index = self._init_index()
         logger.info(f"Pinecone service initialized - Index: {index_name}, Namespace: {namespace}, Dimension: {dimension}")
+    
+    # ===================== NAMESPACE ISOLATION (Multi-Tenant) =====================
+    
+    @staticmethod
+    def get_org_namespace(org_slug: str) -> str:
+        """
+        Get namespace for an organization.
+        
+        Implements namespace-per-organization strategy for data isolation.
+        
+        Args:
+            org_slug: Organization slug (URL-safe identifier)
+            
+        Returns:
+            Namespace string (e.g., "portfolio_acme-inc")
+        """
+        # Sanitize slug to be namespace-safe
+        safe_slug = re.sub(r'[^a-z0-9-]', '', org_slug.lower())
+        return f"{PineconeService.NAMESPACE_PREFIX}{safe_slug}"
+    
+    def get_namespace(self, org_slug: str = None) -> str:
+        """
+        Get the appropriate namespace.
+        
+        Args:
+            org_slug: Organization slug (optional, uses default if None)
+            
+        Returns:
+            Namespace to use
+        """
+        if org_slug:
+            return self.get_org_namespace(org_slug)
+        return self.namespace
+    
+    def upsert_vectors_to_org(
+        self,
+        org_slug: str,
+        vectors: List[Tuple[str, List[float], Dict[str, Any]]],
+        batch_size: int = 100
+    ) -> int:
+        """
+        Upsert vectors to an organization's namespace.
+        
+        Args:
+            org_slug: Organization slug
+            vectors: List of (id, embedding, metadata) tuples
+            batch_size: Batch size for upserting
+            
+        Returns:
+            Number of vectors upserted
+        """
+        namespace = self.get_org_namespace(org_slug)
+        return self._upsert_to_namespace(vectors, namespace, batch_size)
+    
+    def query_org_vectors(
+        self,
+        org_slug: str,
+        query_embedding: List[float],
+        top_k: int = 5,
+        filter_dict: Optional[Dict[str, Any]] = None,
+        include_metadata: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Query vectors from an organization's namespace.
+        
+        Args:
+            org_slug: Organization slug
+            query_embedding: Query embedding vector
+            top_k: Number of results
+            filter_dict: Metadata filter
+            include_metadata: Include metadata in results
+            
+        Returns:
+            List of matching vectors
+        """
+        namespace = self.get_org_namespace(org_slug)
+        return self._query_namespace(
+            namespace=namespace,
+            query_embedding=query_embedding,
+            top_k=top_k,
+            filter_dict=filter_dict,
+            include_metadata=include_metadata
+        )
+    
+    def delete_org_vectors(self, org_slug: str, ids: List[str]) -> int:
+        """
+        Delete vectors from an organization's namespace.
+        
+        Args:
+            org_slug: Organization slug
+            ids: Vector IDs to delete
+            
+        Returns:
+            Number of vectors deleted
+        """
+        namespace = self.get_org_namespace(org_slug)
+        try:
+            self.index.delete(ids=[str(vid) for vid in ids], namespace=namespace)
+            logger.info(f"Deleted {len(ids)} vectors from namespace: {namespace}")
+            return len(ids)
+        except Exception as e:
+            logger.error(f"Error deleting from org namespace: {e}")
+            raise
+    
+    def clear_org_namespace(self, org_slug: str) -> bool:
+        """
+        Clear all vectors from an organization's namespace.
+        
+        Args:
+            org_slug: Organization slug
+            
+        Returns:
+            Success status
+        """
+        namespace = self.get_org_namespace(org_slug)
+        try:
+            self.index.delete(delete_all=True, namespace=namespace)
+            logger.info(f"Cleared namespace: {namespace}")
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing org namespace: {e}")
+            return False
+    
+    def get_org_stats(self, org_slug: str) -> Dict[str, Any]:
+        """
+        Get statistics for an organization's namespace.
+        
+        Args:
+            org_slug: Organization slug
+            
+        Returns:
+            Namespace statistics
+        """
+        namespace = self.get_org_namespace(org_slug)
+        try:
+            stats = self.index.describe_index_stats()
+            ns_stats = stats.get("namespaces", {}).get(namespace, {})
+            return {
+                "namespace": namespace,
+                "vector_count": ns_stats.get("vector_count", 0),
+                "index_fullness": stats.get("index_fullness", 0)
+            }
+        except Exception as e:
+            logger.error(f"Error getting org stats: {e}")
+            return {}
+    
+    def _upsert_to_namespace(
+        self,
+        vectors: List[Tuple[str, List[float], Dict[str, Any]]],
+        namespace: str,
+        batch_size: int = 100
+    ) -> int:
+        """Internal: Upsert vectors to a specific namespace."""
+        try:
+            upserted_count = 0
+            
+            for i in range(0, len(vectors), batch_size):
+                batch = vectors[i:i + batch_size]
+                
+                formatted_batch = []
+                for vid, embedding, metadata in batch:
+                    clean_metadata = self._clean_metadata(metadata)
+                    formatted_batch.append({
+                        "id": str(vid),
+                        "values": embedding,
+                        "metadata": clean_metadata
+                    })
+                
+                self.index.upsert(vectors=formatted_batch, namespace=namespace)
+                upserted_count += len(batch)
+                logger.info(f"Upserted batch to {namespace}: {len(batch)} vectors (Total: {upserted_count})")
+            
+            return upserted_count
+        except Exception as e:
+            logger.error(f"Error upserting to namespace {namespace}: {e}")
+            raise
+    
+    def _query_namespace(
+        self,
+        namespace: str,
+        query_embedding: List[float],
+        top_k: int = 5,
+        filter_dict: Optional[Dict[str, Any]] = None,
+        include_metadata: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Internal: Query vectors from a specific namespace."""
+        try:
+            results = self.index.query(
+                vector=query_embedding,
+                top_k=top_k,
+                namespace=namespace,
+                include_metadata=include_metadata,
+                filter=filter_dict
+            )
+            
+            formatted_results = []
+            for match in results.get("matches", []):
+                formatted_results.append({
+                    "id": match.get("id"),
+                    "score": match.get("score"),
+                    "metadata": match.get("metadata", {})
+                })
+            
+            return formatted_results
+        except Exception as e:
+            logger.error(f"Error querying namespace {namespace}: {e}")
+            raise
     
     def _init_index(self):
         """Initialize Pinecone index if it doesn't exist"""

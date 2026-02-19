@@ -236,13 +236,11 @@ async def generate_proposal(request: GenerateProposalRequest):
             # Convert portfolio items to job format for retrieval pipeline
             for item in portfolio_items:
                 all_jobs.append({
-                    "company": item.get("project_title", ""),
+                    "company": item.get("company_name", ""),
                     "industry": item.get("industry", "general"),
                     "skills": item.get("skills", []),
                     "deliverables": item.get("deliverables", ""),
-                    "outcome": item.get("outcome", ""),
                     "portfolio_urls": [item.get("portfolio_url")] if item.get("portfolio_url") else [],
-                    "client_feedback": item.get("client_feedback", ""),
                     "_id": str(item.get("_id", ""))
                 })
             logger.info(f"[ProposalAPI] Found {len(all_jobs)} portfolio items for org {request.org_id}")

@@ -329,14 +329,11 @@ class ProposalService:
         """Convert lean portfolio item to job format for retrieval compatibility."""
         return {
             "contract_id": item.get("item_id"),
-            "job_title": item.get("project_title", ""),
+            "job_title": item.get("company_name", ""),
             "skills_required": item.get("skills", []),
             "industry": item.get("industry", "general"),
             "deliverables": item.get("deliverables", []),
-            "outcomes": item.get("outcome", ""),
             "portfolio_urls": [item.get("portfolio_url")] if item.get("portfolio_url") else [],
-            "client_feedback_text": item.get("client_feedback", ""),
-            "duration_days": item.get("duration_days"),
         }
     
     def _get_freelancer_profile(self, org_id: str, profile_id: Optional[str] = None) -> Optional[Dict[str, Any]]:

@@ -31,21 +31,14 @@ class JobIngestionRequest(BaseModel):
     profile_id: str = Field(..., description="Freelancer profile ID")
     
     # Project data (maps to portfolio_items)
-    project_title: str = Field(..., min_length=2, max_length=200)
+    company_name: str = Field(..., min_length=2, max_length=200, description="Company/client name")
     job_description: str = Field(..., min_length=10, description="Original job posting")
     proposal_text: str = Field(..., min_length=10, description="Submitted proposal")
     skills: List[str] = Field(..., min_length=1)
     
     # Optional enrichment
-    client_name: Optional[str] = None
-    client_feedback: Optional[str] = None
     portfolio_url: Optional[str] = None
     industry: str = Field(default="general")
-    hourly_rate: Optional[float] = None
-    fixed_price: Optional[float] = None
-    duration_days: Optional[int] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
     
     @validator("skills", pre=True)
     def clean_skills(cls, v):
@@ -101,35 +94,18 @@ class JobIngestionService:
             # Extract deliverables from job description
             deliverables = self._extract_deliverables(
                 request.job_description,
-                request.project_title
+                request.company_name
             )
             
-            # Extract outcome from proposal/feedback
-            outcome = self._extract_outcome(
-                request.proposal_text,
-                request.client_feedback
-            )
-            
-            # Calculate duration if dates provided
-            duration = request.duration_days
-            if not duration and request.start_date and request.end_date:
-                duration = self._calculate_duration(
-                    request.start_date,
-                    request.end_date
-                )
-            
-            # Create portfolio item
+            # Create portfolio item (lean 5-field schema)
             result = self.portfolio_repo.create(
                 org_id=request.org_id,
                 profile_id=request.profile_id,
-                project_title=request.project_title,
+                company_name=request.company_name,
                 deliverables=deliverables,
                 skills=request.skills,
-                outcome=outcome,
                 portfolio_url=request.portfolio_url,
-                industry=request.industry,
-                client_feedback=request.client_feedback,
-                duration_days=duration
+                industry=request.industry
             )
             
             item_id = result.get("item_id")
@@ -149,7 +125,7 @@ class JobIngestionService:
                     logger.warning(f"Embedding failed for {item_id}: {e}")
                     errors.append(f"Embedding deferred: {str(e)}")
             
-            logger.info(f"Ingested job: {request.project_title} -> {item_id}")
+            logger.info(f"Ingested job: {request.company_name} -> {item_id}")
             
             return JobIngestionResult(
                 success=True,

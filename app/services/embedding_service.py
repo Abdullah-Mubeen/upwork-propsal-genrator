@@ -44,10 +44,18 @@ class EmbeddingService:
     def embed_portfolio_item(
         self,
         item: Dict[str, Any],
-        portfolio_repo: PortfolioRepository
+        portfolio_repo: PortfolioRepository,
+        org_slug: str = None
     ) -> Optional[str]:
         """
         Embed a single portfolio item and upsert to Pinecone.
+        
+        Supports multi-tenant namespace isolation when org_slug is provided.
+        
+        Args:
+            item: Portfolio item document
+            portfolio_repo: Portfolio repository instance
+            org_slug: Organization slug for namespace isolation (optional)
         
         Returns:
             embedding_id on success, None on failure
@@ -68,25 +76,35 @@ class EmbeddingService:
             # Generate embedding
             embedding = self.openai.get_embedding(text)
             
-            # Build metadata for filtered search
+            # Build metadata for filtered search (with industry tags for #26)
+            industry = item.get("industry", "general")
             metadata = {
+                "portfolio_id": item_id,
                 "org_id": item.get("org_id", ""),
                 "profile_id": item.get("profile_id", ""),
-                "project_title": item.get("project_title", ""),
+                "company_name": item.get("company_name", ""),
                 "skills": ", ".join(item.get("skills", [])),
-                "industry": item.get("industry", "general"),
+                "industry_primary": industry,
+                "industry_secondary": [],
+                "industry_tags": [industry],
                 "has_portfolio_url": bool(item.get("portfolio_url")),
                 "type": "portfolio"
             }
             
-            # Upsert to Pinecone (item_id = vector_id)
+            # Upsert to Pinecone with namespace isolation
             vectors = [(item_id, embedding, metadata)]
-            self.pinecone.upsert_vectors(vectors)
+            
+            if org_slug:
+                # Use org-specific namespace (multi-tenant)
+                self.pinecone.upsert_vectors_to_org(org_slug, vectors)
+            else:
+                # Use default namespace (backward compatibility)
+                self.pinecone.upsert_vectors(vectors)
             
             # Mark as embedded in MongoDB
             portfolio_repo.mark_embedded(item_id, item_id)
             
-            logger.info(f"Embedded portfolio item: {item_id}")
+            logger.info(f"Embedded portfolio item: {item_id}" + (f" to namespace {org_slug}" if org_slug else ""))
             return item_id
             
         except Exception as e:
@@ -97,10 +115,17 @@ class EmbeddingService:
         self,
         portfolio_repo: PortfolioRepository,
         org_id: str = None,
+        org_slug: str = None,
         limit: int = 50
     ) -> Dict[str, Any]:
         """
         Batch embed all pending portfolio items.
+        
+        Args:
+            portfolio_repo: Portfolio repository instance
+            org_id: Filter by organization ID
+            org_slug: Organization slug for namespace isolation
+            limit: Maximum items to process
         
         Returns:
             {"embedded": int, "failed": int, "items": [...]}
@@ -114,7 +139,7 @@ class EmbeddingService:
         failed = []
         
         for item in pending:
-            result = self.embed_portfolio_item(item, portfolio_repo)
+            result = self.embed_portfolio_item(item, portfolio_repo, org_slug=org_slug)
             if result:
                 embedded.append(item.get("item_id"))
             else:

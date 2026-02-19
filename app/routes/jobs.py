@@ -31,19 +31,14 @@ class IngestJobRequest(BaseModel):
     """Request to ingest a completed job."""
     org_id: str = Field(..., description="Organization ID")
     profile_id: str = Field(..., description="Freelancer profile ID")
-    project_title: str = Field(..., min_length=2, max_length=200)
+    company_name: str = Field(..., min_length=2, max_length=200, description="Company/client name")
     job_description: str = Field(..., min_length=10)
     proposal_text: str = Field(..., min_length=10)
     skills: List[str] = Field(..., min_length=1)
     
     # Optional
-    client_name: str = None
-    client_feedback: str = None
     portfolio_url: str = None
     industry: str = "general"
-    duration_days: int = None
-    start_date: str = None
-    end_date: str = None
 
 
 class IngestResponse(BaseModel):
@@ -82,17 +77,12 @@ async def ingest_job(
         ingestion_request = JobIngestionRequest(
             org_id=request.org_id,
             profile_id=request.profile_id,
-            project_title=request.project_title,
+            company_name=request.company_name,
             job_description=request.job_description,
             proposal_text=request.proposal_text,
             skills=request.skills,
-            client_name=request.client_name,
-            client_feedback=request.client_feedback,
             portfolio_url=request.portfolio_url,
-            industry=request.industry,
-            duration_days=request.duration_days,
-            start_date=request.start_date,
-            end_date=request.end_date
+            industry=request.industry
         )
         
         result = service.ingest(ingestion_request, auto_embed=auto_embed)
@@ -133,17 +123,12 @@ async def ingest_jobs_bulk(
             JobIngestionRequest(
                 org_id=r.org_id,
                 profile_id=r.profile_id,
-                project_title=r.project_title,
+                company_name=r.company_name,
                 job_description=r.job_description,
                 proposal_text=r.proposal_text,
                 skills=r.skills,
-                client_name=r.client_name,
-                client_feedback=r.client_feedback,
                 portfolio_url=r.portfolio_url,
-                industry=r.industry,
-                duration_days=r.duration_days,
-                start_date=r.start_date,
-                end_date=r.end_date
+                industry=r.industry
             )
             for r in requests
         ]

@@ -26,26 +26,20 @@ class CreatePortfolioItemRequest(BaseModel):
     """Create a new portfolio item"""
     org_id: str = Field(..., description="Organization ID")
     profile_id: str = Field(..., description="Profile this belongs to")
-    project_title: str = Field(..., max_length=200, description="Project name")
+    company_name: str = Field(..., max_length=200, description="Company/client name")
     deliverables: List[str] = Field(..., min_length=1, description="What was delivered")
     skills: List[str] = Field(..., min_length=1, description="Tech stack used")
-    outcome: str = Field(..., max_length=500, description="Key result achieved")
     portfolio_url: Optional[str] = Field(None, description="Link to live work")
     industry: Optional[str] = Field(None, description="Industry sector")
-    client_feedback: Optional[str] = Field(None, max_length=1000, description="Testimonial")
-    duration_days: Optional[int] = Field(None, ge=1, description="Project duration")
 
 
 class UpdatePortfolioItemRequest(BaseModel):
     """Update portfolio item fields"""
-    project_title: Optional[str] = Field(None, max_length=200)
+    company_name: Optional[str] = Field(None, max_length=200)
     deliverables: Optional[List[str]] = None
     skills: Optional[List[str]] = None
-    outcome: Optional[str] = Field(None, max_length=500)
     portfolio_url: Optional[str] = None
     industry: Optional[str] = None
-    client_feedback: Optional[str] = Field(None, max_length=1000)
-    duration_days: Optional[int] = Field(None, ge=1)
 
 
 class PortfolioItemResponse(BaseModel):
@@ -88,14 +82,11 @@ async def create_portfolio_item(
         result = repo.create(
             org_id=request.org_id,
             profile_id=request.profile_id,
-            project_title=request.project_title,
+            company_name=request.company_name,
             deliverables=request.deliverables,
             skills=request.skills,
-            outcome=request.outcome,
             portfolio_url=request.portfolio_url,
-            industry=request.industry,
-            client_feedback=request.client_feedback,
-            duration_days=request.duration_days
+            industry=request.industry
         )
         
         item = repo.get_by_item_id(result["item_id"])
