@@ -498,12 +498,19 @@ TONE_INSTRUCTIONS: Dict[str, str] = {
 # Consolidated prompt rules - defined ONCE, used everywhere
 
 HOOK_STRATEGIES: List[str] = [
-    'SOLUTION LEAD: "I know exactly why [problem] is happening and how to fix it."',
-    'IMMEDIATE VALUE: "Just wrapped up something nearly identical - [portfolio_url]"',
-    'EMPATHY FIRST: "That\'s a frustrating situation - [show you understand their pain]"',
-    'QUESTION HOOK: "Quick question: Is the [issue] affecting [business impact]?"',
-    'RESULT LEAD: "Got a similar site from [before metric] to [after metric] last week."',
-    'AVAILABILITY: "I can start right now - this shouldn\'t take more than [timeframe]."',
+    'PROOF-LED HOOK: "Just finished [similar project] - [portfolio_url] - same [tech/scope] you need."',
+    'UNDERSTANDING HOOK: "[Specific detail from job] - I\'ve done exactly this for [portfolio_url]."',
+    'EMPATHY HOOK: "Sounds like [their situation] - I fixed this for [client]: [portfolio_url]"',
+    'DIRECT MATCH: "[Tech they need] + [deliverable they want] = my specialty. Recent example: [portfolio_url]"',
+    'RESULT HOOK: "Took [similar project] from [problem] to [solution] - here\'s the result: [portfolio_url]"',
+]
+
+# HOOKS TO AVOID - These often misfire
+BAD_HOOK_PATTERNS: List[str] = [
+    'AVAILABILITY without urgency - Don\'t lead with "I can start right now" unless client is URGENT',
+    'TIMEZONE without requirement - Don\'t mention timezone unless job post requires it',
+    'ONE-TIME/ONGOING - Don\'t categorize engagement unless client specifies',
+    'RATES/ESTIMATES - Don\'t offer pricing unless explicitly asked',
 ]
 
 STALE_OPENINGS: List[str] = [
@@ -511,6 +518,10 @@ STALE_OPENINGS: List[str] = [
     "I came across your job post...",
     "I'm excited to help...",
     "I have X years of experience...",
+    "Curious - have you...",  # Generic technical questions NOT relevant to job
+    "Quick question about...",  # Questions about things client didn't ask
+    "Have you considered...",  # Unsolicited advice
+    "Have you optimized...",  # Assuming problems that weren't mentioned
 ]
 
 ANTI_HALLUCINATION_RULES: str = """
@@ -518,25 +529,40 @@ ANTI_HALLUCINATION_RULES: str = """
 1. ONLY reference projects listed in "VERIFIED PAST PROJECTS" section
 2. If NO verified projects: Focus on APPROACH, not past work
 3. NEVER invent company names, deliverables, or outcomes
-4. Match client's NEED to project DELIVERABLES
+4. Match client's NEED to project DELIVERABLES - only include RELEVANT portfolio
 5. Use ONLY portfolio URLs provided - if none, include ZERO links
+6. NEVER suggest technologies/approaches the client didn't ask for
+7. NEVER open with questions about things not mentioned in the job post
+8. ONLY mention timezone/availability IF client explicitly requires it
+9. ONLY mention "one-time" or "ongoing" IF client specifies engagement type
+10. NEVER give hourly rates, timelines, or estimates UNLESS client asks for them
+11. If client provides a document or any materials to review, DON'T say "I'll review it" - assume you HAVE reviewed it
+12. NEVER use self-deprecating language like "haven't done this exact scope" or "although not identical"
 """
 
 PROPOSAL_FORMAT_RULES: str = """
 CRITICAL FORMAT RULES:
 1. Use PLAIN URLs (https://example.com) - NOT markdown [text](url)
-2. NO MARKDOWN - no **bold**, no *italic*, no # headers
+2. ABSOLUTELY NO MARKDOWN - no **bold**, no *italic*, no # headers, no - bullet points with bold
 3. Target: 200-350 words MAXIMUM
 4. Sound human - casual, genuine, conversational
 5. PLATFORM MATCH: WordPress job = WordPress examples ONLY
+6. Write in PLAIN TEXT paragraphs - no structured sections like "**Approach:**" or "- **Fit:**"
+7. NO section headers or labels - just natural flowing paragraphs
 """
 
 PROPOSAL_STRUCTURE: str = """
 SUCCESS PATTERN (HOOK→PROOF→APPROACH→CTA):
-1. HOOK (1-2 sentences): Varied opening + portfolio link in preview
-2. PROOF (2 bullets): Past projects + links (IF available)
-3. APPROACH (2-3 sentences): Specific solution for THEIR situation
+1. HOOK (1-2 sentences): Show you understand THEIR specific need + include RELEVANT portfolio link
+2. PROOF (1-2 sentences): Reference similar work WITH portfolio URL - ONLY if truly relevant
+3. APPROACH (2-3 sentences): Your specific solution for THEIR situation
 4. CTA (1 sentence): Casual "Happy to chat" or "Let me know"
+
+CRITICAL - ONLY MENTION IF CLIENT ASKED:
+- Timezone/availability: ONLY if job post mentions timezone requirements
+- Engagement type (ongoing/one-time): ONLY if job post specifies
+- Rates/timeline: ONLY if client explicitly requests estimates
+- Your availability: ONLY if client mentions urgency or timeline
 """
 
 CONVERSATIONAL_EXAMPLES: List[str] = [
@@ -547,8 +573,19 @@ CONVERSATIONAL_EXAMPLES: List[str] = [
 ]
 
 FORBIDDEN_PHRASES: List[str] = [
+    # AI/formal language
     "As an AI", "I'm an AI", "I would be delighted", "I am eager to",
     "Best regards", "Sincerely", "Looking forward to hearing from you",
+    # Self-deprecating/weak language - NEVER use these
+    "While I haven't", "although not identical", "haven't tackled this exact",
+    "less experience with", "new to this", "first time", "learning",
+    # Unsolicited assumptions - don't mention unless client asked
+    "one-time project", "I'm available in the PST", "I'm available in your timezone",
+    "Hourly Rate:", "Estimated Hours:", "Total Timeframe:",
+    # Markdown formatting - FORBIDDEN
+    "**", "*", "- **", "##", "###",
+    # Promising to do what should be done already
+    "I'll begin by thoroughly reviewing", "I will review", "after reviewing",
 ]
 
 SYSTEM_ROLES: Dict[str, str] = {

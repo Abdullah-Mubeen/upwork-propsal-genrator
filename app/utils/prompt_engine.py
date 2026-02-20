@@ -17,6 +17,12 @@ from app.domain.constants import (
     ANTI_HALLUCINATION_RULES, PROPOSAL_FORMAT_RULES, PROPOSAL_STRUCTURE,
     CONVERSATIONAL_EXAMPLES, FORBIDDEN_PHRASES, SYSTEM_ROLES,
 )
+
+# Import BAD_HOOK_PATTERNS if available
+try:
+    from app.domain.constants import BAD_HOOK_PATTERNS
+except ImportError:
+    BAD_HOOK_PATTERNS = []
 from app.utils.text_analysis import (
     detect_urgency_level as _detect_urgency_level,
     extract_pain_points as _extract_pain_points,
@@ -116,15 +122,18 @@ class PromptEngine:
         # NEW: Build requirements section from extracted job understanding
         requirements_section = self._build_requirements_section(requirements_context) if requirements_context else ""
         
-        # Dynamic hook generation
-        hook_section = self._build_hook_section(job_data, similar_projects)
+        # Dynamic hook generation - NOW REQUIREMENTS-AWARE
+        hook_section = self._build_hook_section(job_data, similar_projects, requirements_context)
         
         # Timeline instruction
         timeline_inst = self._get_timeline_instruction(include_timeline, timeline_duration)
         
-        # Build anti-hallucination rules (enhanced with do_not_assume)
+        # Build anti-hallucination rules (enhanced with do_not_assume AND must_not_propose)
         anti_hallucination = self._build_anti_hallucination_rules(requirements_context)
 
+        # Build strategic instructions based on requirements
+        strategic_instructions = self._build_strategic_instructions(requirements_context, job_data)
+        
         return f"""
 {system_role}
 
@@ -142,17 +151,25 @@ class PromptEngine:
 {style_guide}
 {tone_guide}
 
+{strategic_instructions}
+
 Generate the proposal NOW. Target: {max_words} words (ideal: 200-350).
 
 {anti_hallucination}
 
-CRITICAL RULES:
-1. NO "As an AI" - sound like a REAL person
-2. USE A VARIED HOOK - not "I see you're dealing with"
-3. Reference ONLY verified projects above
-4. Use PLAIN URLs, NO markdown
+🚨 ABSOLUTE RULES - VIOLATION = REJECTED PROPOSAL:
+1. NO "As an AI" - sound like a REAL human freelancer
+2. NO MARKDOWN: No **bold**, no *italic*, no "- **Label:**" formatting
+3. NO SECTION HEADERS: Write in natural paragraphs, not structured sections
+4. Reference ONLY verified projects above - NO inventing
+5. Use PLAIN URLs only (https://example.com)
 {timeline_inst}
 6. End with casual CTA: "Happy to chat" or "Let me know"
+7. NEVER say "While I haven't done this exact..." or similar weak language
+8. NEVER mention timezone/availability UNLESS client explicitly required it
+9. NEVER mention "one-time project" or "ongoing" UNLESS client specified engagement type
+10. NEVER provide rates, hours, or timeline estimates UNLESS client asked for them
+11. If client provided a document to review, speak as if you've ALREADY reviewed it
 
 {PROPOSAL_FORMAT_RULES}
 """
@@ -162,32 +179,56 @@ CRITICAL RULES:
         hooks = "\n".join(f"   {i}. {h}" for i, h in enumerate(HOOK_STRATEGIES, 1))
         stale = "\n".join(f'   - "{s}"' for s in STALE_OPENINGS)
         examples = "\n".join(f'   ✓ "{e}"' for e in CONVERSATIONAL_EXAMPLES)
+        forbidden = "\n".join(f'   - "{p}"' for p in FORBIDDEN_PHRASES[:10])
         
         return f"""
-SYSTEM: SHORT, HUMAN, WINNING proposal writer. Goal: 3-5x better response rates.
+SYSTEM: SHORT, HUMAN, WINNING proposal writer. Write in PLAIN TEXT paragraphs - NO markdown, NO section headers.
 
-🧠 HUMAN CONNECTION FORMULA:
-1. SHOW you read their job post (reference SPECIFIC details)
-2. FEEL their frustration/urgency (empathize)
-3. PROVE you've solved this EXACT problem (with links)
-4. EXPLAIN your specific approach for THEIR situation
-5. MAKE IT EASY to say yes (friendly CTA)
-
-⚠️ VARIED HOOKS - First 2.5 lines = ALL client sees on Upwork!
-
-❌ NEVER USE:
-{stale}
+🧠 WINNING FORMULA:
+1. HOOK with RELEVANT portfolio link (NOT generic questions)
+2. PROVE with similar work (ONLY if truly relevant)
+3. APPROACH - your specific solution for THEIR situation
+4. CTA - casual close "Happy to chat" or "Let me know"
 
 ✅ WINNING HOOK STRATEGIES:
 {hooks}
+
+❌ STALE/BAD OPENINGS - NEVER USE:
+{stale}
+
+❌ FORBIDDEN PHRASES - NEVER USE:
+{forbidden}
+
+🚨 CRITICAL RULES - READ CAREFULLY:
+1. ONLY mention timezone/availability IF client explicitly asks for it in the job post
+2. ONLY mention "one-time" or "ongoing" IF client specifies engagement type
+3. ONLY provide rates/estimates IF client explicitly requests them
+4. ONLY include portfolio links that are DIRECTLY relevant to the job
+5. NEVER say "While I haven't done this exact scope" or any self-deprecating language
+6. NEVER say "I'll review the document" - speak as if you've ALREADY reviewed it
+7. Write in PLAIN TEXT - absolutely NO markdown formatting (**bold**, - bullet with **label**:, etc.)
+8. Write in NATURAL PARAGRAPHS - do NOT use section headers or structured formatting
 
 CONVERSATIONAL TONE:
 {examples}
 """
 
-    def _build_hook_section(self, job_data: Dict[str, Any], similar_projects: List[Dict[str, Any]]) -> str:
-        """Build dynamic hook suggestions."""
+    def _build_hook_section(
+        self, 
+        job_data: Dict[str, Any], 
+        similar_projects: List[Dict[str, Any]],
+        requirements_context: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Build dynamic hook suggestions based on job analysis AND requirements context.
+        
+        ENHANCED Sprint 3: Now considers working_arrangement, application_requirements,
+        soft_requirements, and client_priorities when generating hooks.
+        """
         section = ""
+        
+        # Build requirements-aware hook guidance FIRST
+        hook_guidance = self._build_requirements_based_hook_guidance(requirements_context, job_data)
         
         # Try hook engine
         if job_data and get_hook_engine is not None:
@@ -213,6 +254,10 @@ CONVERSATIONAL TONE:
             except Exception as e:
                 logger.warning(f"Hook engine error: {e}")
         
+        # Add requirements-based hook guidance
+        if hook_guidance:
+            section += hook_guidance
+        
         # Fallback pain points
         if not section and job_data:
             pain_points = self.extract_pain_points(job_data.get('job_description', ''))
@@ -223,6 +268,175 @@ CONVERSATIONAL TONE:
                     section += f'   Empathy opener: "{empathy}"\n'
         
         return section
+    
+    def _build_requirements_based_hook_guidance(
+        self,
+        requirements: Optional[Dict[str, Any]],
+        job_data: Dict[str, Any]
+    ) -> str:
+        """
+        Build hook guidance based on extracted requirements.
+        
+        This ensures the hook addresses what CLIENT CARES ABOUT, not generic tech questions.
+        
+        Key insight: A client asking for ongoing Shopify work + EST availability 
+        wants to hear "I'm available EST hours and love ongoing partnerships"
+        NOT "Have you optimized your Liquid templates?"
+        """
+        if not requirements:
+            return ""
+        
+        guidance_parts = []
+        
+        # Working arrangement hook (CRITICAL for service roles)
+        working = requirements.get("working_arrangement", {})
+        if working.get("timezone") or working.get("arrangement_type"):
+            tz = working.get("timezone", "")
+            arr_type = working.get("arrangement_type", "")
+            
+            if tz:
+                guidance_parts.append(f'   ✅ MENTION AVAILABILITY: Address {tz} timezone requirement in your hook or opening')
+            if arr_type == "ongoing":
+                guidance_parts.append('   ✅ SHOW PARTNERSHIP MINDSET: Client wants ongoing work - show you value long-term relationships')
+            elif arr_type == "one_time":
+                guidance_parts.append('   ✅ SHOW EFFICIENCY: Client wants one-time work - emphasize quick, quality delivery')
+        
+        # Client priorities hook
+        if requirements.get("client_priorities"):
+            top_priority = requirements["client_priorities"][0] if requirements["client_priorities"] else None
+            if top_priority:
+                guidance_parts.append(f'   ✅ ADDRESS TOP PRIORITY: "{top_priority}" matters MOST - lead with this')
+        
+        # Soft requirements hook
+        if requirements.get("soft_requirements"):
+            soft = requirements["soft_requirements"][0] if requirements["soft_requirements"] else None
+            if soft:
+                guidance_parts.append(f'   ✅ ADDRESS SOFT REQUIREMENT: Client values "{soft}" - demonstrate this quality')
+        
+        # Application requirements awareness
+        if requirements.get("application_requirements"):
+            app_req = requirements["application_requirements"][0] if requirements["application_requirements"] else None
+            if app_req and "loom" in app_req.lower():
+                guidance_parts.append('   ✅ LOOM VIDEO REQUIRED: Mention you will/can provide a Loom video')
+            elif app_req:
+                guidance_parts.append(f'   ✅ APPLICATION REQUIREMENT: Address "{app_req}" in your proposal')
+        
+        # Key phrases to use
+        if requirements.get("key_phrases_to_echo"):
+            phrases = requirements["key_phrases_to_echo"][:2]
+            phrase_text = '", "'.join(phrases)
+            guidance_parts.append(f'   ✅ USE THEIR WORDS: Echo "{phrase_text}" to show you read the post')
+        
+        # Must NOT propose (prevent irrelevant hooks)
+        if requirements.get("must_not_propose"):
+            dont_items = requirements["must_not_propose"][:2]
+            guidance_parts.append(f'   ❌ AVOID IN HOOK: Do not lead with questions about {", ".join(dont_items)} - not what client asked for')
+        
+        if guidance_parts:
+            return """
+
+🎯 REQUIREMENTS-BASED HOOK GUIDANCE (CRITICAL):
+""" + "\n".join(guidance_parts) + """
+
+⚠️ DO NOT open with generic technical questions about things the client didn't ask about!
+   Example of BAD hook: "Have you optimized your Liquid templates?" (client didn't mention this)
+   Example of GOOD hook: "I'm available EST hours and love ongoing Shopify partnerships - here's my recent work..."
+"""
+        return ""
+    
+    def _build_strategic_instructions(
+        self,
+        requirements: Optional[Dict[str, Any]],
+        job_data: Dict[str, Any]
+    ) -> str:
+        """
+        Build strategic instructions that act as an ORCHESTRATOR.
+        
+        This method analyzes the job and provides explicit guidance on:
+        - What TO include (based on what client asked)
+        - What NOT to include (avoid assumptions)
+        
+        This prevents common issues like:
+        - Mentioning timezone when not asked
+        - Saying "one-time project" when not specified
+        - Giving rates/timelines when not requested
+        - Self-deprecating statements
+        """
+        include_items = []
+        exclude_items = []
+        
+        # Analyze job for what's actually required
+        job_desc = job_data.get("job_description", "").lower()
+        
+        # === TIMEZONE/AVAILABILITY ===
+        timezone_required = any(tz in job_desc for tz in ["timezone", "time zone", "est", "pst", "cst", "mst", "gmt", "utc", "hours overlap", "overlap with"])
+        if requirements and requirements.get("working_arrangement", {}).get("timezone"):
+            timezone_required = True
+        
+        if timezone_required:
+            tz = requirements.get("working_arrangement", {}).get("timezone", "") if requirements else ""
+            include_items.append(f"✅ MENTION TIMEZONE/AVAILABILITY: Client requires {tz or 'specific timezone'} - address this")
+        else:
+            exclude_items.append("❌ DO NOT mention timezone or 'available in your timezone' - client didn't ask")
+        
+        # === ENGAGEMENT TYPE ===
+        ongoing_mentioned = any(word in job_desc for word in ["ongoing", "long-term", "monthly", "retainer", "continuous"])
+        onetime_mentioned = any(word in job_desc for word in ["one-time", "single project", "one time", "fixed price project"])
+        
+        if ongoing_mentioned:
+            include_items.append("✅ SHOW LONG-TERM MINDSET: Client wants ongoing relationship")
+        elif onetime_mentioned:
+            include_items.append("✅ SHOW EFFICIENCY: Client wants one-time delivery")
+        else:
+            exclude_items.append("❌ DO NOT mention 'one-time project' or 'ongoing' - client didn't specify engagement type")
+        
+        # === RATES/ESTIMATES ===
+        rates_requested = any(word in job_desc for word in ["hourly rate", "your rate", "send your rate", "estimate", "how long", "how many hours", "budget proposal", "fixed price proposal"])
+        if requirements and requirements.get("application_requirements"):
+            for req in requirements["application_requirements"]:
+                if any(word in req.lower() for word in ["rate", "estimate", "hours", "budget", "price"]):
+                    rates_requested = True
+        
+        if rates_requested:
+            include_items.append("✅ PROVIDE RATE/ESTIMATE: Client explicitly asked for pricing/timeline")
+        else:
+            exclude_items.append("❌ DO NOT provide hourly rates, estimated hours, or timelines - client didn't ask")
+        
+        # === DOCUMENT REVIEW ===
+        has_document = any(word in job_desc for word in ["document", "attached", "provided", "review the", "based on our", "concept document", "plan document"])
+        if has_document:
+            include_items.append("✅ SPEAK AS IF YOU'VE REVIEWED: Write as if you already understand the document")
+            exclude_items.append("❌ DO NOT say 'I'll review the document' - assume you HAVE reviewed it already")
+        
+        # === PORTFOLIO RELEVANCE ===
+        exclude_items.append("❌ DO NOT include portfolio links that aren't directly relevant to the job")
+        exclude_items.append("❌ DO NOT say 'although not identical' or 'haven't done this exact scope' - NEVER be self-deprecating")
+        
+        # === APPLICATION REQUIREMENTS ===
+        if requirements and requirements.get("application_requirements"):
+            app_reqs = requirements["application_requirements"]
+            for req in app_reqs:
+                if "loom" in req.lower():
+                    include_items.append("✅ LOOM VIDEO: Mention you'll provide a Loom video as requested")
+                elif "portfolio" in req.lower() or "example" in req.lower():
+                    include_items.append(f"✅ PORTFOLIO: Include relevant examples as client requested")
+                elif any(word in req.lower() for word in ["happy", "specific word", "code word"]):
+                    include_items.append(f"✅ INCLUDE: {req}")
+        
+        # === FORMAT RULES ===
+        exclude_items.append("❌ NO MARKDOWN: Do not use **bold**, *italic*, or '- **Label:**' formatting")
+        exclude_items.append("❌ NO SECTION HEADERS: Write natural paragraphs, not structured sections")
+        
+        # Build the output
+        output = "\n📋 STRATEGIC INSTRUCTIONS (FOLLOW EXACTLY):\n"
+        
+        if include_items:
+            output += "\nWHAT TO INCLUDE:\n" + "\n".join(include_items)
+        
+        if exclude_items:
+            output += "\n\nWHAT TO EXCLUDE (CRITICAL):\n" + "\n".join(exclude_items)
+        
+        return output
 
     def _get_best_portfolio_url(self, projects: List[Dict[str, Any]]) -> Optional[str]:
         """Get best portfolio URL (prefer non-Upwork)."""
@@ -244,6 +458,9 @@ CONVERSATIONAL TONE:
         
         This provides the LLM with structured understanding of what the client
         ACTUALLY wants, improving proposal relevance and reducing hallucination.
+        
+        ENHANCED Sprint 3: Now includes working arrangement, application requirements,
+        soft requirements, client priorities, and must_not_propose.
         """
         if not requirements:
             return ""
@@ -286,34 +503,105 @@ CONVERSATIONAL TONE:
             res = ", ".join(requirements["resources_provided"][:3])
             sections.append(f"📁 RESOURCES CLIENT WILL PROVIDE: {res}")
         
+        # ====== NEW FIELDS - Sprint 3 Enhanced Intent Capture ======
+        
+        # Working arrangement (CRITICAL for service roles)
+        working = requirements.get("working_arrangement", {})
+        if working:
+            work_parts = []
+            if working.get("timezone"):
+                work_parts.append(f"Timezone: {working['timezone']}")
+            if working.get("hours"):
+                work_parts.append(f"Hours: {working['hours']}")
+            if working.get("arrangement_type"):
+                work_parts.append(f"Type: {working['arrangement_type']}")
+            if working.get("responsiveness_expectation"):
+                work_parts.append(f"Responsiveness: {working['responsiveness_expectation']}")
+            if work_parts:
+                sections.append(f"🕐 WORKING ARRANGEMENT (MUST ADDRESS): {' | '.join(work_parts)}")
+        
+        # Application requirements (CRITICAL - missing = instant rejection)
+        if requirements.get("application_requirements"):
+            app_reqs = ", ".join(requirements["application_requirements"])
+            sections.append(f"🚨 APPLICATION REQUIREMENTS (MUST INCLUDE OR MENTION): {app_reqs}")
+        
+        # Soft requirements (what client values beyond tech)
+        if requirements.get("soft_requirements"):
+            soft = ", ".join(requirements["soft_requirements"][:4])
+            sections.append(f"💪 SOFT REQUIREMENTS (address these EXPLICITLY): {soft}")
+        
+        # Client priorities (what matters most - ORDER MATTERS)
+        if requirements.get("client_priorities"):
+            prios = " > ".join(requirements["client_priorities"][:5])
+            sections.append(f"🎯 CLIENT PRIORITIES (in order): {prios}")
+        
+        # Key phrases to echo (for rapport)
+        if requirements.get("key_phrases_to_echo"):
+            phrases = '", "'.join(requirements["key_phrases_to_echo"][:4])
+            sections.append(f'💬 USE THESE PHRASES: "{phrases}"')
+
         if sections:
-            return "\n🧠 EXTRACTED JOB UNDERSTANDING:\n" + "\n".join(sections) + "\n"
+            return "\n🧠 EXTRACTED JOB UNDERSTANDING (FOLLOW THESE CLOSELY):\n" + "\n".join(sections) + "\n"
         return ""
 
     def _build_anti_hallucination_rules(self, requirements: Optional[Dict[str, Any]] = None) -> str:
         """
-        Build anti-hallucination rules, enhanced with do_not_assume from extraction.
+        Build anti-hallucination rules, enhanced with do_not_assume AND must_not_propose.
         
-        The do_not_assume field is CRITICAL - it lists things the client did NOT
-        specify that the proposal writer should NOT invent or assume.
+        The do_not_assume field lists things the client did NOT specify.
+        The must_not_propose field lists things the proposal should NOT suggest.
+        Together, these prevent irrelevant/unwanted content in proposals.
         """
         base_rules = ANTI_HALLUCINATION_RULES
         
-        if requirements and requirements.get("do_not_assume"):
-            do_not_assume = requirements["do_not_assume"]
-            if do_not_assume:
-                avoid_list = "\n".join(f"   ❌ {item}" for item in do_not_assume[:5])
+        enhanced_rules = base_rules
+        
+        if requirements:
+            additional_rules = []
+            
+            # Things NOT to assume
+            if requirements.get("do_not_assume"):
+                avoid_list = "\n".join(f"   ❌ Do not assume: {item}" for item in requirements["do_not_assume"][:5])
+                additional_rules.append(f"""
+🚫 DO NOT ASSUME (client did not specify):
+{avoid_list}
+If you need to discuss any of the above, ask questions instead of assuming!""")
+            
+            # Things NOT to propose (CRITICAL NEW - prevents irrelevant suggestions)
+            if requirements.get("must_not_propose"):
+                dont_suggest = "\n".join(f"   🛑 Do not suggest: {item}" for item in requirements["must_not_propose"][:5])
+                additional_rules.append(f"""
+🛑 DO NOT PROPOSE/SUGGEST (stay in scope):
+{dont_suggest}
+Only address what the client ASKED for. No unsolicited advice!""")
+            
+            # Application requirements warning
+            if requirements.get("application_requirements"):
+                app_reqs = ", ".join(requirements["application_requirements"])
+                additional_rules.append(f"""
+📋 APPLICATION REQUIREMENT CHECK:
+   Client requires: {app_reqs}
+   → If you cannot include this in the proposal, ACKNOWLEDGE it clearly!
+   → Example: "I'll prepare a Loom video walkthrough for you" """)
+            
+            # Working arrangement warning
+            working = requirements.get("working_arrangement", {})
+            if working.get("timezone") or working.get("hours"):
+                tz = working.get("timezone", "not specified")
+                hrs = working.get("hours", "not specified")
+                additional_rules.append(f"""
+🕐 AVAILABILITY REQUIREMENT:
+   Client requires: {tz} timezone, {hrs}
+   → You MUST confirm you can meet this availability
+   → If unclear, mention you're "happy to discuss availability" """)
+            
+            if additional_rules:
                 enhanced_rules = f"""
 {base_rules}
-
-🚫 DO NOT ASSUME OR MENTION (client did not specify):
-{avoid_list}
-
-If you need to discuss any of the above, ask questions instead of assuming!
+{"".join(additional_rules)}
 """
-                return enhanced_rules
         
-        return base_rules
+        return enhanced_rules
 
     def _build_job_section(self, job_data: Dict[str, Any]) -> str:
         """Build job details section."""

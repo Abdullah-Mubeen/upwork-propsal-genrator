@@ -52,6 +52,26 @@ class JobRequirements:
     inferred_industry: str = ""                   # Best-guess industry
     complexity_level: str = "medium"              # low|medium|high
     
+    # ====== NEW FIELDS FOR BETTER INTENT CAPTURE (Sprint 3) ======
+    
+    # Working arrangement details
+    working_arrangement: Dict[str, Any] = field(default_factory=dict)  # timezone, hours, ongoing/one-time
+    
+    # Application-specific requirements (what to include IN the proposal/application)
+    application_requirements: List[str] = field(default_factory=list)  # Loom video, portfolio samples, etc.
+    
+    # Soft requirements (non-technical expectations)
+    soft_requirements: List[str] = field(default_factory=list)  # responsiveness, communication style, reliability
+    
+    # Client priorities (ordered by importance)
+    client_priorities: List[str] = field(default_factory=list)  # What matters MOST to client
+    
+    # Must NOT propose/mention (irrelevant things to avoid)
+    must_not_propose: List[str] = field(default_factory=list)  # Things outside scope / unwanted suggestions
+    
+    # Key phrases to echo (client's exact words for resonance)
+    key_phrases_to_echo: List[str] = field(default_factory=list)  # Words to use in proposal for rapport
+    
     # Metadata
     extraction_confidence: float = 0.0            # How confident in extraction (0-1)
     extracted_at: str = ""                        # ISO timestamp
@@ -69,13 +89,13 @@ class JobRequirements:
 # OpenAI Function Definition for structured extraction
 JOB_REQUIREMENTS_FUNCTION = {
     "name": "extract_job_requirements",
-    "description": "Extract structured requirements from a job description. Be thorough and precise.",
+    "description": "Extract structured requirements from a job description. Be thorough and precise. Focus on capturing the client's TRUE INTENT including working arrangements, application requirements, and what matters most to them.",
     "parameters": {
         "type": "object",
         "properties": {
             "exact_task": {
                 "type": "string",
-                "description": "A clear, specific summary of what the client wants done. Be specific, not generic. Example: 'Migrate 500 newsletter posts from Substack to WordPress with membership paywall' NOT 'Build a website'"
+                "description": "A clear, specific summary of what the client wants done INCLUDING the context (ongoing, one-time, part of team). Example: 'Join team as ongoing Shopify developer designing and building stores, available EST hours' NOT just 'Build Shopify websites'"
             },
             "specific_deliverables": {
                 "type": "array",
@@ -126,6 +146,42 @@ JOB_REQUIREMENTS_FUNCTION = {
                 "enum": ["low", "medium", "high"],
                 "description": "'low' = simple task (<1 day), 'medium' = typical project (days-weeks), 'high' = complex system (weeks-months)"
             },
+            "working_arrangement": {
+                "type": "object",
+                "properties": {
+                    "timezone": {"type": "string", "description": "Required timezone if specified (e.g., 'EST', 'PST', 'UTC')"},
+                    "hours": {"type": "string", "description": "Required working hours if specified (e.g., '9 AM - 5 PM')"},
+                    "arrangement_type": {"type": "string", "enum": ["ongoing", "one_time", "contract", "full_time", "part_time", "flexible"], "description": "Type of engagement"},
+                    "overlap_required": {"type": "boolean", "description": "Whether timezone overlap is mandatory"},
+                    "responsiveness_expectation": {"type": "string", "description": "Expected response time during work hours"}
+                },
+                "description": "Working arrangement details - timezone, hours, ongoing vs one-time, responsiveness expectations. CRITICAL for service-based roles."
+            },
+            "application_requirements": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "CRITICAL: What client requires IN THE APPLICATION/PROPOSAL. Examples: 'Loom video', 'portfolio samples', 'answer specific questions', 'budget proposal'. Failing to include these = automatic rejection."
+            },
+            "soft_requirements": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Non-technical expectations: 'responsive during work hours', 'clear communication', 'follow systems and deadlines', 'reliability', 'team player'. These signal what client values beyond technical skills."
+            },
+            "client_priorities": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "What matters MOST to the client, in order of importance. Extract from emphasis, repetition, and explicit priorities in the job post. Example: ['reliability', 'speed', 'quality', 'communication']"
+            },
+            "must_not_propose": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Things the proposal should NOT include or suggest. If client wants Shopify, don't suggest WordPress. If they have a process, don't suggest changing it. Avoid unsolicited advice outside scope."
+            },
+            "key_phrases_to_echo": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Exact phrases from the job post that the proposal should echo to show understanding. Examples: 'fast-moving team', 'design and development', 'ready for launch'"
+            },
             "extraction_confidence": {
                 "type": "number",
                 "description": "Your confidence in this extraction from 0.0 to 1.0. Lower if job description is vague or ambiguous."
@@ -138,23 +194,44 @@ JOB_REQUIREMENTS_FUNCTION = {
             "problems_mentioned",
             "do_not_assume",
             "complexity_level",
+            "working_arrangement",
+            "application_requirements",
+            "soft_requirements",
+            "client_priorities",
+            "must_not_propose",
+            "key_phrases_to_echo",
             "extraction_confidence"
         ]
     }
 }
 
 # System prompt for extraction
-EXTRACTION_SYSTEM_PROMPT = """You are an expert job requirements analyst for freelance proposals. Your task is to deeply understand what a client REALLY wants from their job posting.
+EXTRACTION_SYSTEM_PROMPT = """You are an expert job requirements analyst for freelance proposals on Upwork. Your task is to deeply understand what a client REALLY wants from their job posting - not just the technical task, but the full context of who they want to work with and how.
 
 CRITICAL RULES:
 1. Extract ONLY what is explicitly stated or clearly implied
 2. The 'do_not_assume' field is ESSENTIAL - list anything the client did NOT specify that a proposal writer might wrongly assume
-3. Be specific in 'exact_task' - summarize the actual work, not generic descriptions
+3. Be SPECIFIC in 'exact_task' - include the working context (ongoing, team role, etc.), not just the technical task
 4. 'problems_mentioned' should capture pain points in the client's own words
 5. 'client_tone' should reflect their emotional state and communication style
 6. If something is ambiguous, note it in 'do_not_assume'
 
-Your extraction directly influences proposal quality - precision matters."""
+CRITICAL NEW FIELDS - PAY ATTENTION:
+7. 'working_arrangement' - ALWAYS extract timezone, hours, and engagement type if mentioned. Many jobs are rejected for timezone mismatch alone!
+8. 'application_requirements' - CRITICAL: Extract what client REQUIRES in the application (Loom video, portfolio link, specific questions). Missing these = instant rejection!
+9. 'soft_requirements' - Communication style, reliability, responsiveness preferences. Often MORE important than technical skills.
+10. 'client_priorities' - ORDER MATTERS. What do they emphasize? What do they repeat? What do they put in CAPS or bold?
+11. 'must_not_propose' - Don't suggest alternatives to what they asked for. Don't offer unsolicited advice. Stay in scope.
+12. 'key_phrases_to_echo' - Use their exact words to show you read the post carefully.
+
+COMMON EXTRACTION MISTAKES TO AVOID:
+- Missing timezone/availability requirements (leads to wasted proposals)
+- Missing application requirements like Loom videos (leads to instant rejection)
+- Being too generic in exact_task (loses the context of WHO they want)
+- Not capturing what matters MOST to the client (misaligned proposals)
+- Suggesting technologies/approaches they didn't ask for (annoying to clients)
+
+Your extraction directly influences proposal quality - precision matters. A great extraction enables a great proposal that addresses EXACTLY what the client cares about."""
 
 
 class JobRequirementsService:
@@ -423,8 +500,15 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
             "problems": requirements.problems_mentioned,
             "resources_available": requirements.resources_provided,
             "constraints": requirements.constraints,
-            "do_not_mention": requirements.do_not_assume,  # CRITICAL: What to avoid
+            "do_not_mention": requirements.do_not_assume,  # CRITICAL: What to avoid assuming
             "links": requirements.links_mentioned,
+            # NEW FIELDS - Sprint 3
+            "working_arrangement": requirements.working_arrangement,
+            "application_requirements": requirements.application_requirements,
+            "soft_requirements": requirements.soft_requirements,
+            "client_priorities": requirements.client_priorities,
+            "must_not_propose": requirements.must_not_propose,  # CRITICAL: What NOT to suggest
+            "key_phrases_to_echo": requirements.key_phrases_to_echo,
         }
 
 

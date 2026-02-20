@@ -291,6 +291,35 @@ class ProposalService:
         if requirements.specific_deliverables:
             job_data["expected_deliverables"] = requirements.specific_deliverables
         
+        # NEW FIELDS - Sprint 3 Enhanced Intent Capture
+        # Working arrangement (critical for service roles)
+        if requirements.working_arrangement:
+            job_data["working_arrangement"] = requirements.working_arrangement
+            # Log timezone requirements as these are often deal-breakers
+            if requirements.working_arrangement.get("timezone"):
+                logger.info(f"[ProposalService] Timezone requirement: {requirements.working_arrangement.get('timezone')}")
+        
+        # Application requirements (critical - missing these = rejection)
+        if requirements.application_requirements:
+            job_data["application_requirements"] = requirements.application_requirements
+            logger.info(f"[ProposalService] Application requirements: {requirements.application_requirements}")
+        
+        # Soft requirements (what client values beyond tech)
+        if requirements.soft_requirements:
+            job_data["soft_requirements"] = requirements.soft_requirements
+        
+        # Client priorities (what matters most)
+        if requirements.client_priorities:
+            job_data["client_priorities"] = requirements.client_priorities
+        
+        # Must NOT propose (avoid these suggestions)
+        if requirements.must_not_propose:
+            job_data["must_not_propose"] = requirements.must_not_propose
+        
+        # Key phrases to echo (for rapport building)
+        if requirements.key_phrases_to_echo:
+            job_data["key_phrases_to_echo"] = requirements.key_phrases_to_echo
+        
         return job_data
     
     def _detect_industry(self, job_data: Dict[str, Any]) -> str:
@@ -520,6 +549,13 @@ class ProposalService:
                 "constraints": job_requirements.constraints,
                 "do_not_assume": job_requirements.do_not_assume,  # CRITICAL: Anti-hallucination
                 "resources_provided": job_requirements.resources_provided,
+                # NEW FIELDS - Sprint 3 Enhanced Intent Capture
+                "working_arrangement": job_requirements.working_arrangement,
+                "application_requirements": job_requirements.application_requirements,
+                "soft_requirements": job_requirements.soft_requirements,
+                "client_priorities": job_requirements.client_priorities,
+                "must_not_propose": job_requirements.must_not_propose,  # CRITICAL: What NOT to suggest
+                "key_phrases_to_echo": job_requirements.key_phrases_to_echo,
             }
         
         return self.prompt_engine.build_proposal_prompt(
