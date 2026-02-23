@@ -4,11 +4,13 @@ Proposal Service
 Business logic for proposal generation, including:
 - Retrieval of similar projects
 - Analysis of previous proposals
-- Proposal generation with AI
+- Proposal generation with AI  
 - Quality scoring and suggestions
+- Streaming generation with progress events
 """
 import logging
-from typing import Optional, List, Dict, Any
+import json
+from typing import Optional, List, Dict, Any, Generator, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -701,3 +703,180 @@ Write a {request.tone} proposal in approximately {request.max_word_count} words.
         except Exception as e:
             logger.error(f"Error saving proposal: {e}")
             return None
+
+    def generate_proposal_stream(self, request: ProposalRequest) -> Generator[str, None, None]:
+        """
+        Generate proposal with streaming progress events (SSE format).
+        
+        Yields SSE-formatted strings for real-time progress updates.
+        
+        Args:
+            request: ProposalRequest with job details
+            
+        Yields:
+            SSE event strings: "event: {type}\ndata: {json}\n\n"
+        """
+        def send_event(event: str, data: dict) -> str:
+            return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+        
+        try:
+            # Step 1: Understanding job
+            yield send_event("step", {"step": 1, "message": "Understanding job requirements...", "icon": "brain"})
+            
+            job_data = self._prepare_job_data(request)
+            all_jobs = self._get_historical_jobs(request.org_id)
+            
+            yield send_event("step", {"step": 1, "message": f"Found {len(all_jobs)} historical projects", "icon": "check", "done": True})
+            
+            # Step 2: Extract requirements + Find similar projects
+            yield send_event("step", {"step": 2, "message": "Analyzing client needs + finding matches...", "icon": "search"})
+            
+            job_requirements = self._extract_job_requirements(request)
+            requirements_context = None
+            if job_requirements and job_requirements.extraction_confidence > 0:
+                requirements_context = self.job_requirements_service.get_prompt_context(job_requirements)
+                job_data = self._enhance_job_data_with_requirements(job_data, job_requirements)
+            
+            retrieval_result = self._find_similar_projects(
+                job_data, all_jobs, request.similar_projects_count, job_requirements=job_requirements
+            )
+            similar_projects = self._filter_projects_with_portfolio(retrieval_result.get("similar_projects", []))
+            
+            yield send_event("step", {"step": 2, "message": f"Matched {len(similar_projects)} similar projects", "icon": "check", "done": True})
+            
+            # Step 3: Collecting context
+            yield send_event("step", {"step": 3, "message": "Collecting portfolio & feedback...", "icon": "folder"})
+            
+            portfolio_links, feedback_urls = self._collect_urls(
+                similar_projects[:request.similar_projects_count],
+                request.include_portfolio,
+                request.include_feedback
+            )
+            
+            profile_context = None
+            if request.profile_id and request.org_id:
+                profile_context = self._get_freelancer_profile(request.org_id, request.profile_id)
+            
+            yield send_event("step", {"step": 3, "message": f"Gathered {len(portfolio_links)} portfolio links", "icon": "check", "done": True})
+            
+            # Step 4: Building prompt
+            yield send_event("step", {"step": 4, "message": "Building personalized prompt...", "icon": "edit"})
+            
+            previous_insights = None
+            if request.include_previous_proposals and similar_projects:
+                previous_insights = self._analyze_previous_proposals(similar_projects[:request.similar_projects_count])
+            
+            prompt = self._build_prompt(
+                job_data=job_data,
+                similar_projects=similar_projects[:request.similar_projects_count],
+                previous_insights=previous_insights,
+                portfolio_links=portfolio_links,
+                feedback_urls=feedback_urls,
+                request=request,
+                profile_context=profile_context,
+                job_requirements=job_requirements
+            )
+            
+            yield send_event("step", {"step": 4, "message": "Prompt optimized", "icon": "check", "done": True})
+            
+            # Step 5: Generate proposal with STREAMING
+            yield send_event("step", {"step": 5, "message": "Writing proposal...", "icon": "sparkles"})
+            
+            max_tokens = int(request.max_word_count * 1.5) + 100
+            proposal_chunks = []
+            
+            # Use streaming from OpenAI
+            stream = self.openai_service.client.chat.completions.create(
+                model=self.openai_service.llm_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=0.7,
+                stream=True
+            )
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    text = chunk.choices[0].delta.content
+                    proposal_chunks.append(text)
+                    yield send_event("token", {"text": text})
+            
+            proposal_text = "".join(proposal_chunks)
+            word_count = len(proposal_text.split())
+            
+            yield send_event("step", {"step": 5, "message": f"Generated {word_count} words", "icon": "check", "done": True})
+            
+            # Step 6: Scoring
+            yield send_event("step", {"step": 6, "message": "Scoring quality...", "icon": "chart"})
+            
+            confidence_score, suggestions = self._score_proposal(
+                proposal_text, portfolio_links, feedback_urls, similar_projects, request
+            )
+            
+            yield send_event("step", {"step": 6, "message": "Complete!", "icon": "check", "done": True})
+            
+            # Final result
+            yield send_event("complete", {
+                "success": True,
+                "generated_proposal": proposal_text,
+                "word_count": word_count,
+                "confidence_score": confidence_score,
+                "similar_projects": similar_projects[:request.similar_projects_count],
+                "portfolio_links_used": portfolio_links,
+                "feedback_urls_used": feedback_urls,
+                "improvement_suggestions": suggestions
+            })
+            
+        except Exception as e:
+            logger.error(f"[ProposalService] Streaming error: {e}", exc_info=True)
+            yield send_event("error", {"message": str(e)})
+
+
+# ===================== SERVICE FACTORY =====================
+
+_proposal_service_instance: Optional[ProposalService] = None
+
+
+def get_proposal_service(
+    db_manager=None,
+    openai_service=None,
+    retrieval_pipeline=None,
+    prompt_engine=None,
+    job_requirements_service=None
+) -> ProposalService:
+    """
+    Get or create singleton ProposalService instance.
+    
+    Args:
+        db_manager: Database manager
+        openai_service: OpenAI service
+        retrieval_pipeline: Retrieval pipeline
+        prompt_engine: Prompt engine
+        job_requirements_service: Job requirements service
+        
+    Returns:
+        ProposalService instance
+    """
+    global _proposal_service_instance
+    
+    if _proposal_service_instance is None:
+        _proposal_service_instance = ProposalService(
+            db_manager=db_manager,
+            openai_service=openai_service,
+            retrieval_pipeline=retrieval_pipeline,
+            prompt_engine=prompt_engine,
+            job_requirements_service=job_requirements_service
+        )
+    else:
+        # Update dependencies if provided
+        if db_manager is not None:
+            _proposal_service_instance.db = db_manager
+        if openai_service is not None:
+            _proposal_service_instance.openai_service = openai_service
+        if retrieval_pipeline is not None:
+            _proposal_service_instance.retrieval_pipeline = retrieval_pipeline
+        if prompt_engine is not None:
+            _proposal_service_instance.prompt_engine = prompt_engine
+        if job_requirements_service is not None:
+            _proposal_service_instance.job_requirements_service = job_requirements_service
+    
+    return _proposal_service_instance

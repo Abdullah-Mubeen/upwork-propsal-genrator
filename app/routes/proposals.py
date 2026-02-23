@@ -33,8 +33,13 @@ from app.infra.mongodb.repositories.proposal_repo import get_sent_proposal_repo
 from app.infra.mongodb.repositories.analytics_repo import get_analytics_repo
 from app.config import settings
 
-# NEW: Import JobRequirementsService for deep job understanding (Issue #23/#24)
-from app.services.job_requirements_service import JobRequirementsService, get_job_requirements_service
+# Import services
+from app.services.job_requirements_service import get_job_requirements_service
+from app.services.proposal_service import (
+    ProposalService, 
+    ProposalRequest as ServiceProposalRequest,
+    get_proposal_service
+)
 
 logger = logging.getLogger(__name__)
 
@@ -187,271 +192,37 @@ async def generate_proposal(request: GenerateProposalRequest):
     try:
         logger.info(f"[ProposalAPI] Generating proposal for {request.company_name} - {request.job_title}")
         
-        # Initialize services
-        db = get_db()
-        openai_service = OpenAIService(api_key=settings.OPENAI_API_KEY)
+        # Initialize service and convert request
+        proposal_service = _init_proposal_service()
+        service_request = _convert_to_service_request(request)
         
-        # Initialize Pinecone service for semantic search
-        from app.utils.pinecone_service import PineconeService
-        from app.utils.metadata_extractor import MetadataExtractor
-        pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
+        # Generate using service
+        result = proposal_service.generate_proposal(service_request)
         
-        retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
-        prompt_engine = PromptEngine()
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.error_message)
         
-        # NEW: Initialize JobRequirementsService for deep understanding (Issue #23/#24)
-        job_requirements_service = get_job_requirements_service(
-            openai_service=openai_service,
-            db_manager=db
-        )
+        # Build quality score details
+        quality_score_details = {"overall_score": result.confidence_score}
         
-        # Prepare job data
-        job_data = {
-            "job_title": request.job_title,
-            "company_name": request.company_name,
-            "job_description": request.job_description,
-            "skills_required": request.skills_required,
-            "industry": request.industry or "general",
-            "task_type": request.task_type or "other"
-        }
-        
-        # Enhance industry detection using keyword+brand matching (fast, no API call)
-        # This catches cases like "similar to TMZ, JustJared" → media industry
-        if not request.industry or request.industry == "general":
-            context_result = MetadataExtractor.detect_industry_with_context(job_data)
-            if context_result.get("industry") != "general" and context_result.get("confidence", 0) >= 0.5:
-                job_data["industry"] = context_result["industry"]
-                logger.info(f"[ProposalAPI] Industry detected: '{context_result['industry']}' (brands: {context_result.get('detected_brands', [])})")
-        
-        # Step 1: Get historical jobs (org-scoped if org_id provided)
-        logger.info(f"[ProposalAPI] Step 1: Fetching historical job data...")
-        all_jobs = []
-        
-        if request.org_id:
-            # Multi-tenant: fetch from PortfolioRepository
-            from app.infra.mongodb.repositories.portfolio_repo import PortfolioRepository
-            portfolio_repo = PortfolioRepository(db)
-            portfolio_items = portfolio_repo.list_by_org(request.org_id, limit=100)
-            
-            # Convert portfolio items to job format for retrieval pipeline
-            for item in portfolio_items:
-                all_jobs.append({
-                    "company": item.get("project_title", ""),
-                    "industry": item.get("industry", "general"),
-                    "skills": item.get("skills", []),
-                    "deliverables": item.get("deliverables", ""),
-                    "outcome": item.get("outcome", ""),
-                    "portfolio_urls": [item.get("portfolio_url")] if item.get("portfolio_url") else [],
-                    "client_feedback": item.get("client_feedback", ""),
-                    "_id": str(item.get("_id", ""))
-                })
-            logger.info(f"[ProposalAPI] Found {len(all_jobs)} portfolio items for org {request.org_id}")
-        else:
-            # Backward compat: legacy global training_data
-            all_jobs = list(db.db.training_data.find({}))
-        
-        if not all_jobs:
-            logger.warning("No historical job data available - generating proposal with basic context")
-        else:
-            logger.info(f"[ProposalAPI] Found {len(all_jobs)} historical jobs")
-        
-        # Step 1.5: Extract structured job requirements BEFORE retrieval (Issue #23/#24)
-        # This gives the LLM a deep understanding of what the client actually wants
-        logger.info(f"[ProposalAPI] Step 1.5: Extracting structured job requirements...")
-        job_requirements = None
-        requirements_context = None
-        try:
-            job_requirements = job_requirements_service.extract_job_requirements(
-                job_description=request.job_description,
-                job_title=request.job_title,
-                skills_required=request.skills_required
-            )
-            if job_requirements and job_requirements.extraction_confidence > 0:
-                logger.info(f"[ProposalAPI] ✓ Extracted requirements: task='{job_requirements.exact_task[:60]}...' "
-                           f"tone={job_requirements.client_tone}, confidence={job_requirements.extraction_confidence:.2f}")
-                logger.info(f"[ProposalAPI]   - Deliverables: {len(job_requirements.specific_deliverables)}, "
-                           f"Problems: {len(job_requirements.problems_mentioned)}, "
-                           f"Do NOT assume: {len(job_requirements.do_not_assume)}")
-                # Get prompt context for later use
-                requirements_context = job_requirements_service.get_prompt_context(job_requirements)
-        except Exception as e:
-            logger.warning(f"[ProposalAPI] Job requirements extraction failed (continuing without): {e}")
-        
-        # Step 2: Find similar projects (ENHANCED with job_requirements - Issue #24)
-        logger.info(f"[ProposalAPI] Step 2: Finding similar past projects...")
-        retrieval_result = retrieval_pipeline.retrieve_for_proposal(
-            job_data,
-            all_jobs,
-            top_k=request.similar_projects_count,
-            job_requirements=job_requirements  # NEW: Pass requirements for better semantic matching
-        )
-        
-        similar_projects = retrieval_result.get("similar_projects", [])
-        logger.info(f"[ProposalAPI] Found {len(similar_projects)} similar projects")
-        
-        # CRITICAL: Filter to only projects with actual portfolio URLs
-        # Don't mention projects without portfolio proof to avoid suggesting fake credentials
-        projects_with_portfolio = []
-        for project in similar_projects:
-            portfolio_urls = project.get("portfolio_urls", [])
-            # Ensure portfolio_urls is a list
-            if isinstance(portfolio_urls, str):
-                portfolio_urls = [portfolio_urls] if portfolio_urls else []
-            if isinstance(portfolio_urls, list):
-                portfolio_urls = [url for url in portfolio_urls if url]  # Filter empty strings
-            project["portfolio_urls"] = portfolio_urls
-            
-            # Only include projects with actual portfolio links
-            if portfolio_urls:
-                projects_with_portfolio.append(project)
-                logger.debug(f"  ✓ Project {project.get('company')} has {len(portfolio_urls)} portfolio links")
-            else:
-                logger.debug(f"  ✗ Skipping project {project.get('company')} - no portfolio URLs")
-        
-        # Use filtered projects (with portfolio) for proposal generation
-        if projects_with_portfolio:
-            similar_projects = projects_with_portfolio
-            logger.info(f"[ProposalAPI] Filtered to {len(similar_projects)} projects with portfolio links")
-        else:
-            logger.warning(f"[ProposalAPI] No projects with portfolio links found - using all similar projects")
-        
-        # Step 3: Analyze previous proposals for similar jobs
-        logger.info(f"[ProposalAPI] Step 3: Analyzing previous proposals...")
-        previous_proposals_insights = None
-        portfolio_links_used = []
-        feedback_urls_used = []
-        
-        if request.include_previous_proposals and similar_projects:
-            previous_proposals = []
-            for project in similar_projects[:request.similar_projects_count]:
-                contract_id = project.get("contract_id")
-                stored_proposal = db.db.proposals.find_one({
-                    "contract_id": contract_id,
-                    "generated_proposal": {"$exists": True}
-                })
-                
-                if stored_proposal:
-                    previous_proposals.append({
-                        "contract_id": contract_id,
-                        "company": project.get("company"),
-                        "proposal_text": stored_proposal.get("generated_proposal"),
-                        "style": stored_proposal.get("proposal_style"),
-                        "tone": stored_proposal.get("proposal_tone"),
-                        "word_count": stored_proposal.get("word_count")
-                    })
-            
-            if previous_proposals:
-                previous_proposals_insights = {
-                    "total_previous_proposals": len(previous_proposals),
-                    "common_patterns": _extract_proposal_patterns(previous_proposals),
-                    "effective_phrases": _extract_effective_phrases(previous_proposals),
-                    "average_word_count": sum(p["word_count"] for p in previous_proposals) / len(previous_proposals)
-                }
-                logger.info(f"[ProposalAPI] Analyzed {len(previous_proposals)} previous proposals")
-        
-        # Step 4: Collect portfolio and feedback URLs
-        if request.include_portfolio or request.include_feedback:
-            logger.info(f"[ProposalAPI] Step 4: Collecting portfolio and feedback URLs...")
-            
-            for project in similar_projects[:request.similar_projects_count]:
-                # Extract portfolio URLs (plural - can be a list)
-                if request.include_portfolio:
-                    portfolio_urls = project.get("portfolio_urls", [])
-                    if isinstance(portfolio_urls, list):
-                        portfolio_links_used.extend(portfolio_urls)
-                    elif isinstance(portfolio_urls, str):
-                        portfolio_links_used.append(portfolio_urls)
-                
-                # Extract feedback URL (singular)
-                if request.include_feedback and project.get("client_feedback_url"):
-                    feedback_urls_used.append(project.get("client_feedback_url"))
-            
-            logger.info(f"[ProposalAPI] Collected {len(portfolio_links_used)} portfolio links, {len(feedback_urls_used)} feedback URLs")
-        
-        # Step 4.5: Get freelancer profile for personalization (if provided)
-        profile_context = None
-        if request.profile_id:
-            from app.infra.mongodb.repositories.profile_repo import FreelancerProfileRepository
-            profile_repo = FreelancerProfileRepository(db)
-            profile_context = profile_repo.get_by_profile_id(request.profile_id)
-            if profile_context:
-                logger.info(f"[ProposalAPI] Loaded profile '{profile_context.get('name', '')}' for personalization")
-        
-        # Step 5: Build prompt with all context (ENHANCED with requirements - Issue #24)
-        logger.info(f"[ProposalAPI] Step 5: Building enhanced prompt with historical context...")
-        
-        prompt = prompt_engine.build_proposal_prompt(
-            job_data=job_data,
-            similar_projects=similar_projects[:request.similar_projects_count],
-            success_patterns=previous_proposals_insights.get("common_patterns", []) if previous_proposals_insights else [],
-            style=request.proposal_style,
-            tone=request.tone,
-            max_words=request.max_word_count,
-            include_portfolio=request.include_portfolio and bool(portfolio_links_used),
-            include_feedback=request.include_feedback and bool(feedback_urls_used),
-            include_timeline=request.include_timeline,
-            timeline_duration=request.timeline_duration,
-            profile_context=profile_context,
-            requirements_context=requirements_context  # NEW: Add extracted job understanding (Issue #24)
-        )
-        
-        # Step 6: Generate proposal
-        logger.info(f"[ProposalAPI] Step 6: Generating proposal with AI...")
-        
-        # Calculate max_tokens based on target word count
-        # Average: 1.33 tokens per word, add 20% buffer for complete output
-        # For 300 words target: 300 * 1.33 * 1.2 ≈ 480 tokens, round up to 600 for safety
-        max_tokens = int(request.max_word_count * 1.5) + 100  # Dynamic based on request
-        
-        proposal_text = openai_service.generate_text(
-            prompt=prompt,
-            max_tokens=max_tokens,
-            temperature=0.7
-        )
-        
-        word_count = len(proposal_text.split())
-        
-        logger.info(f"[ProposalAPI] Generated {word_count} word proposal (target ~{request.max_word_count})")
-        
-        # Step 7: Score quality and suggest improvements
-        logger.info(f"[ProposalAPI] Step 7: Scoring proposal quality...")
-        
-        references = {
-            "portfolio_links_used": portfolio_links_used,
-            "feedback_urls_used": feedback_urls_used,
-            "projects_referenced": similar_projects[:request.similar_projects_count]
-        }
-        
-        quality_score = prompt_engine.score_proposal_quality(proposal_text, job_data, references)
-        
-        improvement_suggestions = None
-        if quality_score.get("overall_score", 1.0) < 0.85:
-            improvement_suggestions = _generate_improvement_suggestions(quality_score)
-        
-        # NOTE: Generated proposals are only returned in response.
-        # Only historical job data is saved to MongoDB and Pinecone.
-        logger.info(f"✓ [ProposalAPI] Proposal generation complete!")
-        
-        # Return response
         return ProposalResponse(
             success=True,
             job_title=request.job_title,
             company_name=request.company_name,
-            generated_proposal=proposal_text,
-            word_count=word_count,
+            generated_proposal=result.generated_proposal,
+            word_count=result.word_count,
             proposal_style=request.proposal_style,
             proposal_tone=request.tone,
-            similar_projects=similar_projects[:request.similar_projects_count],
-            previous_proposals_insights=previous_proposals_insights,
-            portfolio_links_used=portfolio_links_used,
-            feedback_urls_used=feedback_urls_used,
-            insights=retrieval_result.get("insights"),
-            confidence_score=quality_score.get("overall_score", 0.85),
-            improvement_suggestions=improvement_suggestions,
+            similar_projects=result.similar_projects,
+            previous_proposals_insights=result.previous_proposals_insights,
+            portfolio_links_used=result.portfolio_links_used,
+            feedback_urls_used=result.feedback_urls_used,
+            insights=result.insights,
+            confidence_score=result.confidence_score,
+            improvement_suggestions=result.improvement_suggestions,
             metadata={
-                "similar_projects_used": len(similar_projects[:request.similar_projects_count]),
-                "previous_proposals_analyzed": len(previous_proposals_insights.get("common_patterns", [])) if previous_proposals_insights else 0,
-                "quality_score_details": quality_score
+                "similar_projects_used": len(result.similar_projects),
+                "quality_score_details": quality_score_details
             }
         )
         
@@ -462,55 +233,82 @@ async def generate_proposal(request: GenerateProposalRequest):
 
 # ===================== HELPER FUNCTIONS =====================
 
-def _extract_proposal_patterns(proposals: List[Dict[str, Any]]) -> List[str]:
-    """Extract common patterns from previous proposals"""
-    patterns = []
+def _init_proposal_service() -> ProposalService:
+    """Initialize and configure ProposalService with all dependencies."""
+    db = get_db()
+    openai_service = OpenAIService(api_key=settings.OPENAI_API_KEY)
+    from app.utils.pinecone_service import PineconeService
+    pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
+    retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
+    prompt_engine = PromptEngine()
+    job_requirements_service = get_job_requirements_service(openai_service=openai_service, db_manager=db)
     
-    for proposal in proposals:
-        text = proposal.get("proposal_text", "").lower()
-        
-        if "understanding your needs" in text:
-            patterns.append("Understanding client needs section")
-        if "relevant experience" in text or "my experience" in text:
-            patterns.append("Relevant experience section")
-        if "approach" in text or "methodology" in text:
-            patterns.append("Approach/methodology section")
-        if "timeline" in text or "deliverables" in text:
-            patterns.append("Timeline and deliverables section")
-        if "investment" in text or "pricing" in text or "cost" in text:
-            patterns.append("Investment/pricing discussion")
-    
-    return list(set(patterns))
+    return get_proposal_service(
+        db_manager=db,
+        openai_service=openai_service,
+        retrieval_pipeline=retrieval_pipeline,
+        prompt_engine=prompt_engine,
+        job_requirements_service=job_requirements_service
+    )
 
 
-def _extract_effective_phrases(proposals: List[Dict[str, Any]]) -> List[str]:
-    """Extract effective phrases from previous proposals"""
-    return [
-        "I am confident in my ability to",
-        "Based on my experience",
-        "I understand the importance of",
-        "With my expertise in",
-        "I have successfully delivered"
-    ]
+def _convert_to_service_request(request: GenerateProposalRequest) -> ServiceProposalRequest:
+    """Convert API request model to service request model."""
+    return ServiceProposalRequest(
+        job_title=request.job_title,
+        company_name=request.company_name,
+        job_description=request.job_description,
+        skills_required=request.skills_required,
+        industry=request.industry or "general",
+        task_type=request.task_type or "other",
+        proposal_style=request.proposal_style,
+        tone=request.tone,
+        max_word_count=request.max_word_count,
+        include_timeline=request.include_timeline,
+        timeline_duration=request.timeline_duration,
+        similar_projects_count=request.similar_projects_count,
+        include_previous_proposals=request.include_previous_proposals,
+        include_portfolio=request.include_portfolio,
+        include_feedback=request.include_feedback,
+        org_id=request.org_id,
+        profile_id=request.profile_id
+    )
 
 
-def _generate_improvement_suggestions(quality_score: Dict[str, Any]) -> List[str]:
-    """Generate improvement suggestions based on quality score"""
-    suggestions = []
+# ===================== STREAMING PROPOSAL GENERATION =====================
+
+from fastapi.responses import StreamingResponse
+import asyncio
+import json
+
+
+@router.post("/generate-stream")
+async def generate_proposal_stream(request: GenerateProposalRequest):
+    """
+    Generate proposal with real-time progress streaming via SSE.
     
-    if quality_score.get("length_score", 0) < 0.5:
-        suggestions.append("Increase proposal length to better showcase your experience and approach")
+    Shows step-by-step progress and streams the final proposal text.
+    Uses parallel execution for extraction + retrieval (~2s saved).
+    """
+    async def event_generator():
+        try:
+            # Initialize service and convert request
+            proposal_service = _init_proposal_service()
+            service_request = _convert_to_service_request(request)
+            
+            # Use service streaming generator
+            for event in proposal_service.generate_proposal_stream(service_request):
+                yield event
+            
+        except Exception as e:
+            logger.error(f"Streaming error: {e}", exc_info=True)
+            yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
     
-    if quality_score.get("structure_score", 0) < 0.5:
-        suggestions.append("Add more structure with clear sections: needs analysis, approach, timeline, deliverables")
-    
-    if quality_score.get("credibility_score", 0) < 0.5:
-        suggestions.append("Include more specific examples, case studies, and portfolio references")
-    
-    if quality_score.get("reference_score", 0) < 0.5:
-        suggestions.append("Add references to 2-3 similar successful projects")
-    
-    return suggestions
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+    )
 
 
 # ===================== OUTCOME TRACKING MODELS =====================

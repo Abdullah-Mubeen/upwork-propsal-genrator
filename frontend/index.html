@@ -219,11 +219,77 @@
                     <p class="text-neutral-500 text-sm">Add skills and job description to generate</p>
                 </div>
 
-                <!-- Loading State -->
-                <div id="loading-state" class="hidden bg-white border border-neutral-200 rounded-xl p-16">
-                    <div class="flex flex-col items-center">
-                        <div class="loader mb-3"></div>
-                        <p class="text-sm text-neutral-500">Crafting your proposal...</p>
+                <!-- Loading State with Progress Steps -->
+                <div id="loading-state" class="hidden bg-white border border-neutral-200 rounded-xl p-6">
+                    <div class="mb-4">
+                        <h3 class="text-sm font-semibold text-neutral-700 mb-4">Generating Proposal</h3>
+                        <div id="progress-steps" class="space-y-3">
+                            <div class="step flex items-center gap-3" data-step="1">
+                                <div class="step-icon w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+                                    <svg class="w-4 h-4 icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                    <svg class="w-4 h-4 icon-active hidden animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <svg class="w-4 h-4 icon-done hidden text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-neutral-600 step-message">Understanding job requirements</p>
+                                </div>
+                            </div>
+                            <div class="step flex items-center gap-3" data-step="2">
+                                <div class="step-icon w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+                                    <svg class="w-4 h-4 icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                                    <svg class="w-4 h-4 icon-active hidden animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <svg class="w-4 h-4 icon-done hidden text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-neutral-400 step-message">Finding similar projects</p>
+                                </div>
+                            </div>
+                            <div class="step flex items-center gap-3" data-step="3">
+                                <div class="step-icon w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+                                    <svg class="w-4 h-4 icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                                    <svg class="w-4 h-4 icon-active hidden animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <svg class="w-4 h-4 icon-done hidden text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-neutral-400 step-message">Collecting portfolio & feedback</p>
+                                </div>
+                            </div>
+                            <div class="step flex items-center gap-3" data-step="4">
+                                <div class="step-icon w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+                                    <svg class="w-4 h-4 icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    <svg class="w-4 h-4 icon-active hidden animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <svg class="w-4 h-4 icon-done hidden text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-neutral-400 step-message">Building personalized prompt</p>
+                                </div>
+                            </div>
+                            <div class="step flex items-center gap-3" data-step="5">
+                                <div class="step-icon w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+                                    <svg class="w-4 h-4 icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 5.8h6.1l-4.9 3.6 1.9 5.8-4.9-3.6-4.9 3.6 1.9-5.8-4.9-3.6h6.1z"/></svg>
+                                    <svg class="w-4 h-4 icon-active hidden animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <svg class="w-4 h-4 icon-done hidden text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-neutral-400 step-message">Writing proposal</p>
+                                </div>
+                            </div>
+                            <div class="step flex items-center gap-3" data-step="6">
+                                <div class="step-icon w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+                                    <svg class="w-4 h-4 icon-default" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+                                    <svg class="w-4 h-4 icon-active hidden animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <svg class="w-4 h-4 icon-done hidden text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-neutral-400 step-message">Scoring quality</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Live preview during generation -->
+                    <div id="streaming-preview" class="hidden mt-4 pt-4 border-t border-neutral-100">
+                        <p class="text-xs text-neutral-400 mb-2">Preview:</p>
+                        <div id="streaming-text" class="text-sm text-neutral-600 whitespace-pre-wrap max-h-48 overflow-y-auto bg-neutral-50 rounded-lg p-3"></div>
                     </div>
                 </div>
 
@@ -495,6 +561,57 @@
             } catch { showToast('Error'); }
         }
 
+        // Step progress helpers
+        function updateStep(stepNum, message, done = false) {
+            const step = document.querySelector(`[data-step="${stepNum}"]`);
+            if (!step) return;
+            const msg = step.querySelector('.step-message');
+            const iconDefault = step.querySelector('.icon-default');
+            const iconActive = step.querySelector('.icon-active');
+            const iconDone = step.querySelector('.icon-done');
+            const iconContainer = step.querySelector('.step-icon');
+            
+            msg.textContent = message;
+            
+            if (done) {
+                msg.classList.remove('text-neutral-400', 'text-neutral-600');
+                msg.classList.add('text-green-600');
+                iconDefault.classList.add('hidden');
+                iconActive.classList.add('hidden');
+                iconDone.classList.remove('hidden');
+                iconContainer.classList.remove('bg-neutral-100');
+                iconContainer.classList.add('bg-green-50');
+            } else {
+                msg.classList.remove('text-neutral-400');
+                msg.classList.add('text-neutral-600');
+                iconDefault.classList.add('hidden');
+                iconActive.classList.remove('hidden');
+                iconDone.classList.add('hidden');
+                iconContainer.classList.remove('bg-neutral-100');
+                iconContainer.classList.add('bg-blue-50');
+            }
+        }
+        
+        function resetSteps() {
+            document.querySelectorAll('[data-step]').forEach(step => {
+                const msg = step.querySelector('.step-message');
+                const iconDefault = step.querySelector('.icon-default');
+                const iconActive = step.querySelector('.icon-active');
+                const iconDone = step.querySelector('.icon-done');
+                const iconContainer = step.querySelector('.step-icon');
+                
+                msg.classList.remove('text-green-600', 'text-neutral-600');
+                msg.classList.add('text-neutral-400');
+                iconDefault.classList.remove('hidden');
+                iconActive.classList.add('hidden');
+                iconDone.classList.add('hidden');
+                iconContainer.classList.remove('bg-green-50', 'bg-blue-50');
+                iconContainer.classList.add('bg-neutral-100');
+            });
+            document.getElementById('streaming-preview').classList.add('hidden');
+            document.getElementById('streaming-text').textContent = '';
+        }
+
         document.getElementById('proposal-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!currentSkills.length) { showToast('Add at least one skill'); return; }
@@ -506,7 +623,6 @@
                 proposal_style: 'professional', tone: 'confident', max_word_count: 150, similar_projects_count: 3,
                 include_portfolio: true, include_feedback: true, include_previous_proposals: true,
                 include_timeline: includeTimeline, timeline_duration: document.getElementById('timeline_duration').value.trim() || null,
-                // Multi-tenant context for personalized retrieval
                 org_id: currentOrgId || null,
                 profile_id: currentProfileId || null
             };
@@ -514,28 +630,99 @@
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('result-state').classList.add('hidden');
             document.getElementById('loading-state').classList.remove('hidden');
+            resetSteps();
             const btn = document.getElementById('generate-btn');
             btn.disabled = true; btn.innerHTML = '<div class="loader mx-auto"></div>';
+            
+            // Use streaming endpoint with EventSource
             try {
-                const { data: result } = await axios.post(`${API}/proposals/generate`, data);
-                lastGeneratedResult = result; proposalSaved = false;
-                const saveBtn = document.getElementById('save-send-btn');
-                saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Save';
-                saveBtn.disabled = false; saveBtn.style.background = ''; saveBtn.style.color = ''; saveBtn.classList.add('primary');
-                document.getElementById('proposal-text').innerText = result.generated_proposal;
-                document.getElementById('word-count').innerText = result.word_count;
-                document.getElementById('quality-score').innerText = Math.round((result.confidence_score || 0.85) * 100) + '%';
-                const projects = result.similar_projects || [];
-                document.getElementById('similar-projects').innerHTML = projects.length
-                    ? projects.map(p => `<div class="project-item"><p class="text-xs font-medium text-neutral-700">${p.company}</p><p class="text-[10px] text-neutral-400 mt-0.5">${(p.skills || []).slice(0, 3).join(' · ')}</p></div>`).join('')
-                    : '<p class="text-xs text-neutral-400">None found</p>';
-                const links = result.portfolio_links_used || [];
-                document.getElementById('portfolio-links').innerHTML = links.length
-                    ? links.map(url => `<a href="${url}" target="_blank" class="link-item">${formatLink(url)}</a>`).join('')
-                    : '<p class="text-xs text-neutral-400">None included</p>';
-                document.getElementById('loading-state').classList.add('hidden');
-                document.getElementById('result-state').classList.remove('hidden');
-            } catch (err) { showToast('Error: ' + (err.response?.data?.detail || err.message)); document.getElementById('loading-state').classList.add('hidden'); document.getElementById('empty-state').classList.remove('hidden'); }
+                const response = await fetch(`${API}/proposals/generate-stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let streamingText = '';
+                let resultData = null;
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('event: ')) {
+                            const eventType = line.replace('event: ', '');
+                            continue;
+                        }
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.replace('data: ', '');
+                            try {
+                                const eventData = JSON.parse(jsonStr);
+                                
+                                // Handle step updates
+                                if (eventData.step !== undefined) {
+                                    updateStep(eventData.step, eventData.message, eventData.done);
+                                }
+                                
+                                // Handle streaming tokens
+                                if (eventData.text !== undefined) {
+                                    streamingText += eventData.text;
+                                    const preview = document.getElementById('streaming-preview');
+                                    const textEl = document.getElementById('streaming-text');
+                                    preview.classList.remove('hidden');
+                                    textEl.textContent = streamingText;
+                                    textEl.scrollTop = textEl.scrollHeight;
+                                }
+                                
+                                // Handle completion
+                                if (eventData.success !== undefined) {
+                                    resultData = eventData;
+                                }
+                                
+                                // Handle error
+                                if (eventData.message && !eventData.step) {
+                                    throw new Error(eventData.message);
+                                }
+                            } catch (parseErr) {
+                                // Skip parse errors for incomplete JSON
+                            }
+                        }
+                    }
+                }
+                
+                if (resultData) {
+                    lastGeneratedResult = resultData; proposalSaved = false;
+                    const saveBtn = document.getElementById('save-send-btn');
+                    saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Save';
+                    saveBtn.disabled = false; saveBtn.style.background = ''; saveBtn.style.color = ''; saveBtn.classList.add('primary');
+                    document.getElementById('proposal-text').innerText = resultData.generated_proposal;
+                    document.getElementById('word-count').innerText = resultData.word_count;
+                    document.getElementById('quality-score').innerText = Math.round((resultData.confidence_score || 0.85) * 100) + '%';
+                    const projects = resultData.similar_projects || [];
+                    document.getElementById('similar-projects').innerHTML = projects.length
+                        ? projects.map(p => `<div class="project-item"><p class="text-xs font-medium text-neutral-700">${p.company}</p><p class="text-[10px] text-neutral-400 mt-0.5">${(p.skills || []).slice(0, 3).join(' · ')}</p></div>`).join('')
+                        : '<p class="text-xs text-neutral-400">None found</p>';
+                    const links = resultData.portfolio_links_used || [];
+                    document.getElementById('portfolio-links').innerHTML = links.length
+                        ? links.map(url => `<a href="${url}" target="_blank" class="link-item">${formatLink(url)}</a>`).join('')
+                        : '<p class="text-xs text-neutral-400">None included</p>';
+                    document.getElementById('loading-state').classList.add('hidden');
+                    document.getElementById('result-state').classList.remove('hidden');
+                } else {
+                    throw new Error('No result received');
+                }
+            } catch (err) { 
+                showToast('Error: ' + (err.message || 'Generation failed')); 
+                document.getElementById('loading-state').classList.add('hidden'); 
+                document.getElementById('empty-state').classList.remove('hidden'); 
+            }
             finally { btn.disabled = false; btn.innerHTML = 'Generate Proposal'; }
         });
 
