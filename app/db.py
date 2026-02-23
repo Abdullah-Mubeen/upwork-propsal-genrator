@@ -173,6 +173,10 @@ class DatabaseManager:
             # User Profile (legacy singleton)
             self.db["user_profile"].create_index([("user_id", ASCENDING)], unique=True)
             
+            # Job Requirements Cache (auto-expires in 2 days)
+            self.db["job_requirements_cache"].create_index([("cache_key", ASCENDING)], unique=True)
+            self.db["job_requirements_cache"].create_index([("updated_at", ASCENDING)], expireAfterSeconds=172800)
+            
             logger.info("Database indexes created successfully")
         except Exception as e:
             logger.error(f"Error creating indexes: {str(e)}")
