@@ -233,21 +233,47 @@ async def generate_proposal(request: GenerateProposalRequest):
 
 # ===================== HELPER FUNCTIONS =====================
 
+# Service singletons to avoid re-initialization on every request
+_cached_openai_service = None
+_cached_pinecone_service = None
+_cached_retrieval_pipeline = None
+_cached_prompt_engine = None
+
+
 def _init_proposal_service() -> ProposalService:
-    """Initialize and configure ProposalService with all dependencies."""
-    db = get_db()
-    openai_service = OpenAIService(api_key=settings.OPENAI_API_KEY)
-    from app.utils.pinecone_service import PineconeService
-    pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
-    retrieval_pipeline = RetrievalPipeline(db, pinecone_service)
-    prompt_engine = PromptEngine()
-    job_requirements_service = get_job_requirements_service(openai_service=openai_service, db_manager=db)
+    """Initialize and configure ProposalService with cached dependencies."""
+    global _cached_openai_service, _cached_pinecone_service, _cached_retrieval_pipeline, _cached_prompt_engine
+    
+    db = get_db()  # Already a singleton
+    
+    # Cache OpenAI service
+    if _cached_openai_service is None:
+        _cached_openai_service = OpenAIService(api_key=settings.OPENAI_API_KEY)
+    
+    # Cache Pinecone service
+    if _cached_pinecone_service is None:
+        from app.utils.pinecone_service import PineconeService
+        _cached_pinecone_service = PineconeService(api_key=settings.PINECONE_API_KEY)
+    
+    # Cache retrieval pipeline
+    if _cached_retrieval_pipeline is None:
+        _cached_retrieval_pipeline = RetrievalPipeline(db, _cached_pinecone_service)
+    
+    # Cache prompt engine
+    if _cached_prompt_engine is None:
+        _cached_prompt_engine = PromptEngine()
+    
+    # JobRequirementsService uses its own singleton via get_job_requirements_service
+    job_requirements_service = get_job_requirements_service(
+        openai_service=_cached_openai_service, 
+        db_manager=db
+    )
     
     return get_proposal_service(
         db_manager=db,
-        openai_service=openai_service,
-        retrieval_pipeline=retrieval_pipeline,
-        prompt_engine=prompt_engine,
+        openai_service=_cached_openai_service,
+        retrieval_pipeline=_cached_retrieval_pipeline,
+        prompt_engine=_cached_prompt_engine,
         job_requirements_service=job_requirements_service
     )
 
