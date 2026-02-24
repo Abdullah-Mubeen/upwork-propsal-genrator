@@ -134,6 +134,9 @@ class PromptEngine:
         # Build strategic instructions based on requirements
         strategic_instructions = self._build_strategic_instructions(requirements_context, job_data)
         
+        # Phase 1: Build mandatory checklist section
+        checklist_section = self._build_mandatory_checklist_section(requirements_context, similar_projects)
+        
         return f"""
 {system_role}
 
@@ -143,7 +146,7 @@ class PromptEngine:
 {requirements_section}
 {profile_section}
 {projects_section}
-
+{checklist_section}
 {hook_section}
 
 {PROPOSAL_STRUCTURE}
@@ -368,16 +371,17 @@ CONVERSATIONAL TONE:
         # Analyze job for what's actually required
         job_desc = job_data.get("job_description", "").lower()
         
-        # === TIMEZONE/AVAILABILITY ===
-        timezone_required = any(tz in job_desc for tz in ["timezone", "time zone", "est", "pst", "cst", "mst", "gmt", "utc", "hours overlap", "overlap with"])
-        if requirements and requirements.get("working_arrangement", {}).get("timezone"):
-            timezone_required = True
+        # === TIMEZONE/AVAILABILITY (Phase 1: Use timezone_source) ===
+        working = requirements.get("working_arrangement", {}) if requirements else {}
+        tz_source = working.get("timezone_source", "none")
+        tz_value = working.get("timezone", "")
         
-        if timezone_required:
-            tz = requirements.get("working_arrangement", {}).get("timezone", "") if requirements else ""
-            include_items.append(f"✅ MENTION TIMEZONE/AVAILABILITY: Client requires {tz or 'specific timezone'} - address this")
+        if tz_source == "explicit" and tz_value:
+            # Client EXPLICITLY stated timezone - MUST mention
+            include_items.append(f"✅ MENTION TIMEZONE: Client EXPLICITLY requires {tz_value} - confirm availability")
         else:
-            exclude_items.append("❌ DO NOT mention timezone or 'available in your timezone' - client didn't ask")
+            # Timezone not explicitly stated OR was inferred - DO NOT mention
+            exclude_items.append("❌ DO NOT mention timezone or 'available in your timezone' - client didn't explicitly ask")
         
         # === ENGAGEMENT TYPE ===
         ongoing_mentioned = any(word in job_desc for word in ["ongoing", "long-term", "monthly", "retainer", "continuous"])
@@ -437,6 +441,88 @@ CONVERSATIONAL TONE:
             output += "\n\nWHAT TO EXCLUDE (CRITICAL):\n" + "\n".join(exclude_items)
         
         return output
+
+    def _build_mandatory_checklist_section(
+        self,
+        requirements: Optional[Dict[str, Any]],
+        similar_projects: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Phase 1: Build MANDATORY checklist section for explicit client requirements.
+        
+        This enforces addressing every numbered/bulleted requirement from the job post.
+        """
+        if not requirements:
+            return ""
+        
+        checklist = requirements.get("explicit_checklist", [])
+        if not checklist:
+            return ""
+        
+        # Collect available portfolio URLs
+        available_urls = []
+        for p in similar_projects[:5]:
+            urls = p.get("portfolio_urls", [])
+            if isinstance(urls, list):
+                available_urls.extend([u for u in urls if u])
+        
+        lines = [
+            "",
+            "=" * 60,
+            "🚨 MANDATORY CHECKLIST - ADDRESS EVERY ITEM 🚨",
+            "=" * 60,
+            ""
+        ]
+        
+        for i, item in enumerate(checklist, 1):
+            item_type = item.get("item_type", "other")
+            qty = item.get("quantity_requested", 0)
+            specific = item.get("specificity_required", False)
+            hint = item.get("answer_hint", "")
+            text = item.get("item_text", "Requirement")
+            
+            lines.append(f"{i}. {text.upper()}")
+            
+            if item_type == "portfolio_links":
+                urls_to_show = available_urls[:qty] if qty else available_urls[:2]
+                if urls_to_show:
+                    lines.append(f"   📎 USE THESE: {', '.join(urls_to_show)}")
+                else:
+                    lines.append("   ⚠️ No direct matches - acknowledge and pivot to related experience")
+                if qty:
+                    lines.append(f"   → Client wants {qty}+ examples")
+            
+            elif item_type == "time_estimate_phased":
+                lines.append("   📅 Provide PER-PHASE breakdown, not just total")
+                lines.append("   → Example: 'Homepage: 3-4 days, Catalog: 2-3 days...'")
+            
+            elif item_type == "time_estimate_total":
+                lines.append("   📅 Provide overall timeline estimate")
+            
+            elif item_type == "experience_question":
+                if specific:
+                    lines.append("   ⚠️ BE SPECIFIC - name actual projects, not vague claims")
+                    lines.append("   ❌ BAD: 'I have experience with RTL'")
+                    lines.append("   ✅ GOOD: 'I built [project] with full Hebrew RTL support'")
+                if hint:
+                    lines.append(f"   🎯 Focus on: {hint}")
+            
+            elif item_type == "preference_question":
+                lines.append("   💡 Give specific recommendation with reasoning")
+            
+            elif item_type == "approach_description":
+                lines.append("   📝 Describe YOUR process for THIS project")
+            
+            lines.append("")
+        
+        lines.extend([
+            "=" * 60,
+            "⛔ MISSING ANY ITEM = LIKELY REJECTION",
+            "=" * 60,
+            ""
+        ])
+        
+        return "\n".join(lines)
 
     def _get_best_portfolio_url(self, projects: List[Dict[str, Any]]) -> Optional[str]:
         """Get best portfolio URL (prefer non-Upwork)."""

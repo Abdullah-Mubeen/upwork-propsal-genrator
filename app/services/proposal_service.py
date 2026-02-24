@@ -558,6 +558,8 @@ class ProposalService:
                 "client_priorities": job_requirements.client_priorities,
                 "must_not_propose": job_requirements.must_not_propose,  # CRITICAL: What NOT to suggest
                 "key_phrases_to_echo": job_requirements.key_phrases_to_echo,
+                # Phase 1: Explicit checklist for mandatory requirement tracking
+                "explicit_checklist": job_requirements.explicit_checklist,
             }
         
         return self.prompt_engine.build_proposal_prompt(

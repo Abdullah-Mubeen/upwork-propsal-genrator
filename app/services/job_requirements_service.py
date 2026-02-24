@@ -72,6 +72,11 @@ class JobRequirements:
     # Key phrases to echo (client's exact words for resonance)
     key_phrases_to_echo: List[str] = field(default_factory=list)  # Words to use in proposal for rapport
     
+    # ====== PHASE 1: Explicit Checklist & Source Tracking ======
+    
+    # Parsed checklist from "Please include" / "How to Apply" sections
+    explicit_checklist: List[Dict[str, Any]] = field(default_factory=list)
+    
     # Metadata
     extraction_confidence: float = 0.0            # How confident in extraction (0-1)
     extracted_at: str = ""                        # ISO timestamp
@@ -149,13 +154,14 @@ JOB_REQUIREMENTS_FUNCTION = {
             "working_arrangement": {
                 "type": "object",
                 "properties": {
-                    "timezone": {"type": "string", "description": "Required timezone if specified (e.g., 'EST', 'PST', 'UTC')"},
+                    "timezone": {"type": "string", "description": "Required timezone if specified (e.g., 'EST', 'PST', 'UTC'). Leave empty if not mentioned."},
+                    "timezone_source": {"type": "string", "enum": ["explicit", "inferred", "none"], "description": "CRITICAL: 'explicit' ONLY if client wrote exact timezone (EST, PST, UTC, etc). 'inferred' if you guessed from context. 'none' if no timezone mentioned at all."},
                     "hours": {"type": "string", "description": "Required working hours if specified (e.g., '9 AM - 5 PM')"},
                     "arrangement_type": {"type": "string", "enum": ["ongoing", "one_time", "contract", "full_time", "part_time", "flexible"], "description": "Type of engagement"},
                     "overlap_required": {"type": "boolean", "description": "Whether timezone overlap is mandatory"},
                     "responsiveness_expectation": {"type": "string", "description": "Expected response time during work hours"}
                 },
-                "description": "Working arrangement details - timezone, hours, ongoing vs one-time, responsiveness expectations. CRITICAL for service-based roles."
+                "description": "Working arrangement details. CRITICAL: timezone_source must be 'explicit' ONLY if client literally wrote a timezone. Otherwise use 'none'."
             },
             "application_requirements": {
                 "type": "array",
@@ -185,6 +191,20 @@ JOB_REQUIREMENTS_FUNCTION = {
             "extraction_confidence": {
                 "type": "number",
                 "description": "Your confidence in this extraction from 0.0 to 1.0. Lower if job description is vague or ambiguous."
+            },
+            "explicit_checklist": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "item_text": {"type": "string", "description": "The exact requirement text from client"},
+                        "item_type": {"type": "string", "enum": ["portfolio_links", "time_estimate_total", "time_estimate_phased", "experience_question", "preference_question", "approach_description", "specific_answer", "other"], "description": "Category of requirement"},
+                        "quantity_requested": {"type": "integer", "description": "Number requested if specified (e.g., '2-3 examples' = 2)"},
+                        "specificity_required": {"type": "boolean", "description": "True if client says 'be specific' or similar"},
+                        "answer_hint": {"type": "string", "description": "What kind of answer is expected"}
+                    }
+                },
+                "description": "CRITICAL: Parse numbered/bulleted requirements from 'Please include', 'How to Apply', 'In your proposal' sections. Each item becomes one checklist entry. This ensures we address ALL requirements."
             }
         },
         "required": [
@@ -200,7 +220,8 @@ JOB_REQUIREMENTS_FUNCTION = {
             "client_priorities",
             "must_not_propose",
             "key_phrases_to_echo",
-            "extraction_confidence"
+            "extraction_confidence",
+            "explicit_checklist"
         ]
     }
 }
@@ -230,6 +251,29 @@ COMMON EXTRACTION MISTAKES TO AVOID:
 - Being too generic in exact_task (loses the context of WHO they want)
 - Not capturing what matters MOST to the client (misaligned proposals)
 - Suggesting technologies/approaches they didn't ask for (annoying to clients)
+
+PHASE 1 CRITICAL ADDITIONS:
+
+13. 'timezone_source' in working_arrangement:
+   - Set to 'explicit' ONLY if client literally wrote: EST, PST, UTC, GMT, or specific timezone
+   - Set to 'none' if no timezone is mentioned at all
+   - Set to 'inferred' ONLY if you're guessing from context (rare - avoid this)
+   - DEFAULT TO 'none' if unsure - this prevents hallucination
+
+14. 'explicit_checklist' - PARSE EVERY NUMBERED/BULLETED REQUIREMENT:
+   - Look for: "Please include", "How to Apply", "In your proposal", numbered lists
+   - Parse quantity: "2-3 examples" → quantity_requested: 2
+   - Parse specificity: "be specific", "please elaborate" → specificity_required: true
+   - Determine type: portfolio links, time estimates, experience questions, etc.
+   - This ensures the proposal addresses EVERY client requirement
+
+EXAMPLE explicit_checklist parsing:
+Input: "Please include: 1. 2-3 WordPress examples 2. Time estimate for each phase 3. Do you have RTL experience? Be specific"
+Output: [
+  {"item_text": "2-3 WordPress examples", "item_type": "portfolio_links", "quantity_requested": 2, "specificity_required": false, "answer_hint": "WordPress sites"},
+  {"item_text": "Time estimate for each phase", "item_type": "time_estimate_phased", "quantity_requested": 0, "specificity_required": false, "answer_hint": "breakdown per phase"},
+  {"item_text": "Do you have RTL experience? Be specific", "item_type": "experience_question", "quantity_requested": 0, "specificity_required": true, "answer_hint": "RTL/Hebrew projects"}
+]
 
 Your extraction directly influences proposal quality - precision matters. A great extraction enables a great proposal that addresses EXACTLY what the client cares about."""
 
@@ -509,6 +553,8 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
             "client_priorities": requirements.client_priorities,
             "must_not_propose": requirements.must_not_propose,  # CRITICAL: What NOT to suggest
             "key_phrases_to_echo": requirements.key_phrases_to_echo,
+            # Phase 1: Explicit checklist for mandatory requirements
+            "explicit_checklist": requirements.explicit_checklist,
         }
 
 
