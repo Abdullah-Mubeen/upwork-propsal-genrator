@@ -460,9 +460,9 @@ CONVERSATIONAL TONE:
         if not checklist:
             return ""
         
-        # Phase 2: Get capability analysis results
-        capability_analysis = requirements.get("capability_analysis", {})
-        factual_answers = requirements.get("factual_answers", {})
+        # Phase 2: Get capability analysis results (with safe fallback to empty dict)
+        capability_analysis = requirements.get("capability_analysis") or {}
+        factual_answers = requirements.get("factual_answers") or {}
         
         # Collect available portfolio URLs
         available_urls = []
