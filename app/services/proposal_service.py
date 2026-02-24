@@ -59,6 +59,8 @@ class ProposalResult:
     confidence_score: float = 0.0
     improvement_suggestions: Optional[List[str]] = None
     error_message: Optional[str] = None
+    # Phase 3: Post-generation validation warnings
+    validation_warnings: Optional[List[str]] = None
 
 
 class ProposalService:
@@ -193,6 +195,14 @@ class ProposalService:
             # Step 6: Generate proposal
             proposal_text, word_count = self._generate_with_ai(prompt, request.max_word_count)
             
+            # Step 6.5: Validate proposal against requirements (Phase 3)
+            validation_warnings = self._validate_proposal(
+                proposal_text=proposal_text,
+                job_requirements=job_requirements if 'job_requirements' in dir() else None,
+                capability_analysis=capability_analysis,
+                portfolio_links=portfolio_links
+            )
+            
             # Step 7: Score quality
             confidence_score, suggestions = self._score_proposal(
                 proposal_text=proposal_text,
@@ -212,7 +222,8 @@ class ProposalService:
                 feedback_urls_used=feedback_urls,
                 insights=retrieval_result.get("insights"),
                 confidence_score=confidence_score,
-                improvement_suggestions=suggestions
+                improvement_suggestions=suggestions,
+                validation_warnings=validation_warnings
             )
             
         except Exception as e:
@@ -782,6 +793,131 @@ Write a {request.tone} proposal in approximately {request.max_word_count} words.
         
         return proposal_text, word_count
     
+    def _validate_proposal(
+        self,
+        proposal_text: str,
+        job_requirements: Optional[Any],
+        capability_analysis: Optional[Dict[str, Any]],
+        portfolio_links: List[str]
+    ) -> Optional[List[str]]:
+        """
+        Phase 3: Post-generation validation to detect issues.
+        
+        Validates:
+        1. All checklist items are addressed in the proposal
+        2. No timezone hallucination (only mention if source was explicit)
+        3. UNSATISFIED capabilities aren't claimed as strengths
+        4. Requested portfolio links are included
+        
+        Returns:
+            List of warning messages or None if all checks pass
+        """
+        warnings = []
+        proposal_lower = proposal_text.lower()
+        
+        # === Check 1: Checklist coverage ===
+        if job_requirements and hasattr(job_requirements, 'explicit_checklist'):
+            checklist = job_requirements.explicit_checklist or []
+            for item in checklist:
+                item_text = item.get("item_text", "")
+                item_type = item.get("item_type", "")
+                
+                # Extract keywords from the checklist item for matching
+                keywords = self._extract_validation_keywords(item_text, item_type)
+                
+                if keywords and not any(kw in proposal_lower for kw in keywords):
+                    warnings.append(f"⚠️ May not address: '{item_text[:60]}...'")
+        
+        # === Check 2: Timezone hallucination ===
+        if job_requirements and hasattr(job_requirements, 'working_arrangement'):
+            working = job_requirements.working_arrangement or {}
+            tz_source = working.get("timezone_source", "none")
+            
+            # If timezone wasn't explicitly stated, check for hallucination
+            if tz_source != "explicit":
+                tz_patterns = ["utc", "gmt", "est", "pst", "cet", "timezone", "time zone"]
+                for pattern in tz_patterns:
+                    if pattern in proposal_lower:
+                        warnings.append(
+                            f"🚨 HALLUCINATION: Mentions '{pattern.upper()}' but client didn't specify timezone"
+                        )
+                        break
+        
+        # === Check 3: Unsatisfied capability claims ===
+        if capability_analysis:
+            for item_text, analysis in capability_analysis.items():
+                if analysis.get("status") == "UNSATISFIED":
+                    # Check if proposal makes strong claims about this area
+                    keywords = self._extract_validation_keywords(item_text, "experience_question")
+                    strong_claim_patterns = [
+                        "extensive experience", "expert in", "deep expertise",
+                        "years of experience with", "specialized in"
+                    ]
+                    for pattern in strong_claim_patterns:
+                        if pattern in proposal_lower:
+                            # Check if near the unsatisfied topic
+                            for kw in keywords[:2]:
+                                if kw in proposal_lower:
+                                    # Find if they're close together (within 100 chars)
+                                    pattern_pos = proposal_lower.find(pattern)
+                                    kw_pos = proposal_lower.find(kw)
+                                    if abs(pattern_pos - kw_pos) < 100:
+                                        warnings.append(
+                                            f"🚨 UNSUPPORTED CLAIM: Strong claim near '{kw}' "
+                                            f"but portfolio shows UNSATISFIED"
+                                        )
+                                        break
+        
+        # === Check 4: Portfolio link inclusion ===
+        if portfolio_links:
+            links_found = sum(1 for link in portfolio_links if link in proposal_text)
+            
+            # Check if checklist required specific number of links
+            if job_requirements and hasattr(job_requirements, 'explicit_checklist'):
+                for item in (job_requirements.explicit_checklist or []):
+                    if item.get("item_type") == "portfolio_links":
+                        qty_requested = item.get("quantity_requested", 0)
+                        if qty_requested and links_found < qty_requested:
+                            warnings.append(
+                                f"⚠️ Client asked for {qty_requested} portfolio links, "
+                                f"but only {links_found} found in proposal"
+                            )
+                        break
+        
+        return warnings if warnings else None
+    
+    def _extract_validation_keywords(self, text: str, item_type: str) -> List[str]:
+        """
+        Extract keywords from checklist item for validation matching.
+        
+        Returns lowercase keywords that should appear in proposal if item is addressed.
+        """
+        # Common stopwords to filter
+        stopwords = {
+            "the", "a", "an", "is", "are", "was", "were", "be", "been",
+            "have", "has", "had", "do", "does", "did", "will", "would",
+            "could", "should", "may", "might", "must", "can", "your",
+            "you", "i", "we", "they", "it", "this", "that", "these",
+            "those", "with", "for", "and", "or", "but", "in", "on",
+            "at", "to", "from", "by", "about", "please", "share",
+            "provide", "describe", "explain", "tell", "us", "me"
+        }
+        
+        # Extract meaningful keywords
+        words = text.lower().split()
+        keywords = [w.strip(".,?!:;()[]{}") for w in words if len(w) > 2]
+        keywords = [w for w in keywords if w not in stopwords]
+        
+        # Add type-specific keywords
+        if item_type == "portfolio_links":
+            keywords.extend(["portfolio", "example", "project", "link", "url", "site"])
+        elif item_type == "time_estimate_phased":
+            keywords.extend(["day", "week", "phase", "timeline", "estimate"])
+        elif item_type == "experience_question":
+            keywords.extend(["experience", "built", "developed", "worked"])
+        
+        return keywords[:10]  # Limit to most relevant
+
     def _score_proposal(
         self,
         proposal_text: str,
