@@ -142,6 +142,21 @@ class ProposalService:
             # Filter to projects with portfolio
             similar_projects = self._filter_projects_with_portfolio(similar_projects)
             
+            # Step 2.5: Phase 2 - Analyze capability and get factual answers
+            capability_analysis = None
+            factual_answers = {}
+            if job_requirements and job_requirements.explicit_checklist:
+                capability_analysis = self._analyze_checklist_capability(
+                    job_requirements.explicit_checklist,
+                    similar_projects,
+                    all_jobs
+                )
+                factual_answers = self._get_factual_answers(
+                    job_requirements.explicit_checklist,
+                    request.org_id
+                )
+                logger.info(f"[ProposalService] Capability coverage: {capability_analysis.get('overall_coverage', 0):.0%}, facts: {list(factual_answers.keys())}")
+            
             # Step 3: Analyze previous proposals
             previous_insights = None
             if request.include_previous_proposals and similar_projects:
@@ -170,7 +185,9 @@ class ProposalService:
                 feedback_urls=feedback_urls,
                 request=request,
                 profile_context=profile_context,
-                job_requirements=job_requirements if 'job_requirements' in dir() else None
+                job_requirements=job_requirements if 'job_requirements' in dir() else None,
+                capability_analysis=capability_analysis,
+                factual_answers=factual_answers
             )
             
             # Step 6: Generate proposal
@@ -428,6 +445,133 @@ class ProposalService:
         
         return filtered if filtered else projects
     
+    def _analyze_checklist_capability(
+        self,
+        checklist: List[Dict[str, Any]],
+        similar_projects: List[Dict[str, Any]],
+        all_jobs: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Phase 2: Analyze if portfolio can satisfy explicit checklist requirements.
+        
+        Returns capability analysis with status (SATISFIED/PARTIAL/UNSATISFIED) per item.
+        """
+        if not checklist:
+            return {"items": [], "overall_coverage": 1.0}
+        
+        # Collect all available portfolio URLs and skills
+        all_urls = []
+        all_skills = set()
+        for p in similar_projects + all_jobs[:20]:
+            urls = p.get("portfolio_urls", [])
+            if isinstance(urls, list):
+                all_urls.extend([u for u in urls if u])
+            skills = p.get("skills_required", []) or p.get("skills", [])
+            all_skills.update(s.lower() for s in skills if s)
+        
+        analysis = {"items": [], "overall_coverage": 0}
+        satisfied_count = 0
+        
+        for item in checklist:
+            item_type = item.get("item_type", "other")
+            qty_needed = item.get("quantity_requested", 1) or 1
+            item_text = item.get("item_text", "").lower()
+            
+            result = {"item": item, "status": "UNSATISFIED", "evidence": [], "strategy": ""}
+            
+            if item_type == "portfolio_links":
+                # Check if we have enough portfolio URLs
+                if len(all_urls) >= qty_needed:
+                    result["status"] = "SATISFIED"
+                    result["evidence"] = all_urls[:qty_needed]
+                    result["strategy"] = "direct_evidence"
+                elif all_urls:
+                    result["status"] = "PARTIAL"
+                    result["evidence"] = all_urls
+                    result["strategy"] = f"have {len(all_urls)} of {qty_needed} requested"
+                else:
+                    result["strategy"] = "acknowledge_gap_pivot_to_skills"
+            
+            elif item_type in ["experience_question", "specific_answer"]:
+                # Check if we have relevant skills/projects
+                keywords = [w for w in item_text.split() if len(w) > 3]
+                matches = [s for s in all_skills if any(k in s for k in keywords)]
+                if matches:
+                    result["status"] = "PARTIAL" if len(matches) < 3 else "SATISFIED"
+                    result["evidence"] = list(matches)[:5]
+                    result["strategy"] = "cite_relevant_experience"
+                else:
+                    result["strategy"] = "honest_transferable_skills"
+            
+            elif item_type in ["time_estimate_total", "time_estimate_phased"]:
+                # Always can provide estimate
+                result["status"] = "SATISFIED"
+                result["strategy"] = "provide_estimate"
+            
+            elif item_type in ["preference_question", "approach_description"]:
+                # Always can provide opinion/approach
+                result["status"] = "SATISFIED"
+                result["strategy"] = "provide_recommendation"
+            
+            else:
+                result["status"] = "PARTIAL"
+                result["strategy"] = "address_directly"
+            
+            if result["status"] == "SATISFIED":
+                satisfied_count += 1
+            elif result["status"] == "PARTIAL":
+                satisfied_count += 0.5
+            
+            analysis["items"].append(result)
+        
+        analysis["overall_coverage"] = satisfied_count / len(checklist) if checklist else 1.0
+        return analysis
+    
+    def _get_factual_answers(
+        self,
+        checklist: List[Dict[str, Any]],
+        org_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Phase 2: Query database for factual answers to client questions.
+        
+        Answers questions like "How many WordPress sites have you built?"
+        """
+        if not self.db or not checklist:
+            return {}
+        
+        facts = {}
+        
+        for item in checklist:
+            if item.get("item_type") != "experience_question":
+                continue
+            
+            text = item.get("item_text", "").lower()
+            
+            # Pattern: "how many [tech] sites/projects"
+            if "how many" in text:
+                tech_keywords = ["wordpress", "shopify", "react", "woocommerce", "elementor", 
+                               "website", "site", "project", "app", "application"]
+                for tech in tech_keywords:
+                    if tech in text:
+                        try:
+                            # Query portfolio or training data
+                            collection = self.db.db.portfolio_items if org_id else self.db.db.training_data
+                            query = {"skills": {"$regex": tech, "$options": "i"}} if org_id else {
+                                "$or": [
+                                    {"skills_required": {"$regex": tech, "$options": "i"}},
+                                    {"job_title": {"$regex": tech, "$options": "i"}}
+                                ]
+                            }
+                            count = collection.count_documents(query)
+                            if count > 0:
+                                facts[f"{tech}_count"] = count
+                        except Exception as e:
+                            logger.debug(f"Factual query error: {e}")
+                        break
+        
+        return facts
+    
     def _analyze_previous_proposals(
         self,
         similar_projects: List[Dict[str, Any]]
@@ -529,7 +673,9 @@ class ProposalService:
         feedback_urls: List[str],
         request: ProposalRequest,
         profile_context: Optional[Dict[str, Any]] = None,
-        job_requirements: Optional[Any] = None
+        job_requirements: Optional[Any] = None,
+        capability_analysis: Optional[Dict[str, Any]] = None,
+        factual_answers: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build the proposal generation prompt with enhanced job understanding."""
         if not self.prompt_engine:
@@ -560,6 +706,9 @@ class ProposalService:
                 "key_phrases_to_echo": job_requirements.key_phrases_to_echo,
                 # Phase 1: Explicit checklist for mandatory requirement tracking
                 "explicit_checklist": job_requirements.explicit_checklist,
+                # Phase 2: Capability analysis and factual answers
+                "capability_analysis": capability_analysis,
+                "factual_answers": factual_answers or {},
             }
         
         return self.prompt_engine.build_proposal_prompt(

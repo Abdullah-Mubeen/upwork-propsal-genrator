@@ -448,9 +448,10 @@ CONVERSATIONAL TONE:
         similar_projects: List[Dict[str, Any]]
     ) -> str:
         """
-        Phase 1: Build MANDATORY checklist section for explicit client requirements.
+        Phase 1+2: Build MANDATORY checklist section with capability analysis.
         
-        This enforces addressing every numbered/bulleted requirement from the job post.
+        Enforces addressing every numbered/bulleted requirement from the job post.
+        Now includes capability status (SATISFIED/PARTIAL/UNSATISFIED) and factual data.
         """
         if not requirements:
             return ""
@@ -458,6 +459,10 @@ CONVERSATIONAL TONE:
         checklist = requirements.get("explicit_checklist", [])
         if not checklist:
             return ""
+        
+        # Phase 2: Get capability analysis results
+        capability_analysis = requirements.get("capability_analysis", {})
+        factual_answers = requirements.get("factual_answers", {})
         
         # Collect available portfolio URLs
         available_urls = []
@@ -481,7 +486,27 @@ CONVERSATIONAL TONE:
             hint = item.get("answer_hint", "")
             text = item.get("item_text", "Requirement")
             
+            # Phase 2: Get capability status for this item
+            item_capability = capability_analysis.get(text, {})
+            status = item_capability.get("status", "unknown")
+            supporting = item_capability.get("supporting_evidence", [])
+            suggestion = item_capability.get("suggested_approach", "")
+            
             lines.append(f"{i}. {text.upper()}")
+            
+            # Add capability status indicator
+            if status == "SATISFIED":
+                lines.append(f"   ✅ CAPABILITY: Strong evidence in portfolio")
+                if supporting:
+                    lines.append(f"   📋 Evidence: {'; '.join(supporting[:2])}")
+            elif status == "PARTIAL":
+                lines.append(f"   ⚠️ CAPABILITY: Related but not exact match")
+                if suggestion:
+                    lines.append(f"   💡 Approach: {suggestion}")
+            elif status == "UNSATISFIED":
+                lines.append(f"   ❌ CAPABILITY: No direct evidence - BE HONEST")
+                if suggestion:
+                    lines.append(f"   💡 Approach: {suggestion}")
             
             if item_type == "portfolio_links":
                 urls_to_show = available_urls[:qty] if qty else available_urls[:2]
@@ -500,6 +525,12 @@ CONVERSATIONAL TONE:
                 lines.append("   📅 Provide overall timeline estimate")
             
             elif item_type == "experience_question":
+                # Check for factual answers (e.g., "How many WordPress sites?")
+                factual_key = self._find_factual_key(text, factual_answers)
+                if factual_key and factual_answers.get(factual_key):
+                    fact = factual_answers[factual_key]
+                    lines.append(f"   📊 FACTUAL ANSWER: {fact}")
+                
                 if specific:
                     lines.append("   ⚠️ BE SPECIFIC - name actual projects, not vague claims")
                     lines.append("   ❌ BAD: 'I have experience with RTL'")
@@ -523,6 +554,39 @@ CONVERSATIONAL TONE:
         ])
         
         return "\n".join(lines)
+
+    def _find_factual_key(self, item_text: str, factual_answers: Dict[str, Any]) -> Optional[str]:
+        """
+        Phase 2: Match checklist item to factual answer key.
+        
+        Uses keyword matching to find relevant factual data for the question.
+        """
+        if not factual_answers:
+            return None
+        
+        item_lower = item_text.lower()
+        
+        # Direct key match
+        for key in factual_answers.keys():
+            if key.lower() in item_lower or item_lower in key.lower():
+                return key
+        
+        # Keyword mapping for common patterns
+        keyword_map = {
+            "wordpress": ["wordpress_count", "wordpress_sites", "wp_count"],
+            "how many": ["count", "total", "number"],
+            "years": ["years_experience", "experience_years"],
+            "sites": ["site_count", "websites_count"],
+            "projects": ["project_count", "completed_projects"],
+        }
+        
+        for keyword, possible_keys in keyword_map.items():
+            if keyword in item_lower:
+                for pk in possible_keys:
+                    if pk in factual_answers:
+                        return pk
+        
+        return None
 
     def _get_best_portfolio_url(self, projects: List[Dict[str, Any]]) -> Optional[str]:
         """Get best portfolio URL (prefer non-Upwork)."""
