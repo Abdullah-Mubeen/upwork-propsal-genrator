@@ -77,6 +77,10 @@ class JobRequirements:
     # Parsed checklist from "Please include" / "How to Apply" sections
     explicit_checklist: List[Dict[str, Any]] = field(default_factory=list)
     
+    # ====== SMART QUESTION INJECTION ======
+    # Clarity analysis for deciding whether to ask questions
+    clarity_analysis: Dict[str, Any] = field(default_factory=dict)
+    
     # Metadata
     extraction_confidence: float = 0.0            # How confident in extraction (0-1)
     extracted_at: str = ""                        # ISO timestamp
@@ -205,6 +209,18 @@ JOB_REQUIREMENTS_FUNCTION = {
                     }
                 },
                 "description": "CRITICAL: Parse numbered/bulleted requirements from 'Please include', 'How to Apply', 'In your proposal' sections. Each item becomes one checklist entry. This ensures we address ALL requirements."
+            },
+            "clarity_analysis": {
+                "type": "object",
+                "properties": {
+                    "clarity_level": {"type": "string", "enum": ["clear", "partially_clear", "vague"], "description": "How clear is the job? 'vague' = missing key info like URL, scope, or specific need"},
+                    "missing_info": {"type": "array", "items": {"type": "string"}, "description": "What info would help: 'url', 'scope', 'budget', 'current_state', 'credentials'"},
+                    "job_category": {"type": "string", "enum": ["technical_diagnostic", "feature_build", "design", "content", "maintenance", "consulting", "other"], "description": "Type: 'technical_diagnostic' = speed/debug/fix where URL helps"},
+                    "ask_question": {"type": "boolean", "description": "Should we ask a clarifying question? True only if it would genuinely help AND increase conversation rate"},
+                    "question_placement": {"type": "string", "enum": ["hook_opener", "end_cta", "none"], "description": "Where: 'hook_opener' for technical/diagnostic, 'end_cta' for vague jobs"},
+                    "suggested_question": {"type": "string", "description": "The natural, human-sounding question to ask. Keep casual. Example: 'Could you share the URL so I can take a quick look?' NOT robotic."}
+                },
+                "description": "Analyze if asking a smart question would increase conversation rate. Only ask when genuinely needed - not on every job."
             }
         },
         "required": [
@@ -221,7 +237,8 @@ JOB_REQUIREMENTS_FUNCTION = {
             "must_not_propose",
             "key_phrases_to_echo",
             "extraction_confidence",
-            "explicit_checklist"
+            "explicit_checklist",
+            "clarity_analysis"
         ]
     }
 }

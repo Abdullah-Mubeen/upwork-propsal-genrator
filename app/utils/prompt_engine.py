@@ -431,6 +431,16 @@ CONVERSATIONAL TONE:
         exclude_items.append("❌ NO MARKDOWN: Do not use **bold**, *italic*, or '- **Label:**' formatting")
         exclude_items.append("❌ NO SECTION HEADERS: Write natural paragraphs, not structured sections")
         
+        # === SMART QUESTION INJECTION ===
+        clarity = requirements.get("clarity_analysis") or {} if requirements else {}
+        if clarity.get("ask_question") and clarity.get("suggested_question"):
+            placement = clarity.get("question_placement", "end_cta")
+            question = clarity.get("suggested_question")
+            if placement == "hook_opener":
+                include_items.insert(0, f"✅ OPEN WITH QUESTION: Start the proposal by asking: '{question}' - then briefly show you can help")
+            elif placement == "end_cta":
+                include_items.append(f"✅ END WITH QUESTION: Replace generic CTA with: '{question}'")
+        
         # Build the output
         output = "\n📋 STRATEGIC INSTRUCTIONS (FOLLOW EXACTLY):\n"
         
