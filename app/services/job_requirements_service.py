@@ -77,9 +77,8 @@ class JobRequirements:
     # Parsed checklist from "Please include" / "How to Apply" sections
     explicit_checklist: List[Dict[str, Any]] = field(default_factory=list)
     
-    # ====== SMART QUESTION INJECTION ======
-    # Clarity analysis for deciding whether to ask questions
-    clarity_analysis: Dict[str, Any] = field(default_factory=dict)
+    # Smart question injection (for vague/diagnostic jobs)
+    smart_question: Optional[Dict[str, Any]] = None  # {ask: bool, question: str, reason: str}
     
     # Metadata
     extraction_confidence: float = 0.0            # How confident in extraction (0-1)
@@ -210,17 +209,14 @@ JOB_REQUIREMENTS_FUNCTION = {
                 },
                 "description": "CRITICAL: Parse numbered/bulleted requirements from 'Please include', 'How to Apply', 'In your proposal' sections. Each item becomes one checklist entry. This ensures we address ALL requirements."
             },
-            "clarity_analysis": {
+            "smart_question": {
                 "type": "object",
                 "properties": {
-                    "clarity_level": {"type": "string", "enum": ["clear", "partially_clear", "vague"], "description": "How clear is the job? 'vague' = missing key info like URL, scope, or specific need"},
-                    "missing_info": {"type": "array", "items": {"type": "string"}, "description": "What info would help: 'url', 'scope', 'budget', 'current_state', 'credentials'"},
-                    "job_category": {"type": "string", "enum": ["technical_diagnostic", "feature_build", "design", "content", "maintenance", "consulting", "other"], "description": "Type: 'technical_diagnostic' = speed/debug/fix where URL helps"},
-                    "ask_question": {"type": "boolean", "description": "Should we ask a clarifying question? True only if it would genuinely help AND increase conversation rate"},
-                    "question_placement": {"type": "string", "enum": ["hook_opener", "end_cta", "none"], "description": "Where: 'hook_opener' for technical/diagnostic, 'end_cta' for vague jobs"},
-                    "suggested_question": {"type": "string", "description": "The natural, human-sounding question to ask. Keep casual. Example: 'Could you share the URL so I can take a quick look?' NOT robotic."}
+                    "ask": {"type": "boolean", "description": "True if asking a question would help (vague scope, needs URL for diagnosis, unclear requirements)"},
+                    "question": {"type": "string", "description": "Natural conversational question to ask. Keep short. Examples: 'Could you share the site URL so I can take a quick look?', 'Is this for an existing site or starting fresh?'"},
+                    "reason": {"type": "string", "enum": ["needs_url", "vague_scope", "missing_details", "clarify_approach"], "description": "Why asking helps"}
                 },
-                "description": "Analyze if asking a smart question would increase conversation rate. Only ask when genuinely needed - not on every job."
+                "description": "SMART QUESTION: Ask ONLY when it genuinely helps - speed optimization (need URL), unclear scope, missing critical details. Don't ask for clear jobs. Question should feel natural, not interrogating."
             }
         },
         "required": [
@@ -238,7 +234,7 @@ JOB_REQUIREMENTS_FUNCTION = {
             "key_phrases_to_echo",
             "extraction_confidence",
             "explicit_checklist",
-            "clarity_analysis"
+            "smart_question"
         ]
     }
 }
@@ -291,6 +287,22 @@ Output: [
   {"item_text": "Time estimate for each phase", "item_type": "time_estimate_phased", "quantity_requested": 0, "specificity_required": false, "answer_hint": "breakdown per phase"},
   {"item_text": "Do you have RTL experience? Be specific", "item_type": "experience_question", "quantity_requested": 0, "specificity_required": true, "answer_hint": "RTL/Hebrew projects"}
 ]
+
+15. 'smart_question' - ASK A QUESTION ONLY WHEN IT GENUINELY HELPS:
+   ASK when:
+   - Speed optimization/performance jobs → need URL to diagnose
+   - Debugging/fixing jobs → need access or more details
+   - Vague 1-2 sentence descriptions → scope is unclear
+   - Missing critical info that affects approach
+   
+   DON'T ASK when:
+   - Job is clear and actionable
+   - Simple installation/setup tasks
+   - Client provided all needed details
+   
+   Question style: Conversational, not interrogating. Combine with experience.
+   Example for "Fix my slow WordPress site":
+   → ask: true, question: "Could you share the URL? I'll take a look - I've optimized dozens of WordPress sites including [example]", reason: "needs_url"
 
 Your extraction directly influences proposal quality - precision matters. A great extraction enables a great proposal that addresses EXACTLY what the client cares about."""
 
@@ -424,6 +436,11 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
             
             logger.info(f"[JobRequirements] Extracted: task='{requirements.exact_task[:50]}...', "
                        f"tone={requirements.client_tone}, confidence={requirements.extraction_confidence:.2f}")
+            
+            # Log smart_question for debugging
+            if requirements.smart_question:
+                logger.info(f"[JobRequirements] Smart question: ask={requirements.smart_question.get('ask')}, "
+                           f"reason={requirements.smart_question.get('reason')}")
             
             return requirements
             
@@ -572,6 +589,8 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
             "key_phrases_to_echo": requirements.key_phrases_to_echo,
             # Phase 1: Explicit checklist for mandatory requirements
             "explicit_checklist": requirements.explicit_checklist,
+            # Smart question injection
+            "smart_question": requirements.smart_question,
         }
 
 

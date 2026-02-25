@@ -719,9 +719,8 @@ class ProposalService:
                 "explicit_checklist": job_requirements.explicit_checklist,
                 # Phase 2: Capability analysis and factual answers
                 "capability_analysis": capability_analysis,
-                "factual_answers": factual_answers or {},
-                # Smart question injection
-                "clarity_analysis": job_requirements.clarity_analysis,
+                "factual_answers": factual_answers or {}, 
+                "smart_question": job_requirements.smart_question,
             }
         
         return self.prompt_engine.build_proposal_prompt(

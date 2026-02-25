@@ -291,6 +291,18 @@ CONVERSATIONAL TONE:
         
         guidance_parts = []
         
+        # Smart question injection (PRIORITY - if asking will help)
+        smart_q = requirements.get("smart_question") or {}
+        if smart_q.get("ask") and smart_q.get("question"):
+            question = smart_q["question"]
+            reason = smart_q.get("reason", "clarify")
+            logger.info(f"[PromptEngine] Injecting smart question: {question[:50]}...")
+            guidance_parts.append(f'''   🚨 OPEN WITH QUESTION (FIRST 1-2 SENTENCES):
+      "{question}"
+      ❌ DO NOT put this at the end - START with it
+      ✅ Pattern: "[Question] + I've done similar work at [example]"
+      Example: "Could you share the URL? I've optimized dozens of WP sites including example.com"''')
+        
         # Working arrangement hook (CRITICAL for service roles)
         working = requirements.get("working_arrangement", {})
         if working.get("timezone") or working.get("arrangement_type"):
@@ -431,16 +443,6 @@ CONVERSATIONAL TONE:
         exclude_items.append("❌ NO MARKDOWN: Do not use **bold**, *italic*, or '- **Label:**' formatting")
         exclude_items.append("❌ NO SECTION HEADERS: Write natural paragraphs, not structured sections")
         
-        # === SMART QUESTION INJECTION ===
-        clarity = requirements.get("clarity_analysis") or {} if requirements else {}
-        if clarity.get("ask_question") and clarity.get("suggested_question"):
-            placement = clarity.get("question_placement", "end_cta")
-            question = clarity.get("suggested_question")
-            if placement == "hook_opener":
-                include_items.insert(0, f"✅ OPEN WITH QUESTION: Start the proposal by asking: '{question}' - then briefly show you can help")
-            elif placement == "end_cta":
-                include_items.append(f"✅ END WITH QUESTION: Replace generic CTA with: '{question}'")
-        
         # Build the output
         output = "\n📋 STRATEGIC INSTRUCTIONS (FOLLOW EXACTLY):\n"
         
@@ -449,6 +451,18 @@ CONVERSATIONAL TONE:
         
         if exclude_items:
             output += "\n\nWHAT TO EXCLUDE (CRITICAL):\n" + "\n".join(exclude_items)
+        
+        # Add smart question opener instruction if needed
+        smart_q = requirements.get("smart_question") or {} if requirements else {}
+        if smart_q.get("ask") and smart_q.get("question"):
+            question = smart_q["question"]
+            output = f"""
+⚡ MANDATORY OPENER - YOUR FIRST SENTENCE:
+"{question}"
+Then immediately follow with relevant experience/portfolio link.
+Example: "{question} I just finished optimizing [similar site] - here's the result: [URL]"
+DO NOT put this question at the end. START your proposal with it.
+""" + output
         
         return output
 
