@@ -753,14 +753,29 @@ Tech: LangChain + Pinecone + FastAPI + MongoDB"""
         return "automated processing"
 
     def _extract_main_problem(self, job_desc: str, analysis: JobAnalysis) -> str:
-        """Extract the main problem being described"""
-        # First check specific details
+        """Extract the main problem being described.
+        
+        PRIORITY ORDER:
+        1. Semantic pain_points (from OpenAI extraction) - most accurate
+        2. Specific details with problem keywords
+        3. Regex pattern matching
+        4. Fallback to task type
+        """
+        # PRIORITY 1: Use semantic pain points if available (from job_requirements_service)
+        if analysis.pain_points:
+            # Return the first meaningful pain point
+            for pain in analysis.pain_points:
+                if pain and len(pain) > 5:  # Skip too-short entries
+                    logger.debug(f"Using semantic pain point: {pain}")
+                    return pain
+        
+        # PRIORITY 2: Check specific details with problem keywords
         if analysis.specific_details:
             for detail in analysis.specific_details:
                 if any(word in detail.lower() for word in ["slow", "seconds", "not working", "broken"]):
                     return detail
         
-        # Check for common problem phrases
+        # PRIORITY 3: Regex pattern matching
         problem_patterns = [
             r"(\w+\s+(?:is|are)\s+(?:not working|broken|slow|failing))",
             r"((?:slow|poor|bad)\s+\w+)",
@@ -772,7 +787,7 @@ Tech: LangChain + Pinecone + FastAPI + MongoDB"""
             if match:
                 return match.group(1)
         
-        # Fallback to task type
+        # PRIORITY 4: Fallback to task type
         return f"{analysis.task_type}" if analysis.task_type != "general" else "this issue"
 
     def _infer_consequence(self, analysis: JobAnalysis) -> str:

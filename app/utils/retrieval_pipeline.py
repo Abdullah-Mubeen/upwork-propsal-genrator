@@ -506,6 +506,43 @@ class RetrievalPipeline:
         
         return platform2 in related_platforms.get(platform1, [])
 
+    def _are_related_industries(self, industry1: str, industry2: str) -> bool:
+        """
+        Check if two industries are related for cross-industry relevance.
+        
+        Example: e-commerce and retail are related, saas and tech are related.
+        This enables partial industry boost when exact match isn't available.
+        """
+        if not industry1 or not industry2:
+            return False
+        
+        industry1 = industry1.lower()
+        industry2 = industry2.lower()
+        
+        # Define related industries (bi-directional)
+        related_industries = {
+            "e-commerce": ["retail", "fashion", "marketplace", "wholesale"],
+            "retail": ["e-commerce", "fashion", "marketplace", "wholesale"],
+            "saas": ["tech", "software", "startup", "b2b"],
+            "tech": ["saas", "software", "startup", "it"],
+            "healthcare": ["medical", "pharmacy", "fitness", "wellness"],
+            "medical": ["healthcare", "pharmacy", "biotech", "wellness"],
+            "finance": ["fintech", "banking", "insurance", "crypto"],
+            "fintech": ["finance", "banking", "crypto", "payments"],
+            "education": ["edtech", "training", "courses", "learning"],
+            "edtech": ["education", "training", "courses", "learning"],
+            "media": ["entertainment", "publishing", "news", "content"],
+            "entertainment": ["media", "gaming", "streaming", "content"],
+            "real-estate": ["property", "construction", "hospitality"],
+            "hospitality": ["travel", "tourism", "real-estate", "events"],
+            "legal": ["law", "compliance", "consulting"],
+            "consulting": ["agency", "professional-services", "legal"],
+            "agency": ["consulting", "marketing", "creative"],
+            "marketing": ["agency", "advertising", "media", "creative"],
+        }
+        
+        return industry2 in related_industries.get(industry1, [])
+
     def _semantic_rank(
         self,
         new_job: Dict[str, Any],
@@ -587,6 +624,24 @@ class RetrievalPipeline:
             else:
                 # Fall back to metadata only
                 combined_score = metadata_sim
+            
+            # INDUSTRY BOOST: Prioritize projects from matching industry (Issue #24)
+            # Industry match is important for showing relevant domain experience
+            if job_requirements and job_requirements.inferred_industry:
+                job_industry = job_requirements.inferred_industry.lower()
+                project_industry = job.get("industry", "").lower() if job.get("industry") else ""
+                
+                if job_industry != "general" and project_industry:
+                    if job_industry == project_industry:
+                        # Direct match - strong boost
+                        industry_boost = 0.12
+                        combined_score += industry_boost
+                        logger.debug(f"  → Industry match boost: {job_industry} (+{industry_boost})")
+                    elif self._are_related_industries(job_industry, project_industry):
+                        # Related industries - smaller boost
+                        industry_boost = 0.06
+                        combined_score += industry_boost
+                        logger.debug(f"  → Related industry boost: {job_industry}~{project_industry} (+{industry_boost})")
             
             # PORTFOLIO BOOST: Prioritize portfolio entries as they have verified work samples
             # Portfolio entries have real portfolio URLs that can be referenced in proposals
