@@ -240,8 +240,14 @@ class HookStrategyEngine:
         # Detect urgency level (1-5)
         urgency = self._detect_urgency(combined_text)
         
-        # Extract pain points
-        pain_points = self._extract_pain_points(combined_text)
+        # Extract pain points - prefer semantic extraction from job_requirements_service
+        # client_problems is added by proposal_service.py from problems_mentioned
+        if job_data.get("client_problems"):
+            pain_points = job_data["client_problems"]
+            logger.debug(f"[JobAnalysis] Using semantic pain points: {pain_points[:2]}")
+        else:
+            pain_points = self._extract_pain_points(combined_text)
+            logger.debug(f"[JobAnalysis] Using rule-based pain points: {pain_points[:2]}")
         
         # Extract specific details (numbers, tools, etc.)
         specific_details = self._extract_specific_details(job_data)
