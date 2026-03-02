@@ -212,11 +212,11 @@ JOB_REQUIREMENTS_FUNCTION = {
             "smart_question": {
                 "type": "object",
                 "properties": {
-                    "ask": {"type": "boolean", "description": "True if asking a question would help (vague scope, needs URL for diagnosis, unclear requirements)"},
-                    "question": {"type": "string", "description": "Natural conversational question to ask. Keep short. Examples: 'Could you share the site URL so I can take a quick look?', 'Is this for an existing site or starting fresh?'"},
-                    "reason": {"type": "string", "enum": ["needs_url", "vague_scope", "missing_details", "clarify_approach"], "description": "Why asking helps"}
+                    "ask": {"type": "boolean", "description": "True if asking a question would help. CRITICAL: For clear jobs, ONLY ask if client mentions specific assets (Figma, designs, docs) but doesn't share them."},
+                    "question": {"type": "string", "description": "Natural conversational question. For mentioned-but-not-shared assets: 'Could you share the Figma file? I'd love to review the designs to give you an accurate timeline.' For diagnostics: 'Could you share the site URL so I can take a look?'"},
+                    "reason": {"type": "string", "enum": ["needs_url", "needs_design_files", "vague_scope", "missing_details", "clarify_approach"], "description": "Why asking helps. Use 'needs_design_files' when client mentions having Figma/designs/mockups but doesn't share the link."}
                 },
-                "description": "SMART QUESTION: Ask ONLY when it genuinely helps - speed optimization (need URL), unclear scope, missing critical details. Don't ask for clear jobs. Question should feel natural, not interrogating."
+                "description": "SMART QUESTION: Ask when it genuinely helps. PRIORITY: If client mentions having assets (Figma, designs, docs, API specs) but doesn't share them → ask for the link. For clear jobs with all info provided → set ask: false. For vague jobs → ask clarifying question."
             }
         },
         "required": [
@@ -289,20 +289,28 @@ Output: [
 ]
 
 15. 'smart_question' - ASK A QUESTION ONLY WHEN IT GENUINELY HELPS:
-   ASK when:
+   
+   PRIORITY 1 - MENTIONED BUT NOT SHARED ASSETS:
+   If client says "We have Figma designs" / "I have mockups" / "designs are ready" BUT doesn't share link:
+   → ask: true, question: "Could you share the Figma file? I'd love to review the designs to give you an accurate timeline.", reason: "needs_design_files"
+   This is ALWAYS worth asking - it's practical, not interrogating.
+   
+   PRIORITY 2 - DIAGNOSTIC/PERFORMANCE JOBS:
    - Speed optimization/performance jobs → need URL to diagnose
    - Debugging/fixing jobs → need access or more details
+   → ask: true, question: "Could you share the URL? I'll take a look...", reason: "needs_url"
+   
+   PRIORITY 3 - VAGUE SCOPE:
    - Vague 1-2 sentence descriptions → scope is unclear
    - Missing critical info that affects approach
+   → ask: true, reason: "vague_scope" or "missing_details"
    
    DON'T ASK when:
-   - Job is clear and actionable
-   - Simple installation/setup tasks
-   - Client provided all needed details
+   - Job is clear AND all assets/resources are already shared
+   - Simple installation/setup tasks with full details
+   - Client provided everything needed
    
-   Question style: Conversational, not interrogating. Combine with experience.
-   Example for "Fix my slow WordPress site":
-   → ask: true, question: "Could you share the URL? I'll take a look - I've optimized dozens of WordPress sites including [example]", reason: "needs_url"
+   Question style: Conversational, combine with value. Never interrogate.
 
 Your extraction directly influences proposal quality - precision matters. A great extraction enables a great proposal that addresses EXACTLY what the client cares about."""
 
