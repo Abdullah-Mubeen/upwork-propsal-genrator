@@ -173,7 +173,6 @@ Generate the proposal NOW. Target: {max_words} words (ideal: 200-350).
 9. NEVER mention "one-time project" or "ongoing" UNLESS client specified engagement type
 10. NEVER provide rates, hours, or timeline estimates UNLESS client asked for them
 11. If client provided a document to review, speak as if you've ALREADY reviewed it
-12. If MANDATORY CHECKLIST shows portfolio URLs, you MUST include ALL of them in the proposal
 
 {PROPOSAL_FORMAT_RULES}
 """
@@ -212,8 +211,6 @@ SYSTEM: SHORT, HUMAN, WINNING proposal writer. Write in PLAIN TEXT paragraphs - 
 6. NEVER say "I'll review the document" - speak as if you've ALREADY reviewed it
 7. Write in PLAIN TEXT - absolutely NO markdown formatting (**bold**, - bullet with **label**:, etc.)
 8. Write in NATURAL PARAGRAPHS - do NOT use section headers or structured formatting
-9. ⛔ CLIENT REFERENCE URLs ARE NOT YOUR PORTFOLIO - If client shares a reference site (like "make it like example.com"), NEVER claim that URL as your work. Use ONLY URLs from "VERIFIED PAST PROJECTS" section.
-10. If client asks for N portfolio examples, you MUST include ALL N URLs listed in MANDATORY CHECKLIST
 
 CONVERSATIONAL TONE:
 {examples}
@@ -537,24 +534,12 @@ DO NOT put this question at the end. START your proposal with it.
             
             if item_type == "portfolio_links":
                 urls_to_show = available_urls[:qty] if qty else available_urls[:2]
-                actual_count = len(urls_to_show)
-                
                 if urls_to_show:
-                    # Make instruction UNAMBIGUOUS - LLM must include ALL listed URLs
-                    lines.append(f"   ⛔ MANDATORY PORTFOLIO LINKS - INCLUDE ALL {actual_count}:")
-                    for idx, url in enumerate(urls_to_show, 1):
-                        lines.append(f"      {idx}. {url}")
-                    lines.append(f"   → You MUST reference ALL {actual_count} URLs above in the proposal body")
-                
-                if qty:
-                    if actual_count >= qty:
-                        lines.append(f"   ✅ Have {actual_count} examples (client wants {qty})")
-                    else:
-                        lines.append(f"   ⚠️ SHORTAGE: Only {actual_count} examples but client wants {qty}")
-                        lines.append(f"   → Mention you can share more in follow-up")
-                
-                if not urls_to_show:
+                    lines.append(f"   📎 USE THESE: {', '.join(urls_to_show)}")
+                else:
                     lines.append("   ⚠️ No direct matches - acknowledge and pivot to related experience")
+                if qty:
+                    lines.append(f"   → Client wants {qty}+ examples")
             
             elif item_type == "time_estimate_phased":
                 lines.append("   📅 Provide PER-PHASE breakdown, not just total")
@@ -728,11 +713,6 @@ DO NOT put this question at the end. START your proposal with it.
         if requirements.get("key_phrases_to_echo"):
             phrases = '", "'.join(requirements["key_phrases_to_echo"][:4])
             sections.append(f'💬 USE THESE PHRASES: "{phrases}"')
-
-        # ====== CRITICAL: Client Reference URLs - DO NOT USE AS PORTFOLIO ======
-        if requirements.get("client_reference_urls"):
-            urls = ", ".join(requirements["client_reference_urls"])
-            sections.append(f"⛔ CLIENT REFERENCE URLs (NOT YOUR WORK - DO NOT CLAIM AS PORTFOLIO): {urls}")
 
         if sections:
             return "\n🧠 EXTRACTED JOB UNDERSTANDING (FOLLOW THESE CLOSELY):\n" + "\n".join(sections) + "\n"

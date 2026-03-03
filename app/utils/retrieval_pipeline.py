@@ -28,19 +28,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _normalize_industry(industry: str) -> str:
-    if not industry:
-        return ""
-    
-    # Lowercase and strip
-    normalized = industry.lower().strip()
-    
-    # Remove hyphens, spaces, underscores for comparison
-    normalized = normalized.replace("-", "").replace(" ", "").replace("_", "")
-    
-    return normalized
-
-
 @dataclass
 class FilterCriteria:
     """Metadata filter criteria for Stage 1"""
@@ -195,10 +182,8 @@ class RetrievalPipeline:
             # Use extracted tech stack as additional skills
             if job_requirements.tech_stack_mentioned:
                 skills = list(set(skills + job_requirements.tech_stack_mentioned))
-            # ALWAYS prefer LLM-extracted industry over rule-based detection
-            if job_requirements.inferred_industry and job_requirements.inferred_industry != "general":
-                if industry and industry != job_requirements.inferred_industry:
-                    logger.info(f"  → Industry override: '{industry}' → '{job_requirements.inferred_industry}' (LLM extraction)")
+            # Use inferred industry if job_data doesn't have one
+            if not industry and job_requirements.inferred_industry:
                 industry = job_requirements.inferred_industry
             # Use extracted complexity
             if job_requirements.complexity_level:
@@ -368,16 +353,10 @@ class RetrievalPipeline:
                     logger.debug(f"  ✗ Excluding {job.get('company_name')} - has competing platform skill")
                     continue
             
-            # Check matches - use normalized industry for flexible matching
+            # Check matches
             job_industry = (job.get("industry") or "").lower()
-            job_industry_normalized = _normalize_industry(job_industry)
-            target_industry_normalized = _normalize_industry(target_industry) if target_industry else ""
-            
-            # Match if normalized versions match OR target is in industry_tags
-            industry_match = target_industry and (
-                job_industry_normalized == target_industry_normalized or 
-                any(_normalize_industry(t) == target_industry_normalized for t in job.get("industry_tags", []))
-            )
+            industry_match = target_industry and (job_industry == target_industry or 
+                            target_industry in [t.lower() for t in job.get("industry_tags", [])])
             platform_match = (job_platform == criteria.platform or 
                              self._are_platforms_related(criteria.platform, job_platform))
             
@@ -395,21 +374,12 @@ class RetrievalPipeline:
                 if set(s.lower() for s in job.get("skills_required", [])) & set(s.lower() for s in criteria.skills):
                     results["skills"].append(job)
         
-        # Count platform+industry matches for logging (using normalized matching)
-        target_norm = _normalize_industry(target_industry) if target_industry else ""
-        platform_industry_count = len([j for j in results["platform"] if target_norm and 
-                                       (_normalize_industry(j.get("industry", "")) == target_norm or
-                                        any(_normalize_industry(t) == target_norm for t in j.get("industry_tags", [])))])
-        
         # Return by priority
         for key in ["urgent", "platform", "industry", "skills"]:
             if results[key]:
                 if key == "urgent":
                     return results["urgent"] + [p for p in results["platform"] if p not in results["urgent"]]
-                if key == "platform" and target_industry:
-                    logger.info(f"  → Found {len(results[key])} {key}-matched projects ({platform_industry_count} also match industry '{target_industry}')")
-                else:
-                    logger.info(f"  → Found {len(results[key])} {key}-matched projects")
+                logger.info(f"  → Found {len(results[key])} {key}-matched projects")
                 return results[key]
         
         # Fallback: non-competing completed projects
