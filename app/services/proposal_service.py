@@ -311,8 +311,12 @@ class ProposalService:
         # Override industry if extracted with high confidence
         if requirements.inferred_industry and requirements.inferred_industry != "general":
             if requirements.extraction_confidence >= 0.6:
+                old_industry = job_data.get("industry", "general")
                 job_data["industry"] = requirements.inferred_industry
-                logger.debug(f"[ProposalService] Industry overridden to: {requirements.inferred_industry}")
+                if old_industry != requirements.inferred_industry:
+                    logger.info(f"[ProposalService] Industry: '{old_industry}' → '{requirements.inferred_industry}' (LLM confidence: {requirements.extraction_confidence:.0%})")
+                else:
+                    logger.info(f"[ProposalService] Industry confirmed: '{requirements.inferred_industry}'" )
         
         # Add complexity for retrieval filtering
         job_data["task_complexity"] = requirements.complexity_level
@@ -721,6 +725,8 @@ class ProposalService:
                 "capability_analysis": capability_analysis,
                 "factual_answers": factual_answers or {}, 
                 "smart_question": job_requirements.smart_question,
+                # CRITICAL: Client reference URLs (to prevent using as portfolio)
+                "client_reference_urls": job_requirements.links_mentioned,
             }
         
         return self.prompt_engine.build_proposal_prompt(
