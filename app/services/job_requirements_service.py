@@ -94,6 +94,96 @@ class JobRequirements:
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
+@dataclass
+class HookQuestion:
+    """A suggested hook question for proposal opening."""
+    question_text: str = ""        # The actual question
+    category: str = "engagement"    # diagnostic|scope_clarification|empathy|engagement
+    relevance_reason: str = ""      # Why this question is relevant to the job
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "HookQuestion":
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+
+# LLM function definition for hook question generation
+HOOK_QUESTIONS_FUNCTION = {
+    "name": "generate_hook_questions",
+    "description": "Generate 1-3 specific questions for a freelancer proposal. PRIORITY: If client mentions resources they didn't share, the FIRST question MUST ask for those resources.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "question_text": {
+                            "type": "string",
+                            "description": "A conversational question (1-2 sentences). If client mentioned having something but didn't share it, ask for it. Otherwise, ask something specific to the job."
+                        },
+                        "category": {
+                            "type": "string",
+                            "enum": ["access_request", "diagnostic", "scope_clarification", "empathy"],
+                            "description": "'access_request' = asking for URL/files/access they mentioned but didn't share (HIGHEST PRIORITY), 'diagnostic' = technical question showing expertise, 'scope_clarification' = clarifying ambiguous deliverables, 'empathy' = acknowledging frustration"
+                        },
+                        "relevance_reason": {
+                            "type": "string",
+                            "description": "Why this question matters (e.g., 'Client said they have example websites but didn't share links')"
+                        }
+                    },
+                    "required": ["question_text", "category", "relevance_reason"]
+                },
+                "minItems": 1,
+                "maxItems": 3,
+                "description": "1-3 questions. First should be access_request if applicable."
+            }
+        },
+        "required": ["questions"]
+    }
+}
+
+HOOK_QUESTIONS_SYSTEM_PROMPT = """You are an expert Upwork proposal strategist. Generate 1-3 specific questions that help the freelancer START A CONVERSATION with the client.
+
+## THE #1 RULE: ASK FOR WHAT THEY MENTION BUT DON'T SHARE
+
+Clients often say "I have X" but don't provide X. Your FIRST question should ask for that missing resource:
+- "I have example websites" + no links → "Could you share those example websites? I'd love to see the direction you're going for."
+- "migrating from X to Y" + no access → "Could you share access to [platform] so I can review the current setup?"
+- "site is slow/broken" + no URL → "Could you share the website URL? I'll run a quick audit."
+- "I have designs/Figma" + no link → "Could you share the Figma/design files? I'll review and give you an accurate estimate."
+
+## QUESTION TYPES (in priority order):
+
+1. **access_request** - Ask for URL, credentials, files, or assets they mentioned but didn't share. THIS IS THE MOST VALUABLE.
+2. **diagnostic** - If they shared a URL/problem, ask a specific technical question that shows expertise.
+3. **scope_clarification** - Clarify deliverables ONLY if genuinely ambiguous.
+4. **empathy** - Acknowledge frustration IF they expressed it.
+
+## RULES:
+- Question 1 should ALWAYS be an access_request if client mentioned resources they didn't share
+- Questions must reference SPECIFIC things from the job post
+- Keep each question to 1-2 sentences MAX
+- Sound like a helpful colleague, not an interrogator
+- NEVER ask about budget, timeline, or things they already answered
+- NEVER give unsolicited tech suggestions disguised as questions
+
+## GOOD EXAMPLES:
+- "Could you share the website URL so I can run a quick speed test?" (access_request)
+- "Could you share those example sites? I want to make sure I match the style you're after." (access_request)
+- "Is the slowness mainly on mobile or desktop?" (diagnostic - ONLY after you have the URL)
+- "Are you keeping the current theme or open to a fresh start?" (scope_clarification)
+
+## BAD EXAMPLES:
+- "What's your timeline?" (generic)
+- "Have you considered using X instead?" (unsolicited advice)
+- "Can you share more details?" (vague, lazy)
+- "What's your budget?" (never ask this)"""
+
+
 # OpenAI Function Definition for structured extraction
 JOB_REQUIREMENTS_FUNCTION = {
     "name": "extract_job_requirements",
@@ -545,6 +635,139 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
         url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
         return re.findall(url_pattern, text)
     
+    def generate_hook_questions(
+        self,
+        requirements: JobRequirements,
+        job_description: str = "",
+        job_title: str = ""
+    ) -> List[HookQuestion]:
+        """
+        Generate 3-4 suggested hook questions based on extracted job requirements.
+
+        Uses a focused LLM call with the already-extracted requirements as context
+        to produce specific, compelling opening questions.
+
+        Args:
+            requirements: Previously extracted JobRequirements
+            job_description: Original job description (for additional context)
+            job_title: Job title
+
+        Returns:
+            List of HookQuestion dataclasses (3-4 items)
+        """
+        if not self.openai_service:
+            logger.warning("[HookQuestions] OpenAI not available, returning empty")
+            return []
+
+        # Build context - CRITICAL: detect what client mentions but doesn't share
+        context_parts = []
+        
+        # Core task
+        if requirements.exact_task:
+            context_parts.append(f"Task: {requirements.exact_task}")
+        
+        # CRITICAL: Resources mentioned vs actually provided
+        # This is the key to generating "access_request" questions
+        resources_mentioned = requirements.resources_provided or []
+        links_shared = requirements.links_mentioned or []
+        
+        # Detect patterns of "mentioned but not shared"
+        mentioned_not_shared = []
+        job_lower = job_description.lower()
+        
+        # Check for common patterns
+        if any(phrase in job_lower for phrase in ['example website', 'example site', 'reference site', 'i have example', 'have examples']):
+            if not links_shared:
+                mentioned_not_shared.append("example/reference websites (mentioned but no links provided)")
+        
+        if any(phrase in job_lower for phrase in ['figma', 'design file', 'mockup', 'psd', 'sketch']):
+            if not any('figma' in link.lower() for link in links_shared):
+                mentioned_not_shared.append("design files/Figma (mentioned but not shared)")
+        
+        if any(phrase in job_lower for phrase in ['slow', 'speed', 'performance', 'loading', 'broken', 'not working', 'issue', 'bug', 'fix']):
+            if not links_shared:
+                mentioned_not_shared.append("website URL (has problem but no URL to diagnose)")
+        
+        if any(phrase in job_lower for phrase in ['migrat', 'moving to', 'switch to', 'transfer']):
+            mentioned_not_shared.append("access to current setup (migration mentioned)")
+        
+        if mentioned_not_shared:
+            context_parts.append(f"⚠️ CLIENT MENTIONED BUT DIDN'T SHARE: {'; '.join(mentioned_not_shared)}")
+            context_parts.append("→ FIRST question should ask for these missing resources!")
+        
+        if links_shared:
+            context_parts.append(f"Links already provided: {', '.join(links_shared[:3])}")
+        else:
+            context_parts.append("No URLs/links provided in job post")
+        
+        # Problems (for diagnostic questions)
+        if requirements.problems_mentioned:
+            context_parts.append(f"Problems mentioned: {', '.join(requirements.problems_mentioned[:4])}")
+        
+        # Tech stack
+        if requirements.tech_stack_mentioned:
+            context_parts.append(f"Tech stack: {', '.join(requirements.tech_stack_mentioned[:6])}")
+        
+        # Client tone (for empathy questions)
+        if requirements.client_tone:
+            context_parts.append(f"Client tone: {requirements.client_tone}")
+        
+        # Things NOT to ask about
+        if requirements.do_not_assume:
+            context_parts.append(f"DO NOT ask about: {', '.join(requirements.do_not_assume[:4])}")
+        
+        # Explicit checklist from client
+        if requirements.explicit_checklist:
+            items = [c.get('item_text', '') for c in requirements.explicit_checklist[:4] if c.get('item_text')]
+            if items:
+                context_parts.append(f"Client's checklist: {'; '.join(items)}")
+        
+        # Pre-detected smart question
+        if requirements.smart_question and requirements.smart_question.get('ask'):
+            context_parts.append(f"Pre-identified question: {requirements.smart_question.get('question', '')}")
+
+        user_prompt = f"""Generate 1-3 hook questions for a proposal responding to this job:
+
+JOB TITLE: {job_title or 'Not provided'}
+
+EXTRACTED REQUIREMENTS:
+{chr(10).join(context_parts)}
+
+ORIGINAL JOB DESCRIPTION (for reference):
+{job_description[:1500]}
+
+Generate questions that would make this specific client want to click and read the full proposal."""
+
+        try:
+            response = self.openai_service.client.chat.completions.create(
+                model=self.openai_service.llm_model,
+                messages=[
+                    {"role": "system", "content": HOOK_QUESTIONS_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                tools=[{"type": "function", "function": HOOK_QUESTIONS_FUNCTION}],
+                tool_choice={"type": "function", "function": {"name": "generate_hook_questions"}},
+                temperature=0.8  # Slightly creative for varied questions
+            )
+
+            tool_call = response.choices[0].message.tool_calls[0]
+            result = json.loads(tool_call.function.arguments)
+
+            questions = [
+                HookQuestion.from_dict(q)
+                for q in result.get("questions", [])
+            ]
+
+            logger.info(f"[HookQuestions] Generated {len(questions)} questions")
+            for i, q in enumerate(questions, 1):
+                logger.debug(f"  {i}. [{q.category}] {q.question_text[:60]}...")
+
+            return questions
+
+        except Exception as e:
+            logger.error(f"[HookQuestions] Generation failed: {e}")
+            return []
+
     def get_retrieval_context(self, requirements: JobRequirements) -> Dict[str, Any]:
         """
         Convert requirements to retrieval-optimized context.

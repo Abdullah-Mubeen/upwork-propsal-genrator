@@ -34,7 +34,7 @@ from app.infra.mongodb.repositories.analytics_repo import get_analytics_repo
 from app.config import settings
 
 # Import services
-from app.services.job_requirements_service import get_job_requirements_service
+from app.services.job_requirements_service import get_job_requirements_service, HookQuestion
 from app.services.proposal_service import (
     ProposalService, 
     ProposalRequest as ServiceProposalRequest,
@@ -92,6 +92,9 @@ class GenerateProposalRequest(BaseModel):
     include_previous_proposals: bool = Field(True, description="Include analysis of previous proposals for similar jobs?")
     include_portfolio: bool = Field(True, description="Include portfolio links from similar projects?")
     include_feedback: bool = Field(True, description="Include client feedback/testimonials from similar projects?")
+    
+    # Hook question (user-selected opening question for the proposal)
+    selected_hook_question: Optional[str] = Field(None, description="User-selected opening question to use as the proposal hook. If provided, this becomes the mandatory first line.")
 
 
 class ProposalResponse(BaseModel):
@@ -297,8 +300,87 @@ def _convert_to_service_request(request: GenerateProposalRequest) -> ServiceProp
         include_portfolio=request.include_portfolio,
         include_feedback=request.include_feedback,
         org_id=request.org_id,
-        profile_id=request.profile_id
+        profile_id=request.profile_id,
+        selected_hook_question=request.selected_hook_question
     )
+
+
+# ===================== SUGGEST HOOK QUESTIONS =====================
+
+class SuggestQuestionsRequest(BaseModel):
+    """Request to generate suggested hook questions from a job description"""
+    job_description: str = Field(..., description="Full job description")
+    job_title: Optional[str] = Field(None, description="Job title")
+    skills_required: List[str] = Field(default_factory=list, description="Required skills")
+    org_id: Optional[str] = Field(None, description="Organization ID")
+
+
+class SuggestQuestionsResponse(BaseModel):
+    """Response with suggested hook questions"""
+    success: bool
+    questions: List[Dict[str, Any]] = Field(description="List of suggested questions with category and reason")
+    job_title: Optional[str] = None
+    exact_task: Optional[str] = None
+
+
+@router.post(
+    "/suggest-questions",
+    response_model=SuggestQuestionsResponse,
+    summary="Generate suggested hook questions from job description",
+)
+async def suggest_hook_questions(request: SuggestQuestionsRequest):
+    """
+    Analyze a job description and return 3-4 suggested opening questions.
+    
+    These questions are generated from extracted job requirements and are
+    designed to be used as the first line of a proposal to increase engagement.
+    
+    The user can select one of these or write their own, then pass it as
+    `selected_hook_question` to the generate/generate-stream endpoints.
+    """
+    try:
+        from app.utils.openai_service import OpenAIService
+        from app.config import settings
+        from app.db import get_db
+        
+        # Reuse cached services
+        global _cached_openai_service
+        if _cached_openai_service is None:
+            _cached_openai_service = OpenAIService(api_key=settings.OPENAI_API_KEY)
+        
+        db = get_db()
+        job_req_service = get_job_requirements_service(
+            openai_service=_cached_openai_service, db_manager=db
+        )
+        
+        # Step 1: Extract requirements (cached if already done)
+        requirements = job_req_service.extract_job_requirements(
+            job_description=request.job_description,
+            job_title=request.job_title or "",
+            skills_required=request.skills_required
+        )
+        
+        # Step 2: Generate hook questions from requirements
+        hook_questions = job_req_service.generate_hook_questions(
+            requirements=requirements,
+            job_description=request.job_description,
+            job_title=request.job_title or ""
+        )
+        
+        return SuggestQuestionsResponse(
+            success=True,
+            questions=[q.to_dict() for q in hook_questions],
+            job_title=request.job_title,
+            exact_task=requirements.exact_task[:200] if requirements.exact_task else None
+        )
+        
+    except Exception as e:
+        logger.error(f"[SuggestQuestions] Error: {e}", exc_info=True)
+        return SuggestQuestionsResponse(
+            success=False,
+            questions=[],
+            job_title=request.job_title
+        )
 
 
 # ===================== STREAMING PROPOSAL GENERATION =====================

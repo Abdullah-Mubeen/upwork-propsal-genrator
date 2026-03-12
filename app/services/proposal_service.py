@@ -43,6 +43,8 @@ class ProposalRequest:
     # Multi-tenant fields (optional - for org-scoped queries)
     org_id: Optional[str] = None
     profile_id: Optional[str] = None
+    # Hook question (user-selected opening question)
+    selected_hook_question: Optional[str] = None
 
 
 @dataclass
@@ -722,6 +724,12 @@ class ProposalService:
                 "factual_answers": factual_answers or {}, 
                 "smart_question": job_requirements.smart_question,
             }
+        
+        # Inject user-selected hook question (overrides smart_question)
+        if request.selected_hook_question:
+            if requirements_context is None:
+                requirements_context = {}
+            requirements_context["selected_hook_question"] = request.selected_hook_question
         
         return self.prompt_engine.build_proposal_prompt(
             job_data=job_data,

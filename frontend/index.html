@@ -47,6 +47,20 @@
         .toast { position: fixed; bottom: 20px; right: 20px; background: #171717; color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.2s; z-index: 100; }
         .toast.show { opacity: 1; transform: translateY(0); }
         
+        /* Hook Question Modal */
+        .hq-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+        .hq-overlay.visible { opacity: 1; pointer-events: auto; }
+        .hq-modal { background: #fff; border-radius: 16px; max-width: 540px; width: 92%; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px -12px rgba(0,0,0,0.25); border: 1px solid #e5e5e5; transform: translateY(12px); transition: transform 0.2s; }
+        .hq-overlay.visible .hq-modal { transform: translateY(0); }
+        .hq-card { padding: 14px 16px; border: 1.5px solid #e5e5e5; border-radius: 10px; cursor: pointer; transition: all 0.15s; background: #fff; }
+        .hq-card:hover { border-color: #171717; background: #fafafa; }
+        .hq-card.selected { border-color: #171717; background: #f5f5f5; box-shadow: 0 0 0 2px rgba(23,23,23,0.08); }
+        .hq-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .hq-badge.diagnostic { background: #dbeafe; color: #1d4ed8; }
+        .hq-badge.scope_clarification { background: #fef3c7; color: #92400e; }
+        .hq-badge.empathy { background: #fce7f3; color: #9d174d; }
+        .hq-badge.engagement { background: #d1fae5; color: #065f46; }
+        
         /* Auth */
         .auth-overlay { position: fixed; inset: 0; background: rgba(250,250,250,0.95); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
         .auth-overlay.hidden { display: none; }
@@ -414,6 +428,41 @@
 
     <div id="toast" class="toast"></div>
 
+    <!-- Hook Question Selection Modal -->
+    <div class="hq-overlay" id="hq-overlay">
+        <div class="hq-modal">
+            <div class="p-6 border-b border-neutral-100">
+                <div class="flex items-center gap-3 mb-1">
+                    <div class="w-8 h-8 bg-neutral-900 rounded-lg flex items-center justify-center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                    </div>
+                    <h3 class="text-base font-semibold text-neutral-900">Choose an Opening Question</h3>
+                </div>
+                <p class="text-xs text-neutral-500 ml-11">Select a question to use as your proposal opener, or write your own</p>
+            </div>
+            <div class="p-5 space-y-3" id="hq-questions-list">
+                <!-- Questions will be injected here -->
+                <div class="flex items-center justify-center py-8">
+                    <div class="loader"></div>
+                    <span class="ml-3 text-sm text-neutral-400">Analyzing job requirements...</span>
+                </div>
+            </div>
+            <!-- Custom question input -->
+            <div class="px-5 pb-4">
+                <div class="relative">
+                    <input type="text" id="hq-custom-input" class="input-field text-sm pr-10" placeholder="Or write your own question...">
+                    <button onclick="selectCustomQuestion()" class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 p-1" title="Use custom question">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="px-5 pb-5 flex items-center justify-between">
+                <button onclick="skipHookQuestion()" class="text-xs text-neutral-400 hover:text-neutral-600 px-3 py-2 rounded hover:bg-neutral-50">Skip — generate without question</button>
+                <button onclick="confirmHookQuestion()" id="hq-confirm-btn" class="btn-primary text-sm px-5 py-2.5" disabled>Use Selected Question</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/config.js"></script>
     <script>
         const KEY_NAME = 'app_api_key';
@@ -421,6 +470,8 @@
         let userRole = null;
         let currentSkills = [], includeTimeline = false, isEditMode = false, originalProposalText = '';
         let lastRequestData = null, lastGeneratedResult = null, proposalSaved = false;
+        let selectedHookQuestion = null; // Currently selected hook question
+        let pendingGenerateData = null; // Data waiting for hook question selection
 
         // Axios config
         axios.interceptors.request.use(c => { if (apiKey) c.headers['X-API-Key'] = apiKey; return c; });
@@ -717,6 +768,106 @@
                 org_id: currentOrgId || null,
                 profile_id: currentProfileId || null
             };
+            pendingGenerateData = data;
+            selectedHookQuestion = null;
+            showHookQuestionModal(data);
+        });
+
+        // ===== Hook Question Flow =====
+        async function showHookQuestionModal(data) {
+            const overlay = document.getElementById('hq-overlay');
+            const list = document.getElementById('hq-questions-list');
+            const confirmBtn = document.getElementById('hq-confirm-btn');
+            const customInput = document.getElementById('hq-custom-input');
+            
+            // Reset state
+            confirmBtn.disabled = true;
+            customInput.value = '';
+            selectedHookQuestion = null;
+            list.innerHTML = '<div class="flex items-center justify-center py-8"><div class="loader"></div><span class="ml-3 text-sm text-neutral-400">Analyzing job requirements...</span></div>';
+            overlay.classList.add('visible');
+            
+            try {
+                const { data: result } = await axios.post(`${API}/proposals/suggest-questions`, {
+                    job_description: data.job_description,
+                    job_title: data.job_title,
+                    skills_required: data.skills_required,
+                    org_id: data.org_id
+                });
+                
+                if (result.success && result.questions.length > 0) {
+                    list.innerHTML = result.questions.map((q, i) => `
+                        <div class="hq-card" onclick="selectHookQuestion(this, '${i}')" data-question="${encodeURIComponent(q.question_text)}">
+                            <div class="flex items-start gap-3">
+                                <div class="w-6 h-6 rounded-full border-2 border-neutral-200 flex items-center justify-center shrink-0 mt-0.5 hq-radio">
+                                    <div class="w-3 h-3 rounded-full bg-neutral-900 scale-0 transition-transform hq-dot"></div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm text-neutral-800 leading-relaxed">${q.question_text}</p>
+                                    <div class="flex items-center gap-2 mt-2">
+                                        <span class="hq-badge ${q.category}">${q.category.replace('_', ' ')}</span>
+                                        <span class="text-[10px] text-neutral-400">${q.relevance_reason}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<p class="text-sm text-neutral-400 text-center py-6">No questions generated. You can write your own below or skip.</p>';
+                }
+            } catch (err) {
+                list.innerHTML = '<p class="text-sm text-neutral-400 text-center py-6">Could not load suggestions. Write your own or skip.</p>';
+            }
+        }
+
+        function selectHookQuestion(card, idx) {
+            // Deselect all
+            document.querySelectorAll('.hq-card').forEach(c => {
+                c.classList.remove('selected');
+                const dot = c.querySelector('.hq-dot');
+                if (dot) dot.style.transform = 'scale(0)';
+            });
+            // Select this one
+            card.classList.add('selected');
+            const dot = card.querySelector('.hq-dot');
+            if (dot) dot.style.transform = 'scale(1)';
+            selectedHookQuestion = decodeURIComponent(card.dataset.question);
+            document.getElementById('hq-confirm-btn').disabled = false;
+            document.getElementById('hq-custom-input').value = '';
+        }
+
+        function selectCustomQuestion() {
+            const val = document.getElementById('hq-custom-input').value.trim();
+            if (!val) { showToast('Type a question first'); return; }
+            // Deselect cards
+            document.querySelectorAll('.hq-card').forEach(c => {
+                c.classList.remove('selected');
+                const dot = c.querySelector('.hq-dot');
+                if (dot) dot.style.transform = 'scale(0)';
+            });
+            selectedHookQuestion = val;
+            document.getElementById('hq-confirm-btn').disabled = false;
+            showToast('Custom question selected');
+        }
+
+        // Listen for Enter on custom input
+        document.getElementById('hq-custom-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); selectCustomQuestion(); }
+        });
+
+        function confirmHookQuestion() {
+            if (!selectedHookQuestion || !pendingGenerateData) return;
+            document.getElementById('hq-overlay').classList.remove('visible');
+            pendingGenerateData.selected_hook_question = selectedHookQuestion;
+            startProposalGeneration(pendingGenerateData);
+        }
+
+        function skipHookQuestion() {
+            document.getElementById('hq-overlay').classList.remove('visible');
+            if (pendingGenerateData) startProposalGeneration(pendingGenerateData);
+        }
+
+        async function startProposalGeneration(data) {
             lastRequestData = data;
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('result-state').classList.add('hidden');
@@ -818,10 +969,18 @@
                 document.getElementById('empty-state').classList.remove('hidden'); 
             }
             finally { btn.disabled = false; btn.innerHTML = 'Generate Proposal'; }
-        });
+        }
 
         document.getElementById('skill-input').addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); addSkills(); } });
-        document.addEventListener('keydown', e => { if (e.key === 'Escape' && isEditMode) cancelEdit(); });
+        document.addEventListener('keydown', e => { 
+            if (e.key === 'Escape') {
+                if (document.getElementById('hq-overlay').classList.contains('visible')) {
+                    skipHookQuestion();
+                } else if (isEditMode) {
+                    cancelEdit();
+                }
+            }
+        });
     </script>
 </body>
 </html>

@@ -291,13 +291,23 @@ CONVERSATIONAL TONE:
         
         guidance_parts = []
         
-        # Smart question injection (PRIORITY - if asking will help)
-        smart_q = requirements.get("smart_question") or {}
-        if smart_q.get("ask") and smart_q.get("question"):
-            question = smart_q["question"]
-            reason = smart_q.get("reason", "clarify")
-            logger.info(f"[PromptEngine] Injecting smart question: {question[:50]}...")
-            guidance_parts.append(f'''   🚨 OPEN WITH QUESTION (FIRST 1-2 SENTENCES):
+        # User-selected hook question takes PRIORITY over smart_question
+        selected_q = requirements.get("selected_hook_question")
+        if selected_q:
+            logger.info(f"[PromptEngine] Using user-selected hook question: {selected_q[:50]}...")
+            guidance_parts.append(f'''   🚨 OPEN WITH THIS QUESTION (FIRST 1-2 SENTENCES):
+      "{selected_q}"
+      ❌ DO NOT put this at the end - START with it
+      ✅ Pattern: "[Question] + I've done similar work at [example]"
+      Example: "{selected_q} I just finished a similar project: [URL]"''')
+        else:
+            # Fallback to smart question injection (original behavior)
+            smart_q = requirements.get("smart_question") or {}
+            if smart_q.get("ask") and smart_q.get("question"):
+                question = smart_q["question"]
+                reason = smart_q.get("reason", "clarify")
+                logger.info(f"[PromptEngine] Injecting smart question: {question[:50]}...")
+                guidance_parts.append(f'''   🚨 OPEN WITH QUESTION (FIRST 1-2 SENTENCES):
       "{question}"
       ❌ DO NOT put this at the end - START with it
       ✅ Pattern: "[Question] + I've done similar work at [example]"
@@ -452,11 +462,21 @@ CONVERSATIONAL TONE:
         if exclude_items:
             output += "\n\nWHAT TO EXCLUDE (CRITICAL):\n" + "\n".join(exclude_items)
         
-        # Add smart question opener instruction if needed
-        smart_q = requirements.get("smart_question") or {} if requirements else {}
-        if smart_q.get("ask") and smart_q.get("question"):
-            question = smart_q["question"]
+        # Add smart question / selected hook question opener instruction
+        selected_q = requirements.get("selected_hook_question") if requirements else None
+        if selected_q:
             output = f"""
+⚡ MANDATORY OPENER - YOUR FIRST SENTENCE:
+"{selected_q}"
+Then immediately follow with relevant experience/portfolio link.
+Example: "{selected_q} I just finished optimizing [similar site] - here's the result: [URL]"
+DO NOT put this question at the end. START your proposal with it.
+""" + output
+        else:
+            smart_q = requirements.get("smart_question") or {} if requirements else {}
+            if smart_q.get("ask") and smart_q.get("question"):
+                question = smart_q["question"]
+                output = f"""
 ⚡ MANDATORY OPENER - YOUR FIRST SENTENCE:
 "{question}"
 Then immediately follow with relevant experience/portfolio link.
