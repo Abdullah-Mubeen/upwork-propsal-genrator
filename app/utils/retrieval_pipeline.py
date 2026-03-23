@@ -968,3 +968,417 @@ class RetrievalPipeline:
         context["estimated_success_rate"] = completed / len(similar_projects) if similar_projects else 0.5
 
         return context
+
+    # ============================================================================
+    # ENHANCED RETRIEVAL: Deliverable-Level + Problem-to-Solution Matching
+    # Issue #25: More granular matching for better proposal relevance
+    # ============================================================================
+
+    def retrieve_by_deliverables(
+        self,
+        job_requirements: "JobRequirements",
+        all_jobs: List[Dict[str, Any]],
+        top_k_per_deliverable: int = 2
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Retrieve similar projects for EACH specific deliverable.
+        
+        Instead of one search for the whole job, search for each deliverable
+        individually to find the BEST match for each requirement.
+        
+        Args:
+            job_requirements: Extracted requirements with specific_deliverables
+            all_jobs: All historical jobs
+            top_k_per_deliverable: Max projects per deliverable
+            
+        Returns:
+            Dict mapping each deliverable to its matching projects
+            Example: {"Moodle integration": [project1], "Payment system": [project2]}
+        """
+        if not job_requirements or not job_requirements.specific_deliverables:
+            return {}
+        
+        deliverable_matches = {}
+        tech_context = " ".join(job_requirements.tech_stack_mentioned or [])
+        
+        logger.info(f"[DeliverableRetrieval] Searching for {len(job_requirements.specific_deliverables)} deliverables")
+        
+        for deliverable in job_requirements.specific_deliverables:
+            # Create focused search query for this deliverable
+            search_query = f"{deliverable} {tech_context}"
+            
+            # Score each job against this specific deliverable
+            matches = []
+            for job in all_jobs:
+                score = self._score_job_for_deliverable(job, deliverable, job_requirements.tech_stack_mentioned)
+                if score > 0.3:  # Minimum relevance threshold
+                    matches.append((job, score))
+            
+            # Sort by score and take top K
+            matches.sort(key=lambda x: x[1], reverse=True)
+            top_matches = [job for job, score in matches[:top_k_per_deliverable]]
+            
+            if top_matches:
+                deliverable_matches[deliverable] = top_matches
+                logger.debug(f"  → '{deliverable[:40]}...' matched {len(top_matches)} projects")
+        
+        logger.info(f"[DeliverableRetrieval] Matched {len(deliverable_matches)}/{len(job_requirements.specific_deliverables)} deliverables")
+        return deliverable_matches
+
+    def _score_job_for_deliverable(
+        self,
+        job: Dict[str, Any],
+        deliverable: str,
+        tech_stack: List[str]
+    ) -> float:
+        """
+        Score how well a job matches a specific deliverable.
+        
+        Uses keyword matching + tech stack overlap + outcome relevance.
+        """
+        score = 0.0
+        deliverable_lower = deliverable.lower()
+        
+        # Extract job text for matching
+        job_title = (job.get("job_title") or "").lower()
+        job_desc = (job.get("job_description") or "").lower()
+        skills = [s.lower() for s in job.get("skills_required", []) or []]
+        deliverables_list = [d.lower() for d in job.get("deliverables", []) or []]
+        outcome_stats = ""
+        outcome = job.get("outcome")
+        if isinstance(outcome, dict):
+            outcome_stats = (outcome.get("stats") or "").lower()
+        elif isinstance(outcome, str):
+            outcome_stats = outcome.lower()
+        
+        # Extract keywords from deliverable
+        keywords = [w for w in deliverable_lower.split() if len(w) > 3]
+        
+        # Title match (strongest signal)
+        title_match = sum(1 for kw in keywords if kw in job_title)
+        score += title_match * 0.25
+        
+        # Description match
+        desc_match = sum(1 for kw in keywords if kw in job_desc)
+        score += min(desc_match * 0.1, 0.3)  # Cap at 0.3
+        
+        # Skills match
+        skill_match = sum(1 for kw in keywords if any(kw in s for s in skills))
+        score += skill_match * 0.15
+        
+        # Deliverables list match (very strong signal)
+        for d in deliverables_list:
+            match_count = sum(1 for kw in keywords if kw in d)
+            if match_count >= 2:
+                score += 0.35
+                break
+        
+        # Tech stack overlap
+        if tech_stack:
+            tech_overlap = sum(1 for t in tech_stack if t.lower() in " ".join(skills))
+            score += min(tech_overlap * 0.1, 0.2)
+        
+        # Outcome mention (shows proven delivery)
+        if outcome_stats:
+            outcome_match = sum(1 for kw in keywords if kw in outcome_stats)
+            score += min(outcome_match * 0.15, 0.2)
+        
+        return min(score, 1.0)  # Cap at 1.0
+
+    def retrieve_by_problems_solved(
+        self,
+        job_requirements: "JobRequirements",
+        all_jobs: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Find projects where we SOLVED similar problems.
+        
+        Searches in OUTCOMES and FEEDBACK fields - where we describe
+        what we actually fixed/solved.
+        
+        Args:
+            job_requirements: Extracted requirements with problems_mentioned
+            all_jobs: All historical jobs
+            
+        Returns:
+            List of {"problem": str, "project": dict, "evidence": str, "confidence": float}
+        """
+        if not job_requirements or not job_requirements.problems_mentioned:
+            return []
+        
+        problem_solutions = []
+        
+        logger.info(f"[ProblemMatching] Searching for solutions to {len(job_requirements.problems_mentioned)} problems")
+        
+        for problem in job_requirements.problems_mentioned:
+            problem_lower = problem.lower()
+            problem_keywords = [w for w in problem_lower.split() if len(w) > 3]
+            
+            for job in all_jobs:
+                # Search in outcome stats
+                outcome = job.get("outcome", {})
+                outcome_stats = ""
+                if isinstance(outcome, dict):
+                    outcome_stats = outcome.get("stats", "") or ""
+                elif isinstance(outcome, str):
+                    outcome_stats = outcome
+                
+                # Search in feedback
+                feedback = job.get("client_feedback_text", "") or job.get("client_feedback", "") or ""
+                
+                # Search in job title/description too
+                title = job.get("job_title", "") or ""
+                
+                search_text = f"{outcome_stats} {feedback} {title}".lower()
+                
+                # Score this job as a solution to the problem
+                match_count = sum(1 for kw in problem_keywords if kw in search_text)
+                confidence = match_count / len(problem_keywords) if problem_keywords else 0
+                
+                if confidence >= 0.4:  # At least 40% keyword match
+                    evidence = outcome_stats if outcome_stats else feedback[:200]
+                    problem_solutions.append({
+                        "problem": problem,
+                        "project": job,
+                        "evidence": evidence,
+                        "confidence": confidence,
+                        "portfolio_url": (job.get("portfolio_urls", []) or [None])[0]
+                    })
+        
+        # Sort by confidence and remove duplicates
+        problem_solutions.sort(key=lambda x: x["confidence"], reverse=True)
+        
+        # Keep only top match per problem
+        seen_problems = set()
+        unique_solutions = []
+        for sol in problem_solutions:
+            if sol["problem"] not in seen_problems:
+                seen_problems.add(sol["problem"])
+                unique_solutions.append(sol)
+        
+        logger.info(f"[ProblemMatching] Found solutions for {len(unique_solutions)}/{len(job_requirements.problems_mentioned)} problems")
+        return unique_solutions
+
+    def analyze_portfolio_coverage(
+        self,
+        job_requirements: "JobRequirements",
+        similar_projects: List[Dict[str, Any]],
+        deliverable_matches: Dict[str, List[Dict[str, Any]]] = None,
+        problem_solutions: List[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Analyze how well our portfolio covers the job's explicit checklist.
+        
+        For EACH checklist item, determine if we have proof to back it up.
+        
+        Args:
+            job_requirements: Extracted requirements with explicit_checklist
+            similar_projects: General similar projects found
+            deliverable_matches: Per-deliverable matches (from retrieve_by_deliverables)
+            problem_solutions: Problem-solution matches (from retrieve_by_problems_solved)
+            
+        Returns:
+            Coverage analysis: {
+                "items": [{item, has_proof, best_project, portfolio_url, confidence}],
+                "overall_coverage": float (0-1),
+                "gaps": [items without proof],
+                "strategy": "full_proof" | "partial_proof" | "approach_first"
+            }
+        """
+        if not job_requirements:
+            return {"items": [], "overall_coverage": 1.0, "gaps": [], "strategy": "approach_first"}
+        
+        checklist = job_requirements.explicit_checklist or []
+        if not checklist:
+            # Use deliverables as implicit checklist
+            checklist = [{"item_text": d, "item_type": "specific_answer"} 
+                        for d in job_requirements.specific_deliverables or []]
+        
+        coverage_items = []
+        
+        for item in checklist:
+            item_text = item.get("item_text", "")
+            item_type = item.get("item_type", "other")
+            
+            result = {
+                "checklist_item": item_text,
+                "item_type": item_type,
+                "has_proof": False,
+                "best_project": None,
+                "portfolio_url": None,
+                "confidence": 0.0,
+                "evidence_source": None
+            }
+            
+            # Check deliverable matches first (most specific)
+            if deliverable_matches:
+                for deliverable, projects in deliverable_matches.items():
+                    if self._text_similarity(item_text, deliverable) > 0.5 and projects:
+                        best = projects[0]
+                        result["has_proof"] = True
+                        result["best_project"] = best.get("job_title") or best.get("project_title")
+                        result["portfolio_url"] = (best.get("portfolio_urls", []) or [None])[0]
+                        result["confidence"] = 0.9
+                        result["evidence_source"] = "deliverable_match"
+                        break
+            
+            # Check problem solutions
+            if not result["has_proof"] and problem_solutions:
+                for sol in problem_solutions:
+                    if self._text_similarity(item_text, sol["problem"]) > 0.4:
+                        result["has_proof"] = True
+                        result["best_project"] = sol["project"].get("job_title")
+                        result["portfolio_url"] = sol.get("portfolio_url")
+                        result["confidence"] = sol["confidence"]
+                        result["evidence_source"] = "problem_solution"
+                        result["evidence_text"] = sol.get("evidence", "")[:100]
+                        break
+            
+            # Fallback to general similar projects
+            if not result["has_proof"] and similar_projects:
+                for proj in similar_projects[:5]:
+                    score = self._score_job_for_deliverable(
+                        proj if isinstance(proj, dict) else proj[0],
+                        item_text,
+                        job_requirements.tech_stack_mentioned or []
+                    )
+                    if score > 0.4:
+                        best = proj if isinstance(proj, dict) else proj[0]
+                        result["has_proof"] = True
+                        result["best_project"] = best.get("job_title")
+                        result["portfolio_url"] = (best.get("portfolio_urls", []) or [None])[0]
+                        result["confidence"] = score
+                        result["evidence_source"] = "similar_project"
+                        break
+            
+            coverage_items.append(result)
+        
+        # Calculate overall coverage
+        covered = sum(1 for c in coverage_items if c["has_proof"])
+        total = len(coverage_items) if coverage_items else 1
+        overall_coverage = covered / total
+        
+        # Identify gaps
+        gaps = [c["checklist_item"] for c in coverage_items if not c["has_proof"]]
+        
+        # Determine strategy based on coverage
+        if overall_coverage >= 0.7:
+            strategy = "full_proof"
+        elif overall_coverage >= 0.4:
+            strategy = "partial_proof"
+        else:
+            strategy = "approach_first"
+        
+        logger.info(f"[PortfolioCoverage] Coverage: {overall_coverage:.0%} ({covered}/{total}), Strategy: {strategy}")
+        
+        return {
+            "items": coverage_items,
+            "overall_coverage": overall_coverage,
+            "gaps": gaps,
+            "strategy": strategy,
+            "covered_count": covered,
+            "total_count": total
+        }
+
+    def _text_similarity(self, text1: str, text2: str) -> float:
+        """Simple word-overlap similarity between two texts."""
+        words1 = set(w.lower() for w in text1.split() if len(w) > 3)
+        words2 = set(w.lower() for w in text2.split() if len(w) > 3)
+        if not words1 or not words2:
+            return 0.0
+        intersection = words1 & words2
+        union = words1 | words2
+        return len(intersection) / len(union)
+
+    def get_no_portfolio_strategy(
+        self,
+        job_requirements: "JobRequirements",
+        all_jobs: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Determine the best strategy when no direct portfolio match exists.
+        
+        Returns strategy and supporting evidence for generating proposals
+        without exact portfolio proof.
+        
+        Strategies:
+        1. SKILL_BASED: 70%+ skill overlap - lead with skill expertise
+        2. TRANSFERABLE: 40-70% overlap - use similar domain experience
+        3. APPROACH_FIRST: <40% overlap - lead with methodology + ask questions
+        
+        Args:
+            job_requirements: Extracted requirements
+            all_jobs: Historical jobs to analyze for transferable skills
+            
+        Returns:
+            {
+                "strategy": "skill_based" | "transferable" | "approach_first",
+                "skill_coverage": float,
+                "matching_skills": [skills we have],
+                "missing_skills": [skills we lack],
+                "transferable_experience": [related projects],
+                "recommended_questions": [diagnostic questions to ask],
+                "hook_approach": str (recommended hook style)
+            }
+        """
+        if not job_requirements:
+            return {"strategy": "approach_first", "skill_coverage": 0, "matching_skills": [], "missing_skills": []}
+        
+        required_skills = set(s.lower() for s in (job_requirements.tech_stack_mentioned or []))
+        required_skills.update(s.lower() for s in (job_requirements.specific_deliverables or []))
+        
+        # Collect all skills from portfolio
+        all_portfolio_skills = set()
+        for job in all_jobs:
+            skills = job.get("skills_required", []) or job.get("skills", []) or []
+            all_portfolio_skills.update(s.lower() for s in skills)
+        
+        # Calculate skill coverage
+        matching_skills = required_skills & all_portfolio_skills
+        missing_skills = required_skills - all_portfolio_skills
+        skill_coverage = len(matching_skills) / len(required_skills) if required_skills else 0
+        
+        # Find transferable experience (similar tech/domain even if not exact)
+        transferable = []
+        for job in all_jobs[:20]:
+            job_skills = set(s.lower() for s in (job.get("skills_required", []) or []))
+            overlap = len(job_skills & required_skills)
+            if overlap >= 1:  # At least 1 skill overlap
+                transferable.append({
+                    "project": job.get("job_title"),
+                    "matching_skills": list(job_skills & required_skills),
+                    "portfolio_url": (job.get("portfolio_urls", []) or [None])[0]
+                })
+        
+        # Determine strategy
+        if skill_coverage >= 0.7:
+            strategy = "skill_based"
+            hook_approach = "I work with [TECH] daily - here's my approach to your specific challenge..."
+        elif skill_coverage >= 0.4:
+            strategy = "transferable"
+            hook_approach = "While I haven't worked with [EXACT_TECH], I've built similar systems using [RELATED_TECH]..."
+        else:
+            strategy = "approach_first"
+            hook_approach = "I'd approach this by first understanding [ASPECT]. Quick question: [DIAGNOSTIC_Q]..."
+        
+        # Generate recommended questions for approach_first
+        recommended_questions = []
+        if strategy == "approach_first":
+            if job_requirements.problems_mentioned:
+                recommended_questions.append(f"Could you share more about when the {job_requirements.problems_mentioned[0]} started? That'll help me diagnose the root cause.")
+            if job_requirements.links_mentioned:
+                recommended_questions.append("Could you share temporary access so I can take a deeper look at the current setup?")
+            else:
+                recommended_questions.append("Could you share the site/system URL? I'd love to do a quick audit before proposing a solution.")
+        
+        logger.info(f"[NoPortfolio] Strategy: {strategy}, Skill coverage: {skill_coverage:.0%}")
+        
+        return {
+            "strategy": strategy,
+            "skill_coverage": skill_coverage,
+            "matching_skills": list(matching_skills),
+            "missing_skills": list(missing_skills),
+            "transferable_experience": transferable[:3],  # Top 3
+            "recommended_questions": recommended_questions,
+            "hook_approach": hook_approach
+        }

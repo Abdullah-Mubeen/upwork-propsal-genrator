@@ -539,7 +539,7 @@ Respond in JSON format."""
         # Randomly select a hook strategy to ensure variety
         hook_strategies = [
             "SOLUTION_LEAD: Start by stating you know exactly how to fix their specific problem",
-            "IMMEDIATE_VALUE: Lead with a portfolio link showing similar work you just completed",
+            "IMMEDIATE_VALUE: Lead with a portfolio link showing similar work you have built",
             "EMPATHY_FIRST: Acknowledge their frustration/pain point with genuine understanding",
             "QUESTION_HOOK: Ask an insightful question that shows you understand their challenge",
             "RESULT_LEAD: Open with a specific before/after metric from similar work",
@@ -581,7 +581,7 @@ YOUR MINDSET: You're a skilled freelancer who GENUINELY wants to help. You read 
 
 ✅ WINNING HOOK EXAMPLES (use these as inspiration, adapt to the specific job):
 1. "[Specific problem from their post] is usually caused by [insight]. Here's how I'd fix it..."
-2. "Just wrapped up something nearly identical last week - [portfolio link]"
+2. "I built something nearly identical - [portfolio link]"
 3. "That [problem] sounds frustrating. I've fixed this exact issue [X] times..."
 4. "Quick question: Is the [issue] also affecting [related thing]?"
 5. "Got another client's [metric] from [before] to [after] - same situation as yours."

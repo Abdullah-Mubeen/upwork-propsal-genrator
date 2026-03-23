@@ -498,7 +498,7 @@ TONE_INSTRUCTIONS: Dict[str, str] = {
 # Consolidated prompt rules - defined ONCE, used everywhere
 
 HOOK_STRATEGIES: List[str] = [
-    'PROOF-LED HOOK: "Just finished [similar project] - [portfolio_url] - same [tech/scope] you need."',
+    'PROOF-LED HOOK: "I built [similar project] - [portfolio_url] - same [tech/scope] you need."',
     'UNDERSTANDING HOOK: "[Specific detail from job] - I\'ve done exactly this for [portfolio_url]."',
     'EMPATHY HOOK: "Sounds like [their situation] - I fixed this for [client]: [portfolio_url]"',
     'DIRECT MATCH: "[Tech they need] + [deliverable they want] = my specialty. Recent example: [portfolio_url]"',
@@ -566,7 +566,7 @@ CRITICAL - ONLY MENTION IF CLIENT ASKED:
 """
 
 CONVERSATIONAL_EXAMPLES: List[str] = [
-    "This is right up my alley - just finished something similar",
+    "I have built something similar",
     "I've tackled this exact issue before",
     "Here's what worked for a similar client",
     "Happy to hop on a quick call if you want to discuss",

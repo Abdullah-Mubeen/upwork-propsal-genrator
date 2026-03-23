@@ -122,6 +122,9 @@ class PromptEngine:
         # NEW: Build requirements section from extracted job understanding
         requirements_section = self._build_requirements_section(requirements_context) if requirements_context else ""
         
+        # NEW: Build specific proof section from enhanced retrieval
+        specific_proof_section = self._build_specific_proof_section(requirements_context) if requirements_context else ""
+        
         # Dynamic hook generation - NOW REQUIREMENTS-AWARE
         hook_section = self._build_hook_section(job_data, similar_projects, requirements_context)
         
@@ -146,6 +149,7 @@ class PromptEngine:
 {requirements_section}
 {profile_section}
 {projects_section}
+{specific_proof_section}
 {checklist_section}
 {hook_section}
 
@@ -305,7 +309,7 @@ CONVERSATIONAL TONE:
       "{selected_q}"
       ❌ DO NOT put this at the end - START with it
       ✅ Pattern: "[Question] + I've done similar work at [example]"
-      Example: "{selected_q} I just finished a similar project: [URL]"''')
+      Example: "{selected_q} I built a similar project: [URL]"''')
         
         # Working arrangement hook (CRITICAL for service roles)
         working = requirements.get("working_arrangement", {})
@@ -485,7 +489,7 @@ CONVERSATIONAL TONE:
 ⚡ MANDATORY OPENER - YOUR FIRST SENTENCE:
 "{selected_q}"
 Then immediately follow with relevant experience/portfolio link.
-Example: "{selected_q} I just finished optimizing [similar site] - here's the result: [URL]"
+Example: "{selected_q} I built something similar - here's the result: [URL]"
 DO NOT put this question at the end. START your proposal with it.
 """ + output
         else:
@@ -496,7 +500,7 @@ DO NOT put this question at the end. START your proposal with it.
 ⚡ MANDATORY OPENER - YOUR FIRST SENTENCE:
 "{question}"
 Then immediately follow with relevant experience/portfolio link.
-Example: "{question} I just finished optimizing [similar site] - here's the result: [URL]"
+Example: "{question} I built something similar - here's the result: [URL]"
 DO NOT put this question at the end. START your proposal with it.
 """ + output
         
@@ -752,6 +756,89 @@ DO NOT put this question at the end. START your proposal with it.
 
         if sections:
             return "\n🧠 EXTRACTED JOB UNDERSTANDING (FOLLOW THESE CLOSELY):\n" + "\n".join(sections) + "\n"
+        return ""
+
+    def _build_specific_proof_section(self, requirements: Optional[Dict[str, Any]]) -> str:
+        """
+        Build SPECIFIC PROOF section from enhanced retrieval data.
+        
+        Uses deliverable_matches, problem_solutions, and portfolio_coverage
+        to provide the LLM with EXACT proof points for each job requirement.
+        """
+        if not requirements:
+            return ""
+        
+        sections = []
+        
+        # === DELIVERABLE MATCHES: Proof for each specific deliverable ===
+        deliverable_matches = requirements.get("deliverable_matches", {})
+        if deliverable_matches:
+            sections.append("\n🎯 SPECIFIC PROOF FOR EACH DELIVERABLE:")
+            for deliverable, matches in deliverable_matches.items():
+                if matches:
+                    best_match = matches[0]  # Best match first
+                    company = best_match.get('company') or best_match.get('company_name') or 'Previous client'
+                    urls = best_match.get('portfolio_urls', [])
+                    url = urls[0] if urls else best_match.get('portfolio_url', 'N/A')
+                    score = best_match.get('deliverable_score', 0)
+                    sections.append(f'   ✅ "{deliverable}" → Proven at {company}: {url} (match: {score:.0%})')
+                else:
+                    sections.append(f'   ⚠️ "{deliverable}" → No direct proof - use skill-based approach')
+        
+        # === PROBLEM SOLUTIONS: Past problems solved similar to client's pain points ===
+        problem_solutions = requirements.get("problem_solutions", [])
+        if problem_solutions:
+            sections.append("\n🔧 PAST PROBLEMS SOLVED (use these for empathy hooks):")
+            for solution in problem_solutions[:3]:
+                problem = solution.get('problem_matched', '')
+                company = solution.get('company') or solution.get('company_name') or 'Previous client'
+                outcome = solution.get('outcome_text', '')
+                urls = solution.get('portfolio_urls', [])
+                url = urls[0] if urls else solution.get('portfolio_url', 'N/A')
+                sections.append(f'   ✅ Problem: "{problem[:50]}..." → Solved at {company}')
+                if outcome:
+                    sections.append(f'      Result: "{outcome[:80]}..."')
+                sections.append(f'      URL: {url}')
+        
+        # === PORTFOLIO COVERAGE ANALYSIS ===
+        portfolio_coverage = requirements.get("portfolio_coverage", {})
+        if portfolio_coverage:
+            total = portfolio_coverage.get("total_items", 0)
+            covered = portfolio_coverage.get("covered", 0)
+            partial = portfolio_coverage.get("partial", 0)
+            uncovered = portfolio_coverage.get("uncovered", 0)
+            coverage_pct = portfolio_coverage.get("coverage_percentage", 0)
+            
+            sections.append(f"\n📊 PORTFOLIO COVERAGE: {coverage_pct:.0%} of requirements")
+            sections.append(f"   Full proof: {covered}/{total} | Partial: {partial}/{total} | No proof: {uncovered}/{total}")
+            
+            # Specific guidance based on coverage
+            if coverage_pct >= 0.7:
+                sections.append("   ✅ STRONG MATCH: Lead with specific project proofs")
+            elif coverage_pct >= 0.4:
+                sections.append("   ⚠️ PARTIAL MATCH: Combine proven work + transferable skills")
+            else:
+                sections.append("   🔶 LIMITED MATCH: Lead with approach and problem-solving skills")
+        
+        # === NO PORTFOLIO STRATEGY: What to do when portfolio doesn't match ===
+        no_portfolio_strategy = requirements.get("no_portfolio_strategy")
+        if no_portfolio_strategy and no_portfolio_strategy.get("strategy_type") != "direct_proof":
+            strategy_type = no_portfolio_strategy.get("strategy_type", "approach_first")
+            recommendation = no_portfolio_strategy.get("recommendation", "")
+            
+            strategy_guidance = {
+                "skill_based": "🎯 Use SKILL-BASED hooks: 'I specialize in X and Y which directly apply here'",
+                "transferable": "🔄 Use TRANSFERABLE hooks: 'I did similar work for [industry] that directly applies'",
+                "approach_first": "💡 Use APPROACH hooks: Lead with HOW you'd solve their specific problem"
+            }
+            
+            sections.append(f"\n🚨 NO DIRECT PORTFOLIO MATCH - STRATEGY: {strategy_type.upper()}")
+            sections.append(f"   {strategy_guidance.get(strategy_type, recommendation)}")
+            if recommendation:
+                sections.append(f"   Recommendation: {recommendation}")
+        
+        if sections:
+            return "\n" + "=" * 60 + "\n🎯 SPECIFIC PROOF POINTS (USE THESE EXACTLY)\n" + "=" * 60 + "\n" + "\n".join(sections) + "\n"
         return ""
 
     def _build_anti_hallucination_rules(self, requirements: Optional[Dict[str, Any]] = None) -> str:

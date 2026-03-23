@@ -104,12 +104,16 @@ class ProposalService:
         """
         Generate an intelligent proposal based on job details and history.
         
-        Steps:
+        ENHANCED Steps (Issue #25):
         1. Get historical jobs
         2. Find similar projects via semantic search
+        2a. NEW: Deliverable-level retrieval (find best match per deliverable)
+        2b. NEW: Problem-to-solution matching (find where we solved similar problems)
+        2c. NEW: Portfolio coverage analysis (what can we prove?)
+        2d. NEW: No-portfolio strategy (if no matches, determine approach)
         3. Analyze previous proposals
         4. Collect portfolio and feedback URLs
-        5. Build enhanced prompt
+        5. Build enhanced prompt with specific proof
         6. Generate proposal with AI
         7. Score quality and suggest improvements
         
@@ -125,7 +129,7 @@ class ProposalService:
             # Prepare job data
             job_data = self._prepare_job_data(request)
             
-            # Step 0: Extract structured job requirements (NEW - Issue #23)
+            # Step 0: Extract structured job requirements (Issue #23)
             job_requirements = self._extract_job_requirements(request)
             if job_requirements:
                 logger.info(f"[ProposalService] Extracted requirements: task='{job_requirements.exact_task[:50]}...' "
@@ -145,6 +149,42 @@ class ProposalService:
             
             # Filter to projects with portfolio
             similar_projects = self._filter_projects_with_portfolio(similar_projects)
+            
+            # ============ NEW: ENHANCED RETRIEVAL (Issue #25) ============
+            deliverable_matches = {}
+            problem_solutions = []
+            portfolio_coverage = {"overall_coverage": 0, "strategy": "approach_first", "items": [], "gaps": []}
+            no_portfolio_strategy = None
+            
+            if self.retrieval_pipeline and job_requirements:
+                # Step 2a: Deliverable-level retrieval
+                deliverable_matches = self.retrieval_pipeline.retrieve_by_deliverables(
+                    job_requirements, all_jobs, top_k_per_deliverable=2
+                )
+                if deliverable_matches:
+                    logger.info(f"[ProposalService] Matched {len(deliverable_matches)} deliverables to past projects")
+                
+                # Step 2b: Problem-to-solution matching
+                problem_solutions = self.retrieval_pipeline.retrieve_by_problems_solved(
+                    job_requirements, all_jobs
+                )
+                if problem_solutions:
+                    logger.info(f"[ProposalService] Found solutions for {len(problem_solutions)} mentioned problems")
+                
+                # Step 2c: Portfolio coverage analysis
+                portfolio_coverage = self.retrieval_pipeline.analyze_portfolio_coverage(
+                    job_requirements, similar_projects, deliverable_matches, problem_solutions
+                )
+                logger.info(f"[ProposalService] Portfolio coverage: {portfolio_coverage.get('overall_coverage', 0):.0%}, "
+                           f"strategy: {portfolio_coverage.get('strategy')}, gaps: {len(portfolio_coverage.get('gaps', []))}")
+                
+                # Step 2d: No-portfolio strategy (if coverage is low)
+                if portfolio_coverage.get("overall_coverage", 0) < 0.4 or not similar_projects:
+                    no_portfolio_strategy = self.retrieval_pipeline.get_no_portfolio_strategy(
+                        job_requirements, all_jobs
+                    )
+                    logger.info(f"[ProposalService] No-portfolio strategy: {no_portfolio_strategy.get('strategy')}, "
+                               f"skill coverage: {no_portfolio_strategy.get('skill_coverage', 0):.0%}")
             
             # Step 2.5: Phase 2 - Analyze capability and get factual answers
             capability_analysis = None
@@ -191,7 +231,12 @@ class ProposalService:
                 profile_context=profile_context,
                 job_requirements=job_requirements if 'job_requirements' in dir() else None,
                 capability_analysis=capability_analysis,
-                factual_answers=factual_answers
+                factual_answers=factual_answers,
+                # NEW: Enhanced retrieval data (Issue #25)
+                deliverable_matches=deliverable_matches,
+                problem_solutions=problem_solutions,
+                portfolio_coverage=portfolio_coverage,
+                no_portfolio_strategy=no_portfolio_strategy
             )
             
             # Step 6: Generate proposal
@@ -690,7 +735,11 @@ class ProposalService:
         profile_context: Optional[Dict[str, Any]] = None,
         job_requirements: Optional[Any] = None,
         capability_analysis: Optional[Dict[str, Any]] = None,
-        factual_answers: Optional[Dict[str, Any]] = None
+        factual_answers: Optional[Dict[str, Any]] = None,
+        deliverable_matches: Optional[Dict[str, List[Dict]]] = None,
+        problem_solutions: Optional[List[Dict]] = None,
+        portfolio_coverage: Optional[Dict[str, Any]] = None,
+        no_portfolio_strategy: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build the proposal generation prompt with enhanced job understanding."""
         if not self.prompt_engine:
@@ -725,6 +774,11 @@ class ProposalService:
                 "capability_analysis": capability_analysis,
                 "factual_answers": factual_answers or {}, 
                 "smart_question": job_requirements.smart_question,
+                # NEW: Enhanced Retrieval Data for Specific Proof
+                "deliverable_matches": deliverable_matches or {},
+                "problem_solutions": problem_solutions or [],
+                "portfolio_coverage": portfolio_coverage or {},
+                "no_portfolio_strategy": no_portfolio_strategy,
             }
         
         # Inject user-selected hook question (overrides smart_question)

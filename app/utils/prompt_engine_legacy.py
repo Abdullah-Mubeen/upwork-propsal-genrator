@@ -495,7 +495,7 @@ The first 2.5 lines are ALL the client sees on Upwork - make them IRRESISTIBLE!
 
 ✅ USE THESE WINNING HOOK STRATEGIES INSTEAD:
 1. SOLUTION LEAD: "I know exactly why [specific problem] is happening and how to fix it."
-2. IMMEDIATE VALUE: "Just wrapped up something nearly identical - [portfolio_url]"
+2. IMMEDIATE VALUE: "I built something nearly identical - [portfolio_url]"
 3. EMPATHY FIRST: "That's a frustrating situation - [show you understand their pain]"
 4. QUESTION HOOK: "Quick question: Is the [issue] affecting [business impact]?"
 5. RESULT LEAD: "Got a similar site from [before metric] to [after metric] last week."
@@ -528,7 +528,7 @@ WHAT TO DO:
 ✓ Total: 200-350 words (concise, direct, human)
 
 CONVERSATIONAL TONE EXAMPLES:
-✓ "This is right up my alley - just finished something similar"
+✓ "I have built something similar"
 ✓ "I've tackled this exact issue before"
 ✓ "Here's what worked for a similar client"
 ✓ "Happy to hop on a quick call if you want to discuss"
@@ -676,7 +676,7 @@ TARGET: 200-350 words. Every word must count. Include enough detail to build tru
         # Build hook example with portfolio link (actual project URL preferred) - PLAIN URL, no markdown
         hook_example = '"Noticed you need help with [specific problem from their job description] - I\'ve got relevant experience here..."'
         if hook_project and hook_portfolio_url:
-            hook_example = f'"Noticed you need help with [specific problem]. Just wrapped up something similar: {hook_portfolio_url}"'
+            hook_example = f'"Noticed you need help with [specific problem]. I built something similar: {hook_portfolio_url}"'
 
         # Build timeline section based on include_timeline flag
         timeline_section = ""
@@ -755,7 +755,7 @@ Do NOT include any timeline or duration in this proposal.
         else:
             varied_hooks_section += """
    1. SOLUTION LEAD: "[Problem] is usually caused by [insight]. Here's how I'd fix it..."
-   2. PORTFOLIO LEAD: "Just finished something nearly identical - [link]. Here's what I did..."
+   2. PORTFOLIO LEAD: "I built something nearly identical - [link]. Here's what I did..."
    3. EMPATHY LEAD: "That situation sounds stressful. I've been there and can help..."
    4. QUESTION LEAD: "Quick q: Is [issue] also causing [related problem]?"
    5. RESULT LEAD: "Got another client's [metric] from [X] to [Y] last week - same issue."
@@ -783,7 +783,7 @@ Reference these similar past projects:
 
 📝 Format each proof point CONVERSATIONALLY:
 • BAD: "Successfully completed WordPress project for Acme Corp"
-• GOOD: "Just wrapped up something similar for Acme Corp - migrated their entire blog and membership system"
+• GOOD: "I built something similar for Acme Corp - migrated their entire blog and membership system"
   Live work: https://portfolio-url.com
   (Only include feedback URL if it exists in the data above - DON'T fabricate)
 

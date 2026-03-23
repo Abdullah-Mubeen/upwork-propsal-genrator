@@ -112,7 +112,7 @@ class HookQuestion:
 # LLM function definition for hook question generation
 HOOK_QUESTIONS_FUNCTION = {
     "name": "generate_hook_questions",
-    "description": "Generate 1-3 specific questions for a freelancer proposal. PRIORITY: If client mentions resources they didn't share, the FIRST question MUST ask for those resources.",
+    "description": "Generate 1-4 specific questions for a freelancer proposal. PRIORITY ORDER: 1) Access request (if they mention having resources but didn't share), 2) Technical diagnostic (show expertise), 3) Constraint clarification (if they hint at past problems), 4) Empathy (acknowledge frustration).",
     "parameters": {
         "type": "object",
         "properties": {
@@ -123,65 +123,107 @@ HOOK_QUESTIONS_FUNCTION = {
                     "properties": {
                         "question_text": {
                             "type": "string",
-                            "description": "A conversational question (1-2 sentences). If client mentioned having something but didn't share it, ask for it. Otherwise, ask something specific to the job."
+                            "description": "A conversational question (1-2 sentences). Sound like a helpful colleague, not an interrogator. Combine value with the question."
                         },
                         "category": {
                             "type": "string",
-                            "enum": ["access_request", "diagnostic", "scope_clarification", "empathy"],
-                            "description": "'access_request' = asking for URL/files/access they mentioned but didn't share (HIGHEST PRIORITY), 'diagnostic' = technical question showing expertise, 'scope_clarification' = clarifying ambiguous deliverables, 'empathy' = acknowledging frustration"
+                            "enum": ["access_request", "technical_diagnostic", "integration_specific", "constraint_clarification", "empathy", "scope_clarification"],
+                            "description": "'access_request' = asking for URL/files/access (HIGHEST PRIORITY), 'technical_diagnostic' = showing expertise with a smart technical question, 'integration_specific' = asking about specific integrations/connectors/plugins, 'constraint_clarification' = understanding constraints like 'do not rebuild', 'empathy' = acknowledging past frustration, 'scope_clarification' = clarifying vague deliverables"
                         },
                         "relevance_reason": {
                             "type": "string",
-                            "description": "Why this question matters (e.g., 'Client said they have example websites but didn't share links')"
+                            "description": "Why this question matters (e.g., 'Client mentioned Moodle integration but specific connector is unclear')"
+                        },
+                        "trigger_detected": {
+                            "type": "string",
+                            "description": "What specific phrase/context triggered this question (e.g., 'do not rebuild LMS', 'moodle connection issues', 'site URL mentioned but no access')"
                         }
                     },
-                    "required": ["question_text", "category", "relevance_reason"]
+                    "required": ["question_text", "category", "relevance_reason", "trigger_detected"]
                 },
                 "minItems": 1,
-                "maxItems": 3,
-                "description": "1-3 questions. First should be access_request if applicable."
+                "maxItems": 4,
+                "description": "1-4 questions in priority order. Generate MORE questions for complex jobs."
             }
         },
         "required": ["questions"]
     }
 }
 
-HOOK_QUESTIONS_SYSTEM_PROMPT = """You are an expert Upwork proposal strategist. Generate 1-3 specific questions that help the freelancer START A CONVERSATION with the client.
+HOOK_QUESTIONS_SYSTEM_PROMPT = """You are an expert Upwork proposal strategist. Generate 1-4 specific questions that help the freelancer START A CONVERSATION with the client.
 
-## THE #1 RULE: ASK FOR WHAT THEY MENTION BUT DON'T SHARE
+## QUESTION GENERATION TRIGGERS - ALWAYS check for these:
 
-Clients often say "I have X" but don't provide X. Your FIRST question should ask for that missing resource:
-- "I have example websites" + no links → "Could you share those example websites? I'd love to see the direction you're going for."
-- "migrating from X to Y" + no access → "Could you share access to [platform] so I can review the current setup?"
-- "site is slow/broken" + no URL → "Could you share the website URL? I'll run a quick audit."
-- "I have designs/Figma" + no link → "Could you share the Figma/design files? I'll review and give you an accurate estimate."
+### TRIGGER 1: RESOURCES MENTIONED BUT NOT SHARED (HIGHEST PRIORITY)
+If client says "I have X" but doesn't provide X → Ask for it!
+- "I have example websites" + no links → Ask for the links
+- "migrating from X to Y" + no access → Ask for access
+- "site is slow/broken" + URL mentioned but no credentials → Ask for admin access
+- "I have designs/Figma" + no link → Ask for Figma link
+- Website URL mentioned like "nexacentre.com" but need access → Ask for staging/admin access
 
-## QUESTION TYPES (in priority order):
+### TRIGGER 2: INTEGRATION/CONNECTOR TYPE IS UNCLEAR
+If they mention a technology integration but don't specify which connector:
+- "WordPress-Moodle connection" → "Which Moodle connector are you using—the official Moodle plugin, LearnDash integration, or a custom SSO setup?"
+- "Zapier integration" → "Which Zapier triggers/actions are you using currently?"
+- "API connection" → "Is this a REST API, GraphQL, or websocket connection?"
+- "LMS integration" → "Which LMS are you connecting—Moodle, LearnDash, Tutor LMS, or another system?"
+- "Payment gateway" → "Which payment provider—Stripe, PayPal, or another gateway?"
 
-1. **access_request** - Ask for URL, credentials, files, or assets they mentioned but didn't share. THIS IS THE MOST VALUABLE.
-2. **diagnostic** - If they shared a URL/problem, ask a specific technical question that shows expertise.
-3. **scope_clarification** - Clarify deliverables ONLY if genuinely ambiguous.
-4. **empathy** - Acknowledge frustration IF they expressed it.
+### TRIGGER 3: CONSTRAINT HINTS AT PAST PROBLEMS
+If client says "do NOT do X" or expresses a strong constraint:
+- "Do not rebuild the LMS" → "I noticed you mentioned not rebuilding the LMS—totally respect that. Was there a previous attempt, or is this more about budget/timeline? Understanding helps me scope accurately."
+- "Last developer left/ghosted" → "I understand you had issues with a previous developer. What went wrong? I want to make sure we avoid those same problems."
+- "Tried X before" → "You mentioned trying X before—what didn't work about that approach?"
+
+### TRIGGER 4: DIAGNOSTIC QUESTIONS (show expertise)
+For technical issues, ask SMART diagnostic questions:
+- "Site is slow" → "Is the slowness mainly on mobile or initial page load? That narrows down whether it's images, JS, or server-side."
+- "Connection issues" → "Are users getting specific error messages, or is it silently failing?"
+- "Registration problems" → "Is the registration issue on the WordPress side, the LMS side, or during the sync between them?"
+- "LMS usability issues" → "What specific usability pain points are users reporting? Navigation, course progress, or something else?"
+
+### TRIGGER 5: EMPATHY ACKNOWLEDGMENT
+If client expresses frustration or had bad experience:
+- "Frustrated with..." → Acknowledge it before asking anything
+- "Nightmare", "Horrible", "Disaster" → Show understanding first
+
+## QUESTION TYPES (categories):
+1. **access_request** - Ask for URL/files/access they mentioned but didn't share
+2. **technical_diagnostic** - Smart technical question showing expertise  
+3. **integration_specific** - Clarify which connector/plugin/integration type
+4. **constraint_clarification** - Understand "do not" constraints (often hint at past problems)
+5. **empathy** - Acknowledge frustration
+6. **scope_clarification** - Clarify ambiguous deliverables
 
 ## RULES:
-- Question 1 should ALWAYS be an access_request if client mentioned resources they didn't share
+- Generate 2-4 questions for complex jobs (multiple integrations, technical issues)
+- Generate 1-2 questions for simple jobs
 - Questions must reference SPECIFIC things from the job post
-- Keep each question to 1-2 sentences MAX
 - Sound like a helpful colleague, not an interrogator
-- NEVER ask about budget, timeline, or things they already answered
-- NEVER give unsolicited tech suggestions disguised as questions
+- NEVER ask about budget or timeline
+- Combine value with questions: "I've worked with Moodle integrations before—which connector are you using?"
 
-## GOOD EXAMPLES:
-- "Could you share the website URL so I can run a quick speed test?" (access_request)
-- "Could you share those example sites? I want to make sure I match the style you're after." (access_request)
-- "Is the slowness mainly on mobile or desktop?" (diagnostic - ONLY after you have the URL)
-- "Are you keeping the current theme or open to a fresh start?" (scope_clarification)
+## GOOD EXAMPLES BY TRIGGER:
 
-## BAD EXAMPLES:
-- "What's your timeline?" (generic)
+ACCESS_REQUEST:
+- "Could you share temporary admin access to nexacentre.com? I'd love to diagnose the Moodle sync issue before giving you a timeline."
+
+INTEGRATION_SPECIFIC:  
+- "Quick question: Which Moodle connector are you using—the official plugin or a custom SSO solution? This helps me pinpoint where the registration sync is breaking."
+
+CONSTRAINT_CLARIFICATION:
+- "I see you want to improve the LMS rather than rebuild it—smart approach. Was there a past rebuild attempt that didn't work out, or is this more about maintaining stability while fixing issues?"
+
+TECHNICAL_DIAGNOSTIC:
+- "When users try to register, are they getting a specific error message or is the process just silently failing? This tells me whether it's a frontend validation issue or a backend sync problem."
+
+## BAD EXAMPLES (NEVER do these):
+- "What's your timeline?" (they didn't ask for this)
 - "Have you considered using X instead?" (unsolicited advice)
 - "Can you share more details?" (vague, lazy)
-- "What's your budget?" (never ask this)"""
+- "What's your budget?" (NEVER ask this)
+- Questions about things they already answered in the post"""
 
 
 # OpenAI Function Definition for structured extraction
@@ -642,10 +684,17 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
         job_title: str = ""
     ) -> List[HookQuestion]:
         """
-        Generate 3-4 suggested hook questions based on extracted job requirements.
+        Generate 1-4 suggested hook questions based on extracted job requirements.
 
-        Uses a focused LLM call with the already-extracted requirements as context
-        to produce specific, compelling opening questions.
+        Uses a focused LLM call with trigger detection to produce specific,
+        compelling opening questions for the user to SELECT from.
+
+        Enhanced triggers:
+        - Access requests (URL/credentials mentioned but not shared)
+        - Integration specifics (which connector/plugin)
+        - Constraint clarification (why "do not X")
+        - Technical diagnostics (smart questions showing expertise)
+        - Empathy acknowledgment (past frustration)
 
         Args:
             requirements: Previously extracted JobRequirements
@@ -653,66 +702,138 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
             job_title: Job title
 
         Returns:
-            List of HookQuestion dataclasses (3-4 items)
+            List of HookQuestion dataclasses (1-4 items)
         """
         if not self.openai_service:
             logger.warning("[HookQuestions] OpenAI not available, returning empty")
             return []
 
-        # Build context - CRITICAL: detect what client mentions but doesn't share
+        # Build enhanced context with EXPLICIT trigger detection
         context_parts = []
+        triggers_detected = []
+        job_lower = job_description.lower()
         
         # Core task
         if requirements.exact_task:
             context_parts.append(f"Task: {requirements.exact_task}")
         
-        # CRITICAL: Resources mentioned vs actually provided
-        # This is the key to generating "access_request" questions
-        resources_mentioned = requirements.resources_provided or []
+        # ============ TRIGGER 1: ACCESS/RESOURCES MENTIONED BUT NOT SHARED ============
         links_shared = requirements.links_mentioned or []
+        mentioned_but_not_shared = []
         
-        # Detect patterns of "mentioned but not shared"
-        mentioned_not_shared = []
-        job_lower = job_description.lower()
-        
-        # Check for common patterns
-        if any(phrase in job_lower for phrase in ['example website', 'example site', 'reference site', 'i have example', 'have examples']):
-            if not links_shared:
-                mentioned_not_shared.append("example/reference websites (mentioned but no links provided)")
-        
-        if any(phrase in job_lower for phrase in ['figma', 'design file', 'mockup', 'psd', 'sketch']):
-            if not any('figma' in link.lower() for link in links_shared):
-                mentioned_not_shared.append("design files/Figma (mentioned but not shared)")
-        
-        if any(phrase in job_lower for phrase in ['slow', 'speed', 'performance', 'loading', 'broken', 'not working', 'issue', 'bug', 'fix']):
-            if not links_shared:
-                mentioned_not_shared.append("website URL (has problem but no URL to diagnose)")
-        
-        if any(phrase in job_lower for phrase in ['migrat', 'moving to', 'switch to', 'transfer']):
-            mentioned_not_shared.append("access to current setup (migration mentioned)")
-        
-        if mentioned_not_shared:
-            context_parts.append(f"⚠️ CLIENT MENTIONED BUT DIDN'T SHARE: {'; '.join(mentioned_not_shared)}")
-            context_parts.append("→ FIRST question should ask for these missing resources!")
-        
+        # Website URL mentioned but need access
         if links_shared:
-            context_parts.append(f"Links already provided: {', '.join(links_shared[:3])}")
+            context_parts.append(f"URLs mentioned: {', '.join(links_shared[:3])}")
+            # They have URL but likely need admin access to diagnose
+            if any(prob in str(requirements.problems_mentioned).lower() for prob in ['issue', 'broken', 'slow', 'not working', 'connection', 'error']):
+                triggers_detected.append("TRIGGER: Website URL provided but admin access likely needed to diagnose issues")
+                mentioned_but_not_shared.append("admin/staging access (URL mentioned, but need access to diagnose)")
         else:
-            context_parts.append("No URLs/links provided in job post")
+            context_parts.append("No URLs provided in job post")
         
-        # Problems (for diagnostic questions)
+        # Figma/design files mentioned but not shared
+        if any(phrase in job_lower for phrase in ['figma', 'design file', 'mockup', 'psd', 'sketch', 'has designs', 'have designs']):
+            if not any('figma' in link.lower() for link in links_shared):
+                triggers_detected.append("TRIGGER: Design files mentioned but not shared")
+                mentioned_but_not_shared.append("Figma/design files (mentioned but link not provided)")
+        
+        # Examples mentioned but not shared
+        if any(phrase in job_lower for phrase in ['example website', 'example site', 'reference site', 'similar to', 'like this site']):
+            if len(links_shared) < 2:
+                triggers_detected.append("TRIGGER: Example/reference sites mentioned but not all shared")
+                mentioned_but_not_shared.append("example/reference websites")
+        
+        if mentioned_but_not_shared:
+            context_parts.append(f"⚠️ ACCESS_REQUEST TRIGGER: {'; '.join(mentioned_but_not_shared)}")
+        
+        # ============ TRIGGER 2: INTEGRATION TYPE UNCLEAR ============
+        integration_triggers = []
+        
+        # Moodle integration
+        if 'moodle' in job_lower:
+            if not any(connector in job_lower for connector in ['learndash', 'tutor lms', 'official moodle plugin', 'sso']):
+                triggers_detected.append("TRIGGER: Moodle mentioned but connector type unclear")
+                integration_triggers.append("Moodle connector (which plugin/integration?)")
+        
+        # LMS mentioned generically
+        if 'lms' in job_lower and 'moodle' not in job_lower:
+            triggers_detected.append("TRIGGER: LMS mentioned but specific system unclear")
+            integration_triggers.append("LMS system (which one?)")
+        
+        # Payment gateway
+        if any(term in job_lower for term in ['payment', 'checkout', 'pay']):
+            if not any(gateway in job_lower for gateway in ['stripe', 'paypal', 'square', 'woocommerce payments']):
+                triggers_detected.append("TRIGGER: Payment mentioned but gateway unclear")
+                integration_triggers.append("payment gateway (Stripe, PayPal, etc.?)")
+        
+        # API integration
+        if 'api' in job_lower and 'which api' not in job_lower:
+            integration_triggers.append("API type (REST, GraphQL, specific service?)")
+        
+        if integration_triggers:
+            context_parts.append(f"⚠️ INTEGRATION_SPECIFIC TRIGGER: {'; '.join(integration_triggers)}")
+        
+        # ============ TRIGGER 3: CONSTRAINT HINTS AT PAST PROBLEMS ============
+        constraint_triggers = []
+        
+        if requirements.must_not_propose:
+            for constraint in requirements.must_not_propose:
+                constraint_lower = constraint.lower()
+                if any(word in constraint_lower for word in ['rebuild', 'redesign', 'start over', 'from scratch']):
+                    triggers_detected.append(f"TRIGGER: 'Do not {constraint}' - possible past bad experience")
+                    constraint_triggers.append(f"'{constraint}' constraint (why? past attempt?)")
+        
+        # Direct constraint phrases in job
+        if any(phrase in job_lower for phrase in ['do not rebuild', "don't rebuild", 'do not redesign', "don't redesign", 'no redesign', 'no rebuild']):
+            triggers_detected.append("TRIGGER: Explicit 'do not rebuild/redesign' constraint")
+            constraint_triggers.append("rebuild/redesign constraint (understanding the concern)")
+        
+        # Past developer issues
+        if any(phrase in job_lower for phrase in ['last developer', 'previous developer', 'developer left', 'ghosted', 'went mia', 'disappeared']):
+            triggers_detected.append("TRIGGER: Past developer problems mentioned")
+            constraint_triggers.append("past developer issues (what went wrong?)")
+        
+        if constraint_triggers:
+            context_parts.append(f"⚠️ CONSTRAINT_CLARIFICATION TRIGGER: {'; '.join(constraint_triggers)}")
+        
+        # ============ TRIGGER 4: TECHNICAL DIAGNOSTIC OPPORTUNITIES ============
+        diagnostic_triggers = []
+        
         if requirements.problems_mentioned:
             context_parts.append(f"Problems mentioned: {', '.join(requirements.problems_mentioned[:4])}")
+            for problem in requirements.problems_mentioned:
+                problem_lower = problem.lower()
+                if 'connection' in problem_lower or 'sync' in problem_lower:
+                    diagnostic_triggers.append(f"'{problem}' - need to understand error messages/failure mode")
+                elif 'slow' in problem_lower or 'performance' in problem_lower:
+                    diagnostic_triggers.append(f"'{problem}' - need to know which pages/mobile vs desktop")
+                elif 'usability' in problem_lower:
+                    diagnostic_triggers.append(f"'{problem}' - need specific user complaints")
         
-        # Tech stack
+        if diagnostic_triggers:
+            triggers_detected.append("TRIGGER: Technical issues that need diagnostic questions")
+            context_parts.append(f"⚠️ TECHNICAL_DIAGNOSTIC TRIGGER: {'; '.join(diagnostic_triggers[:2])}")
+        
+        # ============ TRIGGER 5: EMPATHY NEEDED ============
+        empathy_needed = False
+        if requirements.client_tone in ['frustrated', 'urgent']:
+            empathy_needed = True
+            triggers_detected.append(f"TRIGGER: Client tone is {requirements.client_tone} - acknowledge it")
+        
+        if any(word in job_lower for word in ['nightmare', 'disaster', 'horrible', 'terrible', 'frustrated', 'struggling']):
+            empathy_needed = True
+            triggers_detected.append("TRIGGER: Frustration words detected - acknowledge empathetically")
+        
+        if empathy_needed:
+            context_parts.append("⚠️ EMPATHY TRIGGER: Client seems frustrated - acknowledge before asking")
+        
+        # ============ OTHER CONTEXT ============
         if requirements.tech_stack_mentioned:
             context_parts.append(f"Tech stack: {', '.join(requirements.tech_stack_mentioned[:6])}")
         
-        # Client tone (for empathy questions)
-        if requirements.client_tone:
-            context_parts.append(f"Client tone: {requirements.client_tone}")
+        if requirements.client_priorities:
+            context_parts.append(f"Client priorities: {', '.join(requirements.client_priorities[:3])}")
         
-        # Things NOT to ask about
         if requirements.do_not_assume:
             context_parts.append(f"DO NOT ask about: {', '.join(requirements.do_not_assume[:4])}")
         
@@ -720,20 +841,22 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
         if requirements.explicit_checklist:
             items = [c.get('item_text', '') for c in requirements.explicit_checklist[:4] if c.get('item_text')]
             if items:
-                context_parts.append(f"Client's checklist: {'; '.join(items)}")
-        
-        # Pre-detected smart question
-        if requirements.smart_question and requirements.smart_question.get('ask'):
-            context_parts.append(f"Pre-identified question: {requirements.smart_question.get('question', '')}")
+                context_parts.append(f"Client's explicit checklist: {'; '.join(items)}")
 
-        user_prompt = f"""Generate 1-3 hook questions for a proposal responding to this job:
+        # Build final prompt with all detected triggers
+        triggers_summary = "\n".join(f"  • {t}" for t in triggers_detected) if triggers_detected else "  • No strong triggers detected - generate general engagement questions"
+        
+        user_prompt = f"""Generate 1-4 hook questions for a proposal responding to this job.
 
 JOB TITLE: {job_title or 'Not provided'}
 
-EXTRACTED REQUIREMENTS:
+DETECTED TRIGGERS (MUST address these):
+{triggers_summary}
+
+EXTRACTED CONTEXT:
 {chr(10).join(context_parts)}
 
-ORIGINAL JOB DESCRIPTION (for reference):
+ORIGINAL JOB DESCRIPTION (reference):
 {job_description[:1500]}
 
 Generate questions that would make this specific client want to click and read the full proposal."""

@@ -98,10 +98,10 @@ class HookStrategyEngine:
             "Good news: {problem} is usually a quick fix. Here's why...",
         ],
         "immediate_value": [
-            "Just wrapped up something nearly identical - {portfolio_url}",
-            "I literally just solved this last week for another client: {portfolio_url}",
-            "Here's a live example of exactly what you need: {portfolio_url}",
-            "Quick preview of what I can do for you: {portfolio_url}",
+            "I built something nearly identical - {portfolio_with_stats}",
+            "I have built this for another client: {portfolio_with_stats}",
+            "Here's a live example of exactly what you need: {portfolio_with_stats}",
+            "Quick preview of what I can do for you: {portfolio_with_stats}",
         ],
         "empathy_first": [
             "I know how frustrating {problem} can be when {consequence}.",
@@ -116,14 +116,14 @@ class HookStrategyEngine:
             "Is this happening on all {context} or just specific ones?",
         ],
         "result_lead": [
-            "Got a similar store from {before} to {after} last month.",
-            "Took another client's {metric} from {before} to {after} - here's how.",
-            "My last {platform} project went from {before} to {after} in {timeframe}.",
-            "{metric_improvement} on a similar project last week.",
+            "Got a similar store from {before} to {after} last month - {portfolio_url}",
+            "Took another client's {metric} from {before} to {after}: {portfolio_with_stats}",
+            "My last {platform} project: {outcome_stats} - {portfolio_url}",
+            "{metric_improvement} on a similar project: {portfolio_url}",
         ],
         "availability_lead": [
             "I can start right now - this shouldn't take more than {timeframe}.",
-            "I have built this - see here: {portfolio_url}",
+            "I have built this - {portfolio_with_stats}",
             "At my desk and ready to dive in immediately.",
             "I've got time blocked for urgent projects like this today.",
         ],
@@ -134,9 +134,9 @@ class HookStrategyEngine:
             "Interesting challenge - most {platform} sites have this because of {reason}.",
         ],
         "social_proof": [
-            "Just got 5 stars on the same type of work yesterday.",
+            "I have built this multiple times with 5-star feedback.",
             "Been doing exactly this for {timeframe} - dozens of happy clients.",
-            "This is literally 80% of my work. Here's my latest: {portfolio_url}",
+            "This is literally 80% of my work. Here's my latest: {portfolio_with_stats}",
             "I specialize in {task_type} - it's what I do best.",
         ],
         # ============== AI/ML SPECIFIC HOOKS (PROVEN WINNERS) ==============
@@ -365,9 +365,9 @@ class HookStrategyEngine:
             
             templates = self.WINNING_HOOK_PATTERNS.get(strategy, self.WINNING_HOOK_PATTERNS["direct_solution"])
             
-            # Filter out templates that need portfolio_url if we don't have one
+            # Filter out templates that need portfolio_url or portfolio_with_stats if we don't have one
             if not portfolio_url:
-                templates = [t for t in templates if "{portfolio_url}" not in t]
+                templates = [t for t in templates if "{portfolio_url}" not in t and "{portfolio_with_stats}" not in t]
                 if not templates:
                     continue
             
@@ -547,14 +547,26 @@ class HookStrategyEngine:
         # Get likely cause for technical issues
         likely_cause = self._suggest_likely_cause(job_analysis, job_data)
         
-        # Get metrics from similar projects
+        # Get metrics from similar projects (now includes outcome_stats)
         metrics = self._get_project_metrics(similar_projects)
+        
+        # Extract outcome stats for hooks
+        outcome_stats = metrics.get("outcome_stats", "")
+        
+        # Build portfolio_with_stats: combines URL + stats for compelling proof
+        portfolio_with_stats = portfolio_url or ""
+        if portfolio_url and outcome_stats:
+            portfolio_with_stats = f"{outcome_stats} - see here: {portfolio_url}"
+        elif outcome_stats:
+            portfolio_with_stats = outcome_stats
         
         context = {
             "problem": problem,
             "consequence": consequence,
             "likely_cause": likely_cause,
             "portfolio_url": portfolio_url or "",
+            "outcome_stats": outcome_stats,  # NEW: Raw outcome stats
+            "portfolio_with_stats": portfolio_with_stats,  # NEW: Stats + URL combined
             "platform": job_analysis.platform.title(),
             "task_type": job_analysis.task_type,
             "timeframe": self._estimate_timeframe(job_analysis),
@@ -808,21 +820,46 @@ Tech: LangChain + Pinecone + FastAPI + MongoDB"""
             "before": "30+ seconds",
             "after": "under 2s",
             "metric": "load time",
-            "improvement": "90+ mobile score"
+            "improvement": "90+ mobile score",
+            "outcome_stats": "",  # Stats from outcome field
         }
         
         if not similar_projects:
             return defaults
         
-        # Try to find real metrics from project feedback
+        # FIRST PRIORITY: Extract outcome stats from outcome field (structured dict)
         for proj in similar_projects[:3]:
-            feedback = proj.get("client_feedback_text", "")
-            if feedback:
-                # Look for numbers in feedback
-                numbers = re.findall(r'\d+[\+]?(?:\s*%|\s*seconds?|\s*/\s*5)?', feedback)
-                if numbers:
-                    defaults["improvement"] = numbers[0]
+            outcome = proj.get("outcome")
+            if isinstance(outcome, dict):
+                stats = outcome.get("stats", "")
+                if stats and stats.strip():
+                    defaults["outcome_stats"] = stats
+                    defaults["improvement"] = stats  # Also use as improvement
+                    logger.debug(f"[HookStrategy] Found outcome stats: {stats[:50]}...")
                     break
+            elif isinstance(outcome, str) and outcome.strip():
+                defaults["outcome_stats"] = outcome
+                defaults["improvement"] = outcome
+                logger.debug(f"[HookStrategy] Found outcome string: {outcome[:50]}...")
+                break
+            # Fall back to legacy 'outcomes' field
+            outcomes = proj.get("outcomes", "")
+            if isinstance(outcomes, str) and outcomes.strip():
+                defaults["outcome_stats"] = outcomes
+                defaults["improvement"] = outcomes
+                logger.debug(f"[HookStrategy] Found legacy outcomes: {outcomes[:50]}...")
+                break
+        
+        # SECOND PRIORITY: Try to find real metrics from project feedback
+        if not defaults["outcome_stats"]:
+            for proj in similar_projects[:3]:
+                feedback = proj.get("client_feedback_text", "")
+                if feedback:
+                    # Look for numbers in feedback
+                    numbers = re.findall(r'\d+[\+]?(?:\s*%|\s*seconds?|\s*/\s*5)?', feedback)
+                    if numbers:
+                        defaults["improvement"] = numbers[0]
+                        break
         
         return defaults
 
@@ -879,10 +916,15 @@ Tech: LangChain + Pinecone + FastAPI + MongoDB"""
         for key, value in context.items():
             placeholder = "{" + key + "}"
             if placeholder in result:
-                # Skip if value is empty and it's a URL placeholder
-                if not value and key in ['portfolio_url', 'feedback_url']:
-                    # Replace with a fallback message or remove the line
-                    result = result.replace(placeholder, "[portfolio link]")
+                # Handle empty values for URL/stats placeholders
+                if not value and key in ['portfolio_url', 'feedback_url', 'portfolio_with_stats', 'outcome_stats']:
+                    # Replace with a fallback or remove
+                    if key == 'portfolio_with_stats':
+                        result = result.replace(placeholder, context.get('portfolio_url', '[portfolio link]'))
+                    elif key == 'outcome_stats':
+                        result = result.replace(placeholder, "")
+                    else:
+                        result = result.replace(placeholder, "[portfolio link]")
                 else:
                     result = result.replace(placeholder, str(value))
         return result
