@@ -652,19 +652,19 @@ class MetadataExtractor:
         Both are more important than just platform or skill match.
         
         Weights prioritize:
-        1. DELIVERABLES (what was actually built) - 30%
-        2. CLIENT INTENT (what they want done) - 30%
-        3. TASK TYPE (type of work) - 15%
-        4. SKILLS (technical overlap) - 15%
-        5. INDUSTRY (domain relevance) - 5%
+        1. DELIVERABLES (what was actually built) - 20%
+        2. CLIENT INTENT (what they want done) - 25%
+        3. TASK TYPE (type of work) - 20%
+        4. INDUSTRY (domain relevance) - 15%
+        5. SKILLS (technical overlap) - 15%
         6. COMPLEXITY/DURATION - 5%
         """
         weights = {
-            "deliverables": 0.30,   # HIGHEST: What was actually built (anti-hallucination)
-            "intent": 0.30,         # HIGHEST: What the client actually wants done
-            "task_type": 0.15,      # Medium: Type of work (now with semantic matching)
+            "deliverables": 0.20,   # HIGH: What was actually built (anti-hallucination)
+            "intent": 0.25,         # HIGH: What the client actually wants done
+            "task_type": 0.20,      # HIGH: Type of work - critical for matching
+            "industry": 0.15,       # INCREASED: Industry/domain relevance - important!
             "skills": 0.15,         # Medium: Skill overlap
-            "industry": 0.05,       # Lower: Industry relevance
             "complexity": 0.025,    # Minor: Complexity match
             "duration": 0.025       # Minor: Duration reference
         }

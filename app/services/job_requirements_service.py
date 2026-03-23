@@ -357,6 +357,7 @@ JOB_REQUIREMENTS_FUNCTION = {
             "client_tone",
             "problems_mentioned",
             "do_not_assume",
+            "inferred_industry",
             "complexity_level",
             "working_arrangement",
             "application_requirements",
