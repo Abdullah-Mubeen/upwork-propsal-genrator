@@ -230,8 +230,8 @@ CONVERSATIONAL TONE:
         """
         section = ""
         
-        # Build requirements-aware hook guidance FIRST
-        hook_guidance = self._build_requirements_based_hook_guidance(requirements_context, job_data)
+        # Build requirements-aware hook guidance FIRST (now with outcome stats from similar projects)
+        hook_guidance = self._build_requirements_based_hook_guidance(requirements_context, job_data, similar_projects)
         
         # Try hook engine
         if job_data and get_hook_engine is not None:
@@ -275,23 +275,29 @@ CONVERSATIONAL TONE:
     def _build_requirements_based_hook_guidance(
         self,
         requirements: Optional[Dict[str, Any]],
-        job_data: Dict[str, Any]
+        job_data: Dict[str, Any],
+        similar_projects: List[Dict[str, Any]] = None
     ) -> str:
         """
-        Build hook guidance based on extracted requirements.
+        Build hook guidance based on extracted requirements AND outcome stats.
         
         This ensures the hook addresses what CLIENT CARES ABOUT, not generic tech questions.
-        
-        Key insight: A client asking for ongoing Shopify work + EST availability 
-        wants to hear "I'm available EST hours and love ongoing partnerships"
-        NOT "Have you optimized your Liquid templates?"
+        Now includes REAL outcome stats from similar projects for compelling hooks.
         """
-        if not requirements:
-            return ""
-        
         guidance_parts = []
         
-        # User-selected hook question takes PRIORITY over smart_question
+        # Extract best outcome stats from similar projects (TOP PRIORITY for compelling hooks)
+        outcome_stats = self._extract_best_outcome_stats(similar_projects)
+        if outcome_stats:
+            guidance_parts.append(f'''   📊 USE THESE REAL STATS IN YOUR HOOK:
+      "{outcome_stats['stats']}"
+      Company: {outcome_stats['company']} | URL: {outcome_stats.get('url', 'N/A')}
+      ✅ Pattern: "I achieved [stat] on a similar project - [URL]"''')
+        
+        if not requirements:
+            return self._format_hook_guidance(guidance_parts) if guidance_parts else ""
+        
+        # Only use question if user explicitly selected one
         selected_q = requirements.get("selected_hook_question")
         if selected_q:
             logger.info(f"[PromptEngine] Using user-selected hook question: {selected_q[:50]}...")
@@ -300,18 +306,6 @@ CONVERSATIONAL TONE:
       ❌ DO NOT put this at the end - START with it
       ✅ Pattern: "[Question] + I've done similar work at [example]"
       Example: "{selected_q} I just finished a similar project: [URL]"''')
-        else:
-            # Fallback to smart question injection (original behavior)
-            smart_q = requirements.get("smart_question") or {}
-            if smart_q.get("ask") and smart_q.get("question"):
-                question = smart_q["question"]
-                reason = smart_q.get("reason", "clarify")
-                logger.info(f"[PromptEngine] Injecting smart question: {question[:50]}...")
-                guidance_parts.append(f'''   🚨 OPEN WITH QUESTION (FIRST 1-2 SENTENCES):
-      "{question}"
-      ❌ DO NOT put this at the end - START with it
-      ✅ Pattern: "[Question] + I've done similar work at [example]"
-      Example: "Could you share the URL? I've optimized dozens of WP sites including example.com"''')
         
         # Working arrangement hook (CRITICAL for service roles)
         working = requirements.get("working_arrangement", {})
@@ -357,17 +351,39 @@ CONVERSATIONAL TONE:
             dont_items = requirements["must_not_propose"][:2]
             guidance_parts.append(f'   ❌ AVOID IN HOOK: Do not lead with questions about {", ".join(dont_items)} - not what client asked for')
         
-        if guidance_parts:
-            return """
-
-🎯 REQUIREMENTS-BASED HOOK GUIDANCE (CRITICAL):
-""" + "\n".join(guidance_parts) + """
-
-⚠️ DO NOT open with generic technical questions about things the client didn't ask about!
-   Example of BAD hook: "Have you optimized your Liquid templates?" (client didn't mention this)
-   Example of GOOD hook: "I'm available EST hours and love ongoing Shopify partnerships - here's my recent work..."
+        return self._format_hook_guidance(guidance_parts)
+    
+    def _extract_best_outcome_stats(self, similar_projects: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Extract the most compelling outcome stats from similar projects."""
+        if not similar_projects:
+            return None
+        for proj in similar_projects:
+            outcome = proj.get('outcome')
+            # Primary: structured dict {stats, loom_url}
+            if isinstance(outcome, dict):
+                stats = outcome.get('stats')
+            elif isinstance(outcome, str):
+                stats = outcome
+            else:
+                # Fallback: unmigrated legacy 'outcomes' string from old training_data
+                stats = proj.get('outcomes') if isinstance(proj.get('outcomes'), str) else None
+            if stats and stats.strip() and 'test' not in stats.lower():
+                urls = proj.get('portfolio_urls', []) or []
+                url = proj.get('portfolio_url') or (urls[0] if urls else None)
+                return {
+                    'stats': stats,
+                    'company': proj.get('company_name') or proj.get('company') or proj.get('client_name') or 'Previous client',
+                    'url': url
+                }
+        return None
+    
+    def _format_hook_guidance(self, guidance_parts: List[str]) -> str:
+        """Format hook guidance parts into final string."""
+        if not guidance_parts:
+            return ""
+        return """\n🎯 REQUIREMENTS-BASED HOOK GUIDANCE (CRITICAL):\n""" + "\n".join(guidance_parts) + """\n\n⚠️ DO NOT open with generic technical questions about things the client didn't ask about!\n   ✅ GOOD hook: "[Question/Statement] + I achieved [STAT] on [Company] - [URL]"
+   ❌ BAD hook: Generic questions without proof or stats
 """
-        return ""
     
     def _build_strategic_instructions(
         self,
@@ -877,6 +893,21 @@ DESCRIPTION:
             if proj.get('deliverables'):
                 delivs = proj['deliverables']
                 section += f"   Deliverables: {', '.join(delivs[:4]) if isinstance(delivs, list) else delivs}\n"
+            
+            # Show outcome stats if available (critical for compelling proposals)
+            outcome = proj.get('outcome')
+            if outcome:
+                if isinstance(outcome, dict):
+                    if outcome.get('stats'):
+                        section += f"   Results: {outcome['stats']}\n"
+                    if outcome.get('loom_url'):
+                        section += f"   Video: {outcome['loom_url']}\n"
+                elif isinstance(outcome, str) and outcome.strip():
+                    section += f"   Results: {outcome}\n"
+            # Fallback: unmigrated legacy 'outcomes' string
+            elif proj.get('outcomes') and isinstance(proj.get('outcomes'), str) and proj['outcomes'].strip():
+                section += f"   Results: {proj['outcomes']}\n"
+            
             if include_portfolio:
                 section += f"   Live: {best_url}\n"
             

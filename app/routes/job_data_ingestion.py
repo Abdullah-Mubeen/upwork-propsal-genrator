@@ -1,21 +1,14 @@
 """
-Job Data Ingestion Routes (LEGACY)
+Portfolio Training Data Routes
 
-⚠️ DEPRECATED: This uses the old 5-chunk strategy.
-For new implementations, use:
-- POST /api/jobs/ingest - Clean job ingestion (app/routes/jobs.py)
-- app/services/job_ingestion_service.py
-
-These endpoints are maintained for backward compatibility with existing
-training data pipelines. New code should use the /api/jobs endpoints.
-
-API endpoints for:
-- Upload job training data
-- Retrieve job data
-- Delete job data
-- Get chunks
-- Statistics
-- OCR text extraction
+API endpoints for managing portfolio entries used for proposal generation:
+- Add portfolio entry (POST /portfolio)
+- List entries (GET /list)
+- Get entry detail (GET /{contract_id})
+- Update entry (PUT /update/{contract_id})
+- Delete entry (DELETE /delete/{contract_id})
+- OCR text extraction (POST /extract-ocr)
+- Statistics (GET /stats/overview, /stats/filter-options)
 
 Authentication:
 - All endpoints require API key via X-API-Key header
@@ -31,17 +24,15 @@ from PIL import Image
 
 from app.middleware.auth import verify_api_key
 from app.models.job_data_schema import (
-    JobDataUploadRequest,
     UpdateJobDataRequest,
-    DeleteJobsRequest,
     JobDataResponse,
     JobDataDetailResponse,
-    ChunkResponse,
     UploadResponse,
     ListResponse,
     DeleteResponse,
     ErrorResponse,
-    JobStatisticsResponse
+    JobStatisticsResponse,
+    PortfolioEntryRequest,
 )
 from app.utils.job_data_processor import JobDataProcessor
 from app.db import get_db
@@ -55,8 +46,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize router with LEGACY tag - Use /api/jobs endpoints instead
-router = APIRouter(tags=["job-data (LEGACY)"])
+# Initialize router
+router = APIRouter(tags=["training-data"])
 
 # Service instances (lazy loaded)
 _processor: Optional[JobDataProcessor] = None
@@ -109,110 +100,88 @@ def get_processor() -> JobDataProcessor:
     return _processor
 
 
-# ===================== UPLOAD ENDPOINTS =====================
+# ===================== PORTFOLIO ENTRY (NEW - PRIMARY) =====================
 
 @router.post(
-    "/upload",
+    "/portfolio",
     response_model=UploadResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="[LEGACY] Upload job training data",
-    deprecated=True,
+    summary="Add portfolio entry (Recommended)",
     responses={
-        201: {"description": "Job data uploaded successfully"},
+        201: {"description": "Portfolio entry added successfully"},
         400: {"model": ErrorResponse, "description": "Validation error"},
         401: {"description": "API key required"},
         403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
-async def upload_job_data(
-    job_data: JobDataUploadRequest,
+async def add_portfolio_entry(
+    entry: PortfolioEntryRequest,
     api_key: str = Depends(verify_api_key)
 ):
     """
-    Upload new job training data for proposal generation training
+    Add a portfolio entry with clean, minimal fields.
     
-    Complete end-to-end pipeline:
-    1. Store job data in MongoDB
-    2. Create smart chunks (metadata, proposal, description, feedback, summary)
-    3. Generate embeddings for semantic search
-    4. Save feedback to feedback_data collection
-    5. Save vectors to Pinecone for AI retrieval
+    This is the RECOMMENDED endpoint for adding training data.
+    Only requires core fields - everything else is auto-generated.
     
-    This endpoint accepts complete job information:
-    - Company and job details
-    - Your proposal that was submitted
-    - Skills required
-    - Client feedback (optional - can be text or extracted from image)
-    - Portfolio URL
+    **Required Fields:**
+    - `client_name`: Company/client name
+    - `skills`: Technologies used (array)
+    - `deliverables`: What you built (array)
     
-    **Auto-generated fields:**
-    - `contract_id` (if not provided, format: job_<short_id>)
-    - `created_at`, `updated_at`
-    
-    **Returns:**
-    - `contract_id`: Unique identifier for this job record
-    - `db_id`: MongoDB document ID
-    - Complete job data with statistics
+    **Optional Fields:**
+    - `industry`: SaaS, E-commerce, etc.
+    - `platform`: WordPress, Shopify, React, etc.
+    - `portfolio_urls`: Live links to show work
+    - `outcome`: {stats, loom_url} - measurable results
+    - `client_feedback`: {text, url} - testimonial
     """
     try:
         processor = get_processor()
         
-        # Convert request to dict
-        job_dict = job_data.model_dump(exclude_unset=False)
+        # Convert to legacy format for backward compatibility
+        job_dict = entry.to_legacy_format()
         
-        # Convert HttpUrl to string for MongoDB compatibility
-        if "client_feedback_url" in job_dict and job_dict["client_feedback_url"] is not None:
-            job_dict["client_feedback_url"] = str(job_dict["client_feedback_url"])
+        logger.info(f"Adding portfolio entry for: {entry.client_name}")
         
-        # Execute complete pipeline: store → chunks → embeddings → feedback → pinecone
-        logger.info("🚀 Starting complete training pipeline...")
+        # Execute pipeline
         pipeline_result = processor.process_complete_pipeline(job_dict, save_to_pinecone=True)
-        
         contract_id = pipeline_result["contract_id"]
         
         # Get stored data for response
         stored_job = processor.get_job_with_chunks(contract_id)
         
-        response_data = JobDataResponse(
-            db_id=pipeline_result["db_id"],
-            contract_id=contract_id,
-            company_name=stored_job["company_name"],
-            job_title=stored_job["job_title"],
-            industry=stored_job["industry"],
-            skills_required=stored_job.get("skills_required"),
-            task_type=stored_job.get("task_type"),
-            platform=stored_job.get("platform"),
-            project_status=stored_job.get("project_status", "completed"),
-            urgent_adhoc=stored_job.get("urgent_adhoc", False),
-            start_date=stored_job.get("start_date"),
-            end_date=stored_job.get("end_date"),
-            portfolio_url=stored_job.get("portfolio_url"),
-            is_portfolio_entry=stored_job.get("is_portfolio_entry", False),
-            created_at=stored_job.get("created_at", datetime.utcnow().isoformat()),
-            updated_at=stored_job.get("updated_at")
-        )
-        
-        # Log with complete pipeline statistics
-        logger.info(f"✅ Complete Pipeline Success: {contract_id} | Chunks: {pipeline_result['chunks_created']} | Embeddings: {pipeline_result['embeddings_created']} | Pinecone: {pipeline_result['pinecone_vectors']} | Feedback: {pipeline_result['feedback_saved']}")
-        
         return UploadResponse(
             status="success",
-            db_id=pipeline_result["db_id"],
+            db_id=str(stored_job.get("_id", "")),
             contract_id=contract_id,
-            message=f"Job data uploaded successfully! Processed: {pipeline_result['chunks_created']} chunks, {pipeline_result['embeddings_created']} embeddings, saved to {pipeline_result['pinecone_vectors']} Pinecone vectors",
-            data=response_data
+            message=f"Portfolio entry for '{entry.client_name}' added successfully",
+            data=JobDataResponse(
+                db_id=str(stored_job.get("_id", "")),
+                contract_id=contract_id,
+                company_name=stored_job.get("company_name", entry.client_name),
+                job_title=stored_job.get("job_title", f"Project for {entry.client_name}"),
+                industry=stored_job.get("industry"),
+                skills_required=stored_job.get("skills_required", entry.skills),
+                task_type="portfolio",
+                platform=stored_job.get("platform"),
+                project_status="completed",
+                urgent_adhoc=False,
+                start_date=None,
+                end_date=None,
+                portfolio_url=entry.portfolio_urls[0] if entry.portfolio_urls else None,
+                is_portfolio_entry=True,
+                created_at=stored_job.get("created_at", datetime.utcnow()),
+                updated_at=stored_job.get("updated_at")
+            )
         )
     
     except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error uploading job data: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to upload job data"
-        )
+        logger.error(f"Portfolio entry failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add portfolio entry: {str(e)}")
 
 
 # ===================== RETRIEVE ENDPOINTS =====================
@@ -220,10 +189,9 @@ async def upload_job_data(
 @router.get(
     "/list",
     response_model=ListResponse,
-    summary="[LEGACY] List all job data",
-    deprecated=True,
+    summary="List all portfolio entries",
     responses={
-        200: {"description": "Jobs retrieved"},
+        200: {"description": "Entries retrieved"},
         401: {"description": "API key required"},
         403: {"description": "Invalid API key"},
         500: {"model": ErrorResponse, "description": "Server error"}
@@ -308,13 +276,12 @@ async def list_job_data(
 @router.get(
     "/{contract_id}",
     response_model=JobDataDetailResponse,
-    summary="[LEGACY] Get job data by contract ID",
-    deprecated=True,
+    summary="Get entry by contract ID",
     responses={
-        200: {"description": "Job data retrieved"},
+        200: {"description": "Entry retrieved"},
         401: {"description": "API key required"},
         403: {"description": "Invalid API key"},
-        404: {"model": ErrorResponse, "description": "Job not found"},
+        404: {"model": ErrorResponse, "description": "Entry not found"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
@@ -357,7 +324,7 @@ async def get_job_data(
             urgent_adhoc=job_data.get("urgent_adhoc", False),
             is_portfolio_entry=job_data.get("is_portfolio_entry", False),
             deliverables=job_data.get("deliverables", []),
-            outcomes=job_data.get("outcomes"),
+            outcome=job_data.get("outcome"),
             created_at=job_data.get("created_at", datetime.utcnow().isoformat()),
             updated_at=job_data.get("updated_at"),
             chunks_count=job_data.get("chunks_count"),
@@ -371,109 +338,17 @@ async def get_job_data(
         raise HTTPException(status_code=500, detail="Failed to retrieve job data")
 
 
-# ===================== CHUNKS ENDPOINTS =====================
-
-@router.get(
-    "/{contract_id}/chunks",
-    response_model=ListResponse,
-    summary="[LEGACY] Get chunks for a contract",
-    deprecated=True,
-    responses={
-        200: {"description": "Chunks retrieved"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
-        404: {"model": ErrorResponse, "description": "Contract not found"},
-        500: {"model": ErrorResponse, "description": "Server error"}
-    }
-)
-async def get_job_chunks(
-    contract_id: str,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    chunk_type: Optional[str] = Query(None, description="Filter by chunk type"),
-    api_key: str = Depends(verify_api_key)
-):
-    """
-    Get chunks created from a job
-    
-    **Path Parameters:**
-    - `contract_id`: Contract ID
-    
-    **Query Parameters:**
-    - `skip`: Pagination offset
-    - `limit`: Items per page
-    - `chunk_type`: Filter by type (metadata, proposal, description, feedback, summary)
-    
-    **Returns:**
-    - List of chunks with content and metadata
-    """
-    try:
-        processor = get_processor()
-        training_repo = get_training_repo()
-        chunk_repo = get_chunk_repo()
-        
-        # Check if job exists
-        job_data = training_repo.get_by_contract_id(contract_id)
-        if not job_data:
-            raise ValueError(f"Contract not found: {contract_id}")
-        
-        # Get chunks using repository
-        all_chunks = chunk_repo.get_by_contract(contract_id)
-        
-        # Filter by type if provided
-        if chunk_type:
-            all_chunks = [c for c in all_chunks if c["chunk_type"] == chunk_type]
-        
-        # Paginate
-        total = len(all_chunks)
-        chunks = all_chunks[skip:skip + limit]
-        
-        items = [
-            ChunkResponse(
-                chunk_id=chunk["chunk_id"],
-                contract_id=chunk["contract_id"],
-                content=chunk["content"],
-                chunk_type=chunk["chunk_type"],
-                priority=chunk["priority"],
-                length=chunk["length"],
-                industry=chunk["industry"],
-                skills_required=chunk["skills_required"],
-                company_name=chunk["company_name"],
-                project_status=chunk.get("project_status", "completed"),
-                embedding_status=chunk["embedding_status"],
-                created_at=chunk.get("created_at", datetime.utcnow().isoformat())
-            )
-            for chunk in chunks
-        ]
-        
-        return ListResponse(
-            status="success",
-            total=total,
-            count=len(items),
-            skip=skip,
-            limit=limit,
-            items=items
-        )
-    
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"Contract not found: {contract_id}")
-    except Exception as e:
-        logger.error(f"Error retrieving chunks: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve chunks")
-
-
 # ===================== UPDATE ENDPOINTS =====================
 
 @router.put(
     "/update/{contract_id}",
     response_model=UploadResponse,
-    summary="[LEGACY] Update job data by contract ID",
-    deprecated=True,
+    summary="Update entry by contract ID",
     responses={
-        200: {"description": "Job updated successfully"},
+        200: {"description": "Entry updated successfully"},
         401: {"description": "API key required"},
         403: {"description": "Invalid API key"},
-        404: {"model": ErrorResponse, "description": "Job not found"},
+        404: {"model": ErrorResponse, "description": "Entry not found"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
@@ -516,17 +391,24 @@ async def update_job_data(
         if "client_feedback_url" in update_dict and update_dict["client_feedback_url"] is not None:
             update_dict["client_feedback_url"] = str(update_dict["client_feedback_url"])
         
+        # Convert OutcomeData to dict if present (for MongoDB)
+        if "outcome" in update_dict and update_dict["outcome"] is not None:
+            if hasattr(update_dict["outcome"], "model_dump"):
+                update_dict["outcome"] = update_dict["outcome"].model_dump()
+        
         # Add updated timestamp
         update_dict["updated_at"] = datetime.utcnow().isoformat()
         
-        # Update in database using repository
-        training_repo.update({"contract_id": contract_id}, update_dict)
+        logger.info(f"Updating {contract_id} with: {list(update_dict.keys())}")
+        
+        # Update in database using repository (pass contract_id as string, not dict)
+        training_repo.update(contract_id, update_dict)
         
         # Get db instance for direct collection access (legacy)
         db = get_db()
         
         # Check if content changed - if so, regenerate chunks/embeddings
-        content_fields = ["job_description", "your_proposal_text", "skills_required", "deliverables", "outcomes", "client_feedback_text"]
+        content_fields = ["job_description", "your_proposal_text", "skills_required", "deliverables", "client_feedback_text"]
         content_changed = any(f in update_dict for f in content_fields)
         
         if content_changed:
@@ -550,11 +432,26 @@ async def update_job_data(
             chunks_count, chunk_ids = processor.process_and_chunk_job(contract_id)
             embeddings_count, failed = processor.process_and_embed_chunks(contract_id)
             
-            # Save to Pinecone
+            # Save to Pinecone - both chunk embeddings AND proposal embedding
             if pinecone_service:
                 try:
-                    pinecone_count = processor.save_embeddings_to_pinecone(contract_id)
-                    logger.info(f"Saved {pinecone_count} vectors to Pinecone for {contract_id}")
+                    # Get updated job data for proposal embedding
+                    updated_job = processor.get_job_with_chunks(contract_id)
+                    
+                    # Save proposal embedding directly to Pinecone
+                    # This is the main way data gets to Pinecone (the chunking stub returns 0 chunks)
+                    proposal_saved = processor.save_proposal_to_pinecone(
+                        contract_id, 
+                        updated_job, 
+                        save_to_pinecone=True
+                    )
+                    if proposal_saved:
+                        logger.info(f"✓ Proposal embedding saved to Pinecone for {contract_id}")
+                    
+                    # Also save chunk embeddings if any exist
+                    if embeddings_count > 0:
+                        pinecone_count = processor.save_embeddings_to_pinecone(contract_id)
+                        logger.info(f"Saved {pinecone_count} chunk vectors to Pinecone for {contract_id}")
                 except Exception as e:
                     logger.warning(f"Error saving to Pinecone: {str(e)}")
         
@@ -602,13 +499,12 @@ async def update_job_data(
 @router.delete(
     "/delete/{contract_id}",
     response_model=DeleteResponse,
-    summary="[LEGACY] Delete job data by contract ID",
-    deprecated=True,
+    summary="Delete entry by contract ID",
     responses={
-        200: {"description": "Job deleted"},
+        200: {"description": "Entry deleted"},
         401: {"description": "API key required"},
         403: {"description": "Invalid API key"},
-        404: {"model": ErrorResponse, "description": "Job not found"},
+        404: {"model": ErrorResponse, "description": "Entry not found"},
         500: {"model": ErrorResponse, "description": "Server error"}
     }
 )
@@ -649,65 +545,11 @@ async def delete_job_data(
         raise HTTPException(status_code=500, detail="Failed to delete job data")
 
 
-@router.post(
-    "/bulk-delete",
-    response_model=DeleteResponse,
-    summary="[LEGACY] Bulk delete jobs",
-    deprecated=True,
-    responses={
-        200: {"description": "Jobs deleted"},
-        400: {"model": ErrorResponse, "description": "Validation error"},
-        401: {"description": "API key required"},
-        403: {"description": "Invalid API key"},
-        500: {"model": ErrorResponse, "description": "Server error"}
-    }
-)
-async def bulk_delete_jobs(
-    request: DeleteJobsRequest,
-    api_key: str = Depends(verify_api_key)
-):
-    """
-    Delete multiple jobs by contract IDs
-    
-    **Body:**
-    - `contract_ids`: List of contract IDs to delete
-    
-    **Returns:**
-    - Total count of deleted items
-    """
-    try:
-        processor = get_processor()
-        
-        total_jobs = 0
-        total_chunks = 0
-        
-        for contract_id in request.contract_ids:
-            try:
-                jobs_deleted, chunks_deleted = processor.delete_job_and_chunks(contract_id)
-                total_jobs += jobs_deleted
-                total_chunks += chunks_deleted
-            except ValueError:
-                logger.warning(f"Contract not found: {contract_id}")
-                continue
-        
-        return DeleteResponse(
-            status="success",
-            deleted_count=total_jobs,
-            chunks_deleted=total_chunks,
-            message=f"Deleted {total_jobs} jobs and {total_chunks} chunks"
-        )
-    
-    except Exception as e:
-        logger.error(f"Error bulk deleting jobs: {str(e)}")
-        raise HTTPException(status_code=500, detail="Bulk deletion failed")
-
-
 # ===================== OCR ENDPOINTS =====================
 
 @router.post(
     "/extract-ocr",
     summary="Extract text from image using OCR (GPT-4 Vision)",
-    deprecated=True,
     responses={
         200: {"description": "Text extracted successfully"},
         400: {"model": ErrorResponse, "description": "Invalid image or no image provided"},
@@ -843,8 +685,7 @@ If this is a review/feedback screenshot, extract the complete feedback text."""
 @router.get(
     "/stats/overview",
     response_model=JobStatisticsResponse,
-    summary="[LEGACY] Get job data statistics",
-    deprecated=True,
+    summary="Get portfolio statistics",
     responses={
         200: {"description": "Statistics retrieved"},
         401: {"description": "API key required"},
@@ -877,8 +718,7 @@ async def get_statistics(
 
 @router.get(
     "/stats/filter-options",
-    summary="[LEGACY] Get unique filter options from database",
-    deprecated=True,
+    summary="Get unique filter options from database",
     responses={
         200: {"description": "Filter options retrieved"},
         401: {"description": "API key required"},

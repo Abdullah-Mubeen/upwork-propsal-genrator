@@ -937,7 +937,8 @@ JOB DESCRIPTION:
             feedback_text = project.get('client_feedback_text', '')  # May be empty
             task_type = project.get('task_type', '')  # What work was actually done
             deliverables = project.get('deliverables', [])  # CRITICAL: What was actually built
-            outcomes = project.get('outcomes', '')  # CRITICAL: The result achieved
+            outcome_data = project.get('outcome')  # Structured: {stats, loom_url}
+            outcomes = outcome_data.get('stats', '') if isinstance(outcome_data, dict) else (outcome_data if isinstance(outcome_data, str) else '')
             
             # Only include projects with portfolio links
             if not portfolio_urls:

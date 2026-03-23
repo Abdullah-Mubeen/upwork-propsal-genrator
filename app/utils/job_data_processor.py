@@ -831,7 +831,7 @@ class JobDataProcessor:
                     "client_feedback_url": str(job_data.get("client_feedback_url", "")),
                     "client_feedback_text": job_data.get("client_feedback_text", ""),
                     "deliverables": deliverables,  # What was built
-                    "outcomes": chunk.get("outcomes") or job_data.get("outcomes", ""),  # Key result
+                    "outcome": job_data.get("outcome"),  # Structured: {stats, loom_url}
                     "created_at": str(job_data.get("created_at", "")),
                     "is_portfolio_entry": job_data.get("is_portfolio_entry", False)  # Mark portfolio entries
                 }

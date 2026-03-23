@@ -394,10 +394,12 @@ class ProposalService:
             "skills_required": item.get("skills", []),
             "industry": item.get("industry", "general"),
             "deliverables": item.get("deliverables", []),
-            "outcomes": item.get("outcome", ""),
+            "outcome": item.get("outcome"),
+            "company_name": item.get("project_title", ""),
             "portfolio_urls": [item.get("portfolio_url")] if item.get("portfolio_url") else [],
             "client_feedback_text": item.get("client_feedback", ""),
             "duration_days": item.get("duration_days"),
+            "project_status": "completed",
         }
     
     def _get_freelancer_profile(self, org_id: str, profile_id: Optional[str] = None) -> Optional[Dict[str, Any]]:

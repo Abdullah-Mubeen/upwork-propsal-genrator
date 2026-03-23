@@ -123,7 +123,7 @@ class HookStrategyEngine:
         ],
         "availability_lead": [
             "I can start right now - this shouldn't take more than {timeframe}.",
-            "Free today and this is right up my alley.",
+            "I have built this - see here: {portfolio_url}",
             "At my desk and ready to dive in immediately.",
             "I've got time blocked for urgent projects like this today.",
         ],

@@ -6,7 +6,7 @@ No multi-chunk strategy - single embedding per project.
 """
 import logging
 import uuid
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 
 from app.infra.mongodb.base_repository import BaseRepository
@@ -18,11 +18,11 @@ class PortfolioRepository(BaseRepository[Dict[str, Any]]):
     """
     Lean portfolio items for proposal generation.
     
-    8 Core Fields:
+    Core Fields:
     - project_title: What you built
     - deliverables: List of specific things delivered
     - skills: Tech stack used
-    - outcome: Key result achieved
+    - outcome: Structured outcome with stats + loom_url
     - portfolio_url: Link to show work
     - industry: SaaS, FinTech, etc. (optional)
     - client_feedback: Testimonial text (optional)
@@ -38,24 +38,31 @@ class PortfolioRepository(BaseRepository[Dict[str, Any]]):
         project_title: str,
         deliverables: List[str],
         skills: List[str],
-        outcome: str,
+        outcome: Union[str, Dict[str, Any], None] = None,
         portfolio_url: str = None,
         industry: str = None,
         client_feedback: str = None,
         duration_days: int = None
     ) -> Dict[str, Any]:
-        """Create a lean portfolio entry."""
+        """Create a lean portfolio entry.
+        
+        Args:
+            outcome: Can be a string (legacy) or dict with {stats, loom_url}
+        """
         item_id = f"port_{uuid.uuid4().hex[:12]}"
+        
+        # Normalize outcome to structured format
+        outcome_data = self._normalize_outcome(outcome)
         
         doc = {
             "item_id": item_id,
             "org_id": org_id,
             "profile_id": profile_id,
-            # Core 8 fields
+            # Core fields
             "project_title": project_title.strip(),
             "deliverables": [d.strip() for d in deliverables if d],
             "skills": [s.strip() for s in skills if s],
-            "outcome": outcome.strip() if outcome else None,
+            "outcome": outcome_data,  # Structured: {stats, loom_url}
             "portfolio_url": portfolio_url,
             "industry": industry,
             "client_feedback": client_feedback,
@@ -71,6 +78,29 @@ class PortfolioRepository(BaseRepository[Dict[str, Any]]):
         db_id = self.insert_one(doc)
         logger.info(f"Created portfolio item: {item_id} for profile {profile_id}")
         return {"item_id": item_id, "db_id": db_id}
+    
+    def _normalize_outcome(self, outcome: Union[str, Dict[str, Any], None]) -> Dict[str, Any]:
+        """
+        Normalize outcome to structured format.
+        
+        Accepts:
+        - None -> {stats: None, loom_url: None}
+        - str -> {stats: str, loom_url: None}  (legacy)
+        - dict with stats/loom_url -> validated dict
+        """
+        if outcome is None:
+            return {"stats": None, "loom_url": None}
+        
+        if isinstance(outcome, str):
+            return {"stats": outcome.strip() if outcome.strip() else None, "loom_url": None}
+        
+        if isinstance(outcome, dict):
+            return {
+                "stats": outcome.get("stats", "").strip() if outcome.get("stats") else None,
+                "loom_url": outcome.get("loom_url", "").strip() if outcome.get("loom_url") else None
+            }
+        
+        return {"stats": None, "loom_url": None}
     
     def get_by_item_id(self, item_id: str) -> Optional[Dict[str, Any]]:
         return self.find_one({"item_id": item_id})
@@ -113,6 +143,10 @@ class PortfolioRepository(BaseRepository[Dict[str, Any]]):
     
     def update(self, item_id: str, updates: Dict[str, Any]) -> bool:
         """Update portfolio item (re-embedding needed)."""
+        # Normalize outcome if provided
+        if "outcome" in updates:
+            updates["outcome"] = self._normalize_outcome(updates["outcome"])
+        
         updates["updated_at"] = datetime.utcnow()
         updates["is_embedded"] = False  # Needs re-embedding
         result = self.collection.update_one(
@@ -133,14 +167,40 @@ class PortfolioRepository(BaseRepository[Dict[str, Any]]):
             f"Deliverables: {', '.join(item.get('deliverables', []))}",
             f"Skills: {', '.join(item.get('skills', []))}",
         ]
-        if item.get("outcome"):
-            parts.append(f"Outcome: {item['outcome']}")
+        
+        # Handle structured outcome
+        outcome = item.get("outcome")
+        if outcome:
+            if isinstance(outcome, dict):
+                if outcome.get("stats"):
+                    parts.append(f"Results: {outcome['stats']}")
+                if outcome.get("loom_url"):
+                    parts.append(f"Video proof: {outcome['loom_url']}")
+            elif isinstance(outcome, str) and outcome.strip():
+                parts.append(f"Outcome: {outcome}")
+        
         if item.get("industry"):
             parts.append(f"Industry: {item['industry']}")
         if item.get("client_feedback"):
             parts.append(f"Feedback: {item['client_feedback']}")
         
         return "\n".join(parts)
+    
+    def get_outcome_display(self, item: Dict[str, Any]) -> str:
+        """Get display string for outcome (for prompts/UI)."""
+        outcome = item.get("outcome")
+        if not outcome:
+            return ""
+        
+        if isinstance(outcome, dict):
+            parts = []
+            if outcome.get("stats"):
+                parts.append(outcome["stats"])
+            if outcome.get("loom_url"):
+                parts.append(f"[Video: {outcome['loom_url']}]")
+            return " ".join(parts)
+        
+        return str(outcome) if outcome else ""
 
 
 # Singleton

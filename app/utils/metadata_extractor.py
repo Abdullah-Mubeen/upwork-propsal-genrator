@@ -579,7 +579,8 @@ class MetadataExtractor:
         # DELIVERABLES similarity - CRITICAL for anti-hallucination
         # This checks if what was built in job2 matches what job1 needs
         deliverables2 = job2.get("deliverables", [])
-        outcomes2 = job2.get("outcomes", "")
+        outcome2 = job2.get("outcome")
+        outcomes2 = outcome2.get("stats", "") if isinstance(outcome2, dict) else (outcome2 if isinstance(outcome2, str) else "")
         job1_desc = job1.get("job_description", "")
         
         similarity["deliverables"] = MetadataExtractor.get_deliverables_similarity(

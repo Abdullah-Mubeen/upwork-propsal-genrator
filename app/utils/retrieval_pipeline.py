@@ -131,12 +131,14 @@ class RetrievalPipeline:
                 {
                     "contract_id": p.get("contract_id"),
                     "company": p.get("company_name"),
+                    "company_name": p.get("company_name"),
                     "title": p.get("job_title"),
                     "task_type": p.get("task_type"),
                     "industry": p.get("industry"),
                     "skills": p.get("skills_required", []),
-                    "deliverables": p.get("deliverables", []),  # What was built
-                    "outcomes": p.get("outcomes", ""),  # Key result
+                    "deliverables": p.get("deliverables", []),
+                    "outcome": p.get("outcome"),  # Structured: {stats, loom_url}
+                    "outcomes": p.get("outcomes", ""),  # Legacy fallback for unmigrated data
                     "similarity_score": score,
                     "portfolio_urls": p.get("portfolio_urls", []),
                     "client_feedback_url": p.get("client_feedback_url"),
@@ -953,7 +955,7 @@ class RetrievalPipeline:
                     "industry": job.get("industry"),
                     "skills": job.get("skills_required", []),
                     "deliverables": job.get("deliverables", []),  # What was actually built
-                    "outcomes": job.get("outcomes", ""),  # Key result achieved
+                    "outcome": job.get("outcome"),  # Structured outcome
                     "feedback": (job.get("client_feedback_text") or 
                                job.get("client_feedback", ""))[:200],  # First 200 chars
                     "feedback_url": job.get("client_feedback_url"),

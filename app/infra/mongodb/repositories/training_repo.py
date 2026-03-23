@@ -157,7 +157,7 @@ class ChunkRepository(BaseRepository[Dict[str, Any]]):
                     "duration_days": metadata.get("duration_days"),
                     "project_status": chunk.get("project_status", ""),
                     "deliverables": chunk.get("deliverables", []),
-                    "outcomes": chunk.get("outcomes", ""),
+                    "outcome": chunk.get("outcome"),
                     "created_at": datetime.utcnow(),
                     "embedding_status": "pending"
                 }

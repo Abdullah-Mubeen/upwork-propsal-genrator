@@ -292,31 +292,6 @@
             margin: 0 auto 20px;
         }
 
-        /* Auth Modal - Minimalistic */
-        .auth-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-
-        .auth-overlay.hidden {
-            display: none;
-        }
-
-        .auth-modal {
-            background: #fff;
-            border-radius: 12px;
-            padding: 24px;
-            max-width: 320px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-        }
-
         /* Toast */
         .toast {
             position: fixed;
@@ -569,522 +544,82 @@
             }
         }
 
-        /* ========== REVIEW MODE ========== */
-        .review-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(250, 250, 250, 0.98);
-            backdrop-filter: blur(8px);
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            overflow-y: auto;
-        }
-
-        .review-overlay.show {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .review-container {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 24px;
-            min-height: 100vh;
-        }
-
-        .review-header {
-            position: sticky;
-            top: 0;
-            background: rgba(250, 250, 250, 0.95);
-            backdrop-filter: blur(8px);
-            padding: 16px 0;
-            margin-bottom: 20px;
-            z-index: 10;
-            border-bottom: 1px solid #e5e5e5;
-        }
-
-        .review-progress {
-            height: 3px;
-            background: #e5e5e5;
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 12px;
-        }
-
-        .review-progress-bar {
-            height: 100%;
-            background: #171717;
-            transition: width 0.3s ease;
-        }
-
-        .review-nav-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
+        /* Collapsible Sections */
+        .collapsible-section {
+            border: 1px solid #e5e5e5;
             border-radius: 10px;
-            border: 1px solid #e5e5e5;
-            background: #fff;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            color: #525252;
-        }
-
-        .review-nav-btn:hover:not(:disabled) {
-            background: #171717;
-            color: #fff;
-            border-color: #171717;
-        }
-
-        .review-nav-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .review-card {
-            background: #fff;
-            border: 1px solid #e5e5e5;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
             overflow: hidden;
-            animation: reviewSlideIn 0.3s ease;
+            margin-bottom: 12px;
         }
 
-        @keyframes reviewSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .review-section {
-            padding: 20px 24px;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .review-section:last-child {
-            border-bottom: none;
-        }
-
-        .review-section-title {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #a3a3a3;
-            margin-bottom: 10px;
-        }
-
-        .review-field {
-            position: relative;
-            padding: 10px 12px;
-            border-radius: 8px;
-            transition: all 0.15s ease;
-            cursor: pointer;
-            margin: -10px -12px;
-        }
-
-        .review-field:hover {
-            background: #fafafa;
-        }
-
-        .review-field.editing {
-            background: #f5f5f5;
-            cursor: default;
-        }
-
-        .review-field-label {
-            font-size: 11px;
-            font-weight: 500;
-            color: #737373;
-            margin-bottom: 4px;
-        }
-
-        .review-field-value {
-            font-size: 14px;
-            color: #171717;
-            line-height: 1.5;
-        }
-
-        .review-field-value.empty {
-            color: #a3a3a3;
-            font-style: italic;
-        }
-
-        .review-field-input {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1px solid #d4d4d4;
-            border-radius: 6px;
-            font-size: 14px;
-            background: #fff;
-            transition: border-color 0.15s;
-        }
-
-        .review-field-input:focus {
-            outline: none;
-            border-color: #171717;
-        }
-
-        .review-edit-icon {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0;
-            transition: opacity 0.15s;
-            color: #a3a3a3;
-        }
-
-        .review-field:hover .review-edit-icon {
-            opacity: 1;
-        }
-
-        .review-skills {
+        .collapsible-header {
             display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-
-        .review-skill {
-            display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 4px 10px;
-            background: #f5f5f5;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #525252;
-            transition: all 0.15s;
-        }
-
-        .review-skill:hover {
-            background: #171717;
-            color: #fff;
-        }
-
-        .review-skill button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            margin-left: 2px;
-            color: inherit;
-            opacity: 0.6;
-        }
-
-        .review-skill button:hover {
-            opacity: 1;
-        }
-
-        .review-text-block {
+            justify-content: space-between;
+            padding: 14px 16px;
             background: #fafafa;
-            border-radius: 10px;
-            padding: 16px;
-            font-size: 14px;
-            line-height: 1.7;
-            color: #404040;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
-        .review-text-block.editing {
-            padding: 0;
-            background: transparent;
-        }
-
-        .review-text-block textarea {
-            width: 100%;
-            min-height: 200px;
-            padding: 16px;
-            border: 1px solid #d4d4d4;
-            border-radius: 10px;
-            font-size: 14px;
-            line-height: 1.7;
-            resize: vertical;
-            background: #fff;
-        }
-
-        .review-text-block textarea:focus {
-            outline: none;
-            border-color: #171717;
-        }
-
-        .review-meta-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-        }
-
-        .review-meta-item {
-            padding: 12px;
-            background: #fafafa;
-            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.15s;
-        }
-
-        .review-meta-item:hover {
-            background: #f0f0f0;
-        }
-
-        .review-actions {
-            position: sticky;
-            bottom: 0;
-            background: rgba(250, 250, 250, 0.95);
-            backdrop-filter: blur(8px);
-            padding: 16px 0;
-            border-top: 1px solid #e5e5e5;
-            margin-top: 20px;
-        }
-
-        .review-kbd {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 24px;
-            height: 22px;
-            padding: 0 6px;
-            background: #f5f5f5;
-            border: 1px solid #e5e5e5;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-            color: #737373;
-        }
-
-        .review-two-col {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .review-two-col {
-                grid-template-columns: 1fr;
-            }
-            .review-meta-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        .review-delete-btn {
-            color: #dc2626;
-            font-size: 13px;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 8px 12px;
-            border-radius: 6px;
+            user-select: none;
             transition: background 0.15s;
         }
 
-        .review-delete-btn:hover {
-            background: #fef2f2;
+        .collapsible-header:hover {
+            background: #f5f5f5;
         }
 
-        .review-badge {
-            display: inline-flex;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .review-badge-success { background: #dcfce7; color: #166534; }
-        .review-badge-info { background: #dbeafe; color: #1e40af; }
-        .review-badge-warning { background: #fef3c7; color: #92400e; }
-        .review-badge-muted { background: #f5f5f5; color: #525252; }
-
-        .review-url-link {
-            display: inline-flex;
+        .collapsible-header-left {
+            display: flex;
             align-items: center;
-            gap: 6px;
-            color: #2563eb;
-            text-decoration: none;
-            font-size: 13px;
-            padding: 6px 10px;
-            background: #eff6ff;
-            border-radius: 6px;
-            margin: 2px;
-            transition: all 0.15s;
+            gap: 10px;
         }
 
-        .review-url-link:hover {
-            background: #dbeafe;
+        .collapsible-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #171717;
         }
 
-        .review-empty-state {
-            text-align: center;
-            padding: 60px 20px;
+        .collapsible-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #e5e5e5;
+            color: #525252;
+        }
+
+        .collapsible-badge.filled {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .collapsible-chevron {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.2s;
             color: #737373;
         }
 
-        .review-jump-input {
-            width: 60px;
-            padding: 6px 10px;
-            border: 1px solid #e5e5e5;
-            border-radius: 6px;
-            font-size: 13px;
-            text-align: center;
+        .collapsible-section.open .collapsible-chevron {
+            transform: rotate(180deg);
         }
 
-        .review-jump-input:focus {
-            outline: none;
-            border-color: #171717;
-        }
-
-        /* Mode Toggle */
-        .mode-toggle {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 16px;
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            transition: all 0.2s ease;
-        }
-
-        .mode-toggle:has(input:checked) {
-            background: linear-gradient(135deg, #fef3c7 0%, #fef9c3 100%);
-            border-color: #fcd34d;
-        }
-
-        .mode-toggle-switch {
-            position: relative;
-            width: 44px;
-            height: 24px;
-            flex-shrink: 0;
-        }
-
-        .mode-toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .mode-toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            inset: 0;
-            background: #d1d5db;
-            border-radius: 24px;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .mode-toggle-slider::before {
-            content: '';
-            position: absolute;
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background: #fff;
-            border-radius: 50%;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-        }
-
-        .mode-toggle-switch input:checked + .mode-toggle-slider {
-            background: #f59e0b;
-        }
-
-        .mode-toggle-switch input:checked + .mode-toggle-slider::before {
-            transform: translateX(20px);
-        }
-
-        .mode-toggle-label {
-            flex: 1;
-        }
-
-        .mode-toggle-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .mode-toggle-desc {
-            font-size: 11px;
-            color: #64748b;
-            margin-top: 2px;
-        }
-
-        .mode-toggle:has(input:checked) .mode-toggle-title {
-            color: #92400e;
-        }
-
-        .mode-toggle:has(input:checked) .mode-toggle-desc {
-            color: #a16207;
-        }
-
-        /* Field visibility transitions */
-        .upwork-field {
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-
-        .upwork-field.hidden-field {
-            opacity: 0;
+        .collapsible-content {
             max-height: 0;
-            margin: 0 !important;
-            padding: 0 !important;
-            pointer-events: none;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
         }
 
-        /* Portfolio mode indicator */
-        .portfolio-mode-badge {
-            display: none;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 10px;
-            background: #fef3c7;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 500;
-            color: #92400e;
+        .collapsible-section.open .collapsible-content {
+            max-height: 500px;
         }
 
-        .portfolio-mode-badge.show {
-            display: inline-flex;
-        }
-
-        .portfolio-mode-badge svg {
-            width: 12px;
-            height: 12px;
+        .collapsible-inner {
+            padding: 16px;
+            border-top: 1px solid #e5e5e5;
         }
     </style>
 </head>
 <body>
-    <!-- Authentication Modal - Minimalistic -->
-    <div class="auth-overlay hidden" id="auth-overlay">
-        <div class="auth-modal">
-            <div class="flex items-center gap-3 mb-5">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0110 0v4"></path>
-                </svg>
-                <h2 class="text-base font-semibold">Enter API Key</h2>
-            </div>
-            <form id="auth-form" onsubmit="authenticateUser(event)">
-                <input type="password" id="api-key-input" class="input-field mb-4" placeholder="API key" required autofocus>
-                <button type="submit" class="btn-primary w-full text-sm py-3" id="auth-submit-btn">Continue</button>
-                <p class="text-xs text-red-500 text-center mt-3" id="auth-error"></p>
-            </form>
-            <a href="index.html" class="block text-xs text-neutral-400 text-center mt-4 hover:text-neutral-600">← Back to Generator</a>
-        </div>
-    </div>
-
     <!-- Progress Overlay -->
     <div class="progress-overlay" id="progress-overlay">
         <div class="progress-modal">
@@ -1096,72 +631,6 @@
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
-
-    <!-- Review Mode Overlay -->
-    <div class="review-overlay" id="review-overlay">
-        <div class="review-container">
-            <!-- Review Header -->
-            <div class="review-header">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <button onclick="closeReviewMode()" class="review-nav-btn" title="Close (Esc)">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                        </button>
-                        <div>
-                            <h2 class="text-base font-semibold text-neutral-900">Review Mode</h2>
-                            <p class="text-xs text-neutral-500">Click any field to edit • Arrow keys to navigate</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-2 text-sm text-neutral-600">
-                            <span>Jump to</span>
-                            <input type="number" id="review-jump" class="review-jump-input" min="1" onchange="jumpToEntry(this.value)">
-                            <span>of <span id="review-total">0</span></span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button onclick="reviewPrev()" id="review-prev-btn" class="review-nav-btn" title="Previous (←)">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-                            </button>
-                            <div class="text-sm font-medium text-neutral-700 min-w-[60px] text-center">
-                                <span id="review-current">1</span> / <span id="review-count">0</span>
-                            </div>
-                            <button onclick="reviewNext()" id="review-next-btn" class="review-nav-btn" title="Next (→)">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="review-progress">
-                    <div class="review-progress-bar" id="review-progress-bar" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <!-- Review Content -->
-            <div id="review-content">
-                <!-- Dynamically populated -->
-            </div>
-
-            <!-- Review Actions Footer -->
-            <div class="review-actions">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-4 text-xs text-neutral-500">
-                        <span><span class="review-kbd">←</span> <span class="review-kbd">→</span> Navigate</span>
-                        <span><span class="review-kbd">Esc</span> Close</span>
-                        <span><span class="review-kbd">S</span> Save changes</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="deleteCurrentReviewEntry()" class="review-delete-btn">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline mr-1"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                            Delete Entry
-                        </button>
-                        <button onclick="saveReviewChanges()" id="review-save-btn" class="btn-primary" disabled>
-                            Save Changes
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Header -->
     <header class="border-b border-neutral-200 bg-white sticky top-0 z-50">
@@ -1224,175 +693,145 @@
             <div class="max-w-2xl">
                 <div class="card p-6">
                     <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-base font-semibold text-neutral-900" id="form-title">New Training Entry</h2>
-                        <span class="portfolio-mode-badge" id="portfolio-badge">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                            Portfolio Mode
-                        </span>
+                        <h2 class="text-base font-semibold text-neutral-900" id="form-title">New Portfolio Entry</h2>
                     </div>
                     
-                    <form id="proposal-form" class="space-y-5">
-                        <!-- Mode Toggle -->
-                        <div class="mode-toggle">
-                            <label class="mode-toggle-switch">
-                                <input type="checkbox" id="portfolio-mode-toggle" onchange="togglePortfolioMode(this.checked)">
-                                <span class="mode-toggle-slider"></span>
-                            </label>
-                            <div class="mode-toggle-label">
-                                <div class="mode-toggle-title" id="mode-title">Standard Mode</div>
-                                <div class="mode-toggle-desc" id="mode-desc">Full training entry with Upwork proposal data</div>
-                            </div>
-                        </div>
-
-                        <!-- Company (Upwork only) -->
-                        <div class="upwork-field" id="field-company">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Company <span class="upwork-required">*</span></label>
-                            <input type="text" name="company_name" id="input-company" placeholder="TechCorp Inc" class="input-field" required>
-                        </div>
-
-                        <!-- Industry & Platform (shown in both modes, side by side) -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Industry <span class="text-neutral-400 text-xs">(Optional)</span></label>
-                                <input type="text" name="industry" placeholder="e.g., SaaS, Finance, E-commerce" class="input-field">
-                                <p class="text-xs text-neutral-500 mt-1">Helps match to relevant projects</p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Platform <span class="text-neutral-400 text-xs">(Optional)</span></label>
-                                <div class="flex gap-2">
-                                    <select name="platform" id="portfolio-platform-select" class="input-field flex-1">
-                                        <option value="">Select platform...</option>
-                                        <!-- Options loaded from database -->
-                                    </select>
-                                    <button type="button" onclick="autoDetectPlatform()" class="btn-secondary" title="Auto-detect from skills">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                                    </button>
-                                </div>
-                                <p class="text-xs text-neutral-500 mt-1">Auto-detect or select manually</p>
-                            </div>
-                        </div>
-
-                        <!-- Row: Job Title & Task Type -->
-                        <div class="grid grid-cols-2 gap-4 upwork-field" id="field-job-title">
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Job Title <span class="upwork-required">*</span></label>
-                                <input type="text" name="job_title" id="input-job-title" placeholder="Senior Backend Developer" class="input-field" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Task Type <span class="upwork-required">*</span></label>
-                                <select name="task_type" id="task-type-select" class="input-field" required>
-                                    <option value="">Select...</option>
-                                    <!-- Options loaded from database -->
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Custom Task Type -->
-                        <div id="custom-task-group" class="hidden upwork-field">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Custom Task Type</label>
-                            <input type="text" name="other_task_type" placeholder="e.g., Video Editing" class="input-field">
-                        </div>
-
-                        <!-- Row: Dates & Status -->
-                        <div class="grid grid-cols-3 gap-4 upwork-field" id="field-dates-status">
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Start Date</label>
-                                <input type="date" name="start_date" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">End Date</label>
-                                <input type="date" name="end_date" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-600 text-neutral-700 mb-2">Status *</label>
-                                <select name="project_status" class="input-field" required>
-                                    <option value="">Select...</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="ongoing">Ongoing</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Urgent checkbox -->
-                        <label class="flex items-center gap-3 cursor-pointer py-2 upwork-field" id="field-urgent">
-                            <input type="checkbox" name="urgent_adhoc" class="w-4 h-4 rounded border-neutral-300 cursor-pointer">
-                            <span class="text-sm text-neutral-700">Urgent / Adhoc Project</span>
-                        </label>
-
-                        <!-- Skills -->
+                    <form id="proposal-form" class="space-y-4">
+                        <!-- Client/Company Name -->
                         <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Skills * (comma separated)</label>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Client / Company <span class="text-amber-600">*</span></label>
+                            <input type="text" name="client_name" id="input-client-name" placeholder="e.g., TechCorp Inc, Acme Fitness" class="input-field" required>
+                            <p class="text-xs text-neutral-500 mt-1">Who you built this for</p>
+                        </div>
+
+                        <!-- Skills (Required - always visible) -->
+                        <div>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Skills <span class="text-amber-600">*</span></label>
                             <div class="flex gap-2 mb-3">
-                                <input type="text" id="skill-input" placeholder="Python, React, etc" class="input-field flex-1">
+                                <input type="text" id="skill-input" placeholder="Python, React, Shopify..." class="input-field flex-1">
                                 <button type="button" onclick="addSkill()" class="btn-secondary">Add</button>
                             </div>
                             <div id="skills-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
-                        <!-- Portfolio URLs -->
+                        <!-- Deliverables (Required - always visible) -->
                         <div>
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Portfolio Links <span class="portfolio-required hidden text-amber-600">*</span><span class="upwork-optional text-neutral-400 text-xs">(Optional)</span></label>
+                            <label class="block text-sm font-600 text-neutral-700 mb-2">Deliverables <span class="text-amber-600">*</span></label>
+                            <p class="text-xs text-neutral-500 mb-3">What you built - helps match similar jobs</p>
                             <div class="flex gap-2 mb-3">
-                                <input type="url" id="portfolio-input" placeholder="https://github.com/..." class="input-field flex-1">
-                                <button type="button" onclick="addPortfolio()" class="btn-secondary">Add</button>
-                            </div>
-                            <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
-                        </div>
-
-                        <!-- DELIVERABLES - What was actually built -->
-                        <div class="border-t border-neutral-200 pt-5">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Deliverables (What You Built) <span class="portfolio-required hidden text-amber-600">*</span><span class="upwork-optional">*</span></label>
-                            <p class="text-xs text-neutral-500 mb-3">List specific things you delivered - helps match similar projects</p>
-                            <div class="flex gap-2 mb-3">
-                                <input type="text" id="deliverable-input" placeholder="e.g., Custom dashboard, Payment integration, Content migration" class="input-field flex-1">
+                                <input type="text" id="deliverable-input" placeholder="e.g., Custom dashboard, Payment integration" class="input-field flex-1">
                                 <button type="button" onclick="addDeliverable()" class="btn-secondary">Add</button>
                             </div>
                             <div id="deliverables-container" class="flex flex-wrap gap-2"></div>
                         </div>
 
-                        <!-- OUTCOMES - Key result achieved -->
-                        <div class="upwork-field" id="field-outcomes">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Key Outcome (Optional)</label>
-                            <input type="text" name="outcomes" placeholder="e.g., Client can now track inventory in real-time, 40% faster page load" class="input-field">
-                            <p class="text-xs text-neutral-500 mt-1">One-line result that shows the impact</p>
-                        </div>
-
-                        <!-- Job Description -->
-                        <div class="upwork-field" id="field-job-desc">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Job Description <span class="upwork-required">*</span></label>
-                            <textarea name="job_description" id="input-job-desc" placeholder="Describe the job requirements..." rows="4" class="input-field resize-none" required></textarea>
-                        </div>
-
-                        <!-- Proposal -->
-                        <div class="upwork-field" id="field-proposal">
-                            <label class="block text-sm font-600 text-neutral-700 mb-2">Your Proposal <span class="upwork-required">*</span></label>
-                            <textarea name="your_proposal_text" id="input-proposal" placeholder="Your proposal response..." rows="4" class="input-field resize-none" required></textarea>
-                        </div>
-
-                        <!-- Client Feedback -->
-                        <div class="border-t border-neutral-200 pt-5 upwork-field" id="field-feedback">
-                            <label class="block text-sm font-600 text-neutral-700 mb-4">Client Feedback (Optional)</label>
-                            <p class="text-xs text-neutral-500 mb-4">Add one or both - text feedback and/or review link</p>
-                            
-                            <!-- Text feedback -->
-                            <div class="mb-5">
-                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Feedback Text</label>
-                                <textarea name="client_feedback_text" id="feedback-text" placeholder="e.g., Excellent communication and quality work. Delivered ahead of schedule!" rows="3" class="input-field resize-none placeholder-neutral-400"></textarea>
-                                <p class="text-xs text-neutral-500 mt-1.5">Paste direct quotes from client messages or reviews</p>
+                        <!-- COLLAPSIBLE: Categorization -->
+                        <div class="collapsible-section" id="section-categorization">
+                            <div class="collapsible-header" onclick="toggleSection('categorization')">
+                                <div class="collapsible-header-left">
+                                    <span class="collapsible-title">Industry & Platform</span>
+                                    <span class="collapsible-badge" id="badge-categorization">Optional</span>
+                                </div>
+                                <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
                             </div>
+                            <div class="collapsible-content">
+                                <div class="collapsible-inner">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Industry</label>
+                                            <input type="text" name="industry" id="input-industry" placeholder="SaaS, E-commerce, Healthcare..." class="input-field">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Platform</label>
+                                            <div class="flex gap-2">
+                                                <select name="platform" id="portfolio-platform-select" class="input-field flex-1">
+                                                    <option value="">Select...</option>
+                                                </select>
+                                                <button type="button" onclick="autoDetectPlatform()" class="btn-secondary" title="Auto-detect">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                            <!-- URL feedback -->
-                            <div>
-                                <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Review/Feedback Link</label>
-                                <input type="url" name="client_feedback_url" id="feedback-url" placeholder="https://upwork.com/o/profiles/users/..." class="input-field placeholder-neutral-400">
-                                <p class="text-xs text-neutral-500 mt-1.5">Link to your Upwork profile review or feedback page</p>
+                        <!-- COLLAPSIBLE: Portfolio Links -->
+                        <div class="collapsible-section" id="section-portfolio">
+                            <div class="collapsible-header" onclick="toggleSection('portfolio')">
+                                <div class="collapsible-header-left">
+                                    <span class="collapsible-title">Portfolio Links</span>
+                                    <span class="collapsible-badge" id="badge-portfolio">Optional</span>
+                                </div>
+                                <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                            </div>
+                            <div class="collapsible-content">
+                                <div class="collapsible-inner">
+                                    <div class="flex gap-2 mb-3">
+                                        <input type="url" id="portfolio-input" placeholder="https://github.com/..., https://live-site.com" class="input-field flex-1">
+                                        <button type="button" onclick="addPortfolio()" class="btn-secondary">Add</button>
+                                    </div>
+                                    <div id="portfolio-container" class="flex flex-wrap gap-2"></div>
+                                    <p class="text-xs text-neutral-500 mt-2">Live links to demonstrate the work</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- COLLAPSIBLE: Outcome & Results -->
+                        <div class="collapsible-section" id="section-outcome">
+                            <div class="collapsible-header" onclick="toggleSection('outcome')">
+                                <div class="collapsible-header-left">
+                                    <span class="collapsible-title">Outcome & Results</span>
+                                    <span class="collapsible-badge" id="badge-outcome">Recommended</span>
+                                </div>
+                                <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                            </div>
+                            <div class="collapsible-content">
+                                <div class="collapsible-inner space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Stats & Metrics</label>
+                                        <input type="text" name="outcome_stats" id="outcome-stats" placeholder="e.g., 4.2% conversion, 1.9s load time, +22% AOV" class="input-field">
+                                        <p class="text-xs text-neutral-500 mt-1">Numbers that prove impact</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">
+                                            <svg class="inline-block w-3.5 h-3.5 mr-1 text-purple-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                                            Loom Video
+                                        </label>
+                                        <input type="url" name="outcome_loom" id="outcome-loom" placeholder="https://www.loom.com/share/..." class="input-field">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- COLLAPSIBLE: Client Feedback -->
+                        <div class="collapsible-section" id="section-feedback">
+                            <div class="collapsible-header" onclick="toggleSection('feedback')">
+                                <div class="collapsible-header-left">
+                                    <span class="collapsible-title">Client Feedback</span>
+                                    <span class="collapsible-badge" id="badge-feedback">Optional</span>
+                                </div>
+                                <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+                            </div>
+                            <div class="collapsible-content">
+                                <div class="collapsible-inner space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Testimonial Quote</label>
+                                        <textarea name="feedback_text" id="feedback-text" placeholder="Excellent work! Delivered ahead of schedule..." rows="2" class="input-field resize-none"></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-600 text-neutral-700 mb-2 uppercase tracking-wide">Review Link</label>
+                                        <input type="url" name="feedback_url" id="feedback-url" placeholder="https://upwork.com/freelancers/..." class="input-field">
+                                        <p class="text-xs text-neutral-500 mt-1">Link to Upwork profile or review page</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Submit -->
-                        <div class="flex gap-3 pt-4 border-t border-neutral-200">
-                            <button type="submit" id="submit-btn" class="btn-primary flex-1">Submit Entry</button>
+                        <div class="flex gap-3 pt-4">
+                            <button type="submit" id="submit-btn" class="btn-primary flex-1">Add Portfolio Entry</button>
                             <button type="button" id="cancel-edit-btn" onclick="cancelEdit()" class="btn-secondary hidden">Cancel</button>
                             <button type="button" onclick="clearForm()" class="btn-secondary">Clear</button>
                         </div>
@@ -1457,7 +896,7 @@
         <!-- Entries Tab -->
         <div id="tab-entries" class="tab-content">
             <div class="card">
-                <!-- Search & Review Button -->
+                <!-- Search & Filters -->
                 <div class="p-4 border-b border-neutral-200 flex flex-wrap gap-3 items-center">
                     <input type="text" id="search-input" placeholder="Search by company or title..." class="input-field flex-1 min-w-48">
                     <select id="platform-filter" class="input-field w-40">
@@ -1466,10 +905,6 @@
                     <select id="task-type-filter" class="input-field w-44">
                         <option value="">All Task Types</option>
                     </select>
-                    <button onclick="openReviewMode()" class="btn-primary flex items-center gap-2" title="Review all entries with keyboard navigation">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        Review All
-                    </button>
                 </div>
 
                 <!-- Table -->
@@ -1508,12 +943,9 @@
     <script>
         // API_BASE is set from config.js (JOB_DATA_API)
         const API_BASE = JOB_DATA_API;
-        const KEY_NAME = 'app_api_key';
         
-        // Authentication state
-        let isAuthenticated = false;
-        let userRole = null;
-        let apiKey = localStorage.getItem(KEY_NAME) || '';
+        // Hardcoded API key (auth will be added later)
+        const API_KEY = '24f9145655e4f0e568642a2dc8614fbd3681362ce0e1582fa946afaaa451b410';
         
         let currentSkills = [];
         let currentPortfolios = [];
@@ -1526,243 +958,36 @@
         let currentPage = 0;
         const perPage = 10;
 
-        // Axios config - include API key in header
+        // Axios config - include API key in all requests
         axios.interceptors.request.use(config => {
-            if (apiKey) config.headers['X-API-Key'] = apiKey;
+            config.headers['X-API-Key'] = API_KEY;
             return config;
         });
 
-        // Axios interceptor to handle 401/403 errors
-        axios.interceptors.response.use(
-            response => response,
-            error => {
-                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                    // Session expired
-                    isAuthenticated = false;
-                    apiKey = '';
-                    localStorage.removeItem(KEY_NAME);
-                    showAuthModal();
-                    showToast('Session expired. Please re-authenticate.', 'error');
-                }
-                return Promise.reject(error);
-            }
-        );
-
-        async function logout() { 
-            apiKey = '';
-            localStorage.removeItem(KEY_NAME);
-            userRole = null; 
-            location.reload(); 
-        }
-
-        function updateNav() {
-            const isSuper = userRole === 'super_admin';
-            document.getElementById('nav-admin').style.display = isSuper ? 'flex' : 'none';
-            document.getElementById('user-role').textContent = isSuper ? 'Super Admin' : 'Admin';
-        }
-
-        // Initialize
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
-            // Check stored API key and verify
-            apiKey ? verifyStoredApiKey() : showAuthModal();
-        });
-
-        // Show authentication modal
-        function showAuthModal() {
-            document.getElementById('auth-overlay').classList.remove('hidden');
-            document.getElementById('api-key-input').focus();
-        }
-
-        // Hide authentication modal
-        function hideAuthModal() {
-            document.getElementById('auth-overlay').classList.add('hidden');
-        }
-
-        // Verify stored API key
-        async function verifyStoredApiKey() {
-            try {
-                const { data } = await axios.get(`${API}/auth/verify`);
-                userRole = data.role;
-                isAuthenticated = true;
-                hideAuthModal();
-                updateNav();
-                initializeApp();
-            } catch (error) {
-                // Invalid key
-                apiKey = '';
-                localStorage.removeItem(KEY_NAME);
-                showAuthModal();
-            }
-        }
-
-        // Authenticate user
-        async function authenticateUser(event) {
-            event.preventDefault();
-            const keyInput = document.getElementById('api-key-input');
-            const submitBtn = document.getElementById('auth-submit-btn');
-            const errorEl = document.getElementById('auth-error');
-            
-            const enteredKey = keyInput.value.trim();
-            if (!enteredKey) {
-                errorEl.textContent = 'Please enter an API key';
-                errorEl.style.color = '#ef4444';
-                return;
-            }
-            
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Verifying...';
-            errorEl.textContent = '';
-            
-            try {
-                // Set key for axios interceptor
-                apiKey = enteredKey;
-                
-                // Verify the key
-                const { data } = await axios.get(`${API}/auth/verify`);
-                userRole = data.role;
-                
-                // Store key on success
-                localStorage.setItem(KEY_NAME, apiKey);
-                
-                isAuthenticated = true;
-                hideAuthModal();
-                updateNav();
-                initializeApp();
-                showToast('Welcome!', 'success');
-            } catch (error) {
-                apiKey = '';
-                errorEl.textContent = 'Invalid key';
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Continue';
-            }
-        }
-
-        // Initialize the app after authentication
-        function initializeApp() {
             setupTabs();
+            setupEntriesView();
             setupForm();
             setupSkillInput();
             setupPortfolioInput();
             setupDeliverableInput();
-            setupEntriesView();
+            setupBadgeListeners();
             loadStats();
             loadFilterOptions();
             loadFormFromStorage();
-            initPortfolioMode();
-        }
-
-        // ========== PORTFOLIO MODE ==========
-        let isPortfolioMode = false;
-        const upworkFieldIds = [
-            'field-company',
-            'field-job-title',
-            'custom-task-group',
-            'field-dates-status',
-            'field-urgent',
-            'field-outcomes',
-            'field-job-desc',
-            'field-proposal',
-            'field-feedback'
-        ];
-
-        function initPortfolioMode() {
-            // Restore saved mode preference
-            const savedMode = localStorage.getItem('portfolio_mode');
-            if (savedMode === 'true') {
-                document.getElementById('portfolio-mode-toggle').checked = true;
-                togglePortfolioMode(true, false);
-            }
-        }
-
-        function togglePortfolioMode(enabled, animate = true) {
-            isPortfolioMode = enabled;
-            localStorage.setItem('portfolio_mode', enabled);
-
-            // Update toggle labels
-            document.getElementById('mode-title').textContent = enabled ? 'Portfolio Mode' : 'Standard Mode';
-            document.getElementById('mode-desc').textContent = enabled 
-                ? 'Skills, portfolio & deliverables only — no Upwork data needed'
-                : 'Full training entry with Upwork proposal data';
-
-            // Update badge visibility
-            document.getElementById('portfolio-badge').classList.toggle('show', enabled);
-
-            // Update form title
-            document.getElementById('form-title').textContent = enabled 
-                ? (document.getElementById('editing-contract-id').value ? 'Edit Portfolio Entry' : 'New Portfolio Entry')
-                : (document.getElementById('editing-contract-id').value ? 'Edit Training Entry' : 'New Training Entry');
-
-            // Toggle field visibility with optional animation
-            upworkFieldIds.forEach(id => {
-                const el = document.getElementById(id);
-                if (!el) return;
-                if (animate) {
-                    el.style.maxHeight = enabled ? '0' : el.scrollHeight + 'px';
-                }
-                el.classList.toggle('hidden-field', enabled);
-            });
-
-            // Update required attributes on Upwork-specific fields
-            const upworkRequiredFields = [
-                { id: 'input-company', name: 'company_name' },
-                { id: 'input-job-title', name: 'job_title' },
-                { id: 'input-job-desc', name: 'job_description' },
-                { id: 'input-proposal', name: 'your_proposal_text' }
-            ];
-
-            upworkRequiredFields.forEach(({id}) => {
-                const input = document.getElementById(id);
-                if (input) {
-                    input.required = !enabled;
-                }
-            });
-
-            // Update task type requirement
-            const taskTypeSelect = document.getElementById('task-type-select');
-            if (taskTypeSelect) {
-                taskTypeSelect.required = !enabled;
-            }
-
-            // Update submit button text
-            document.getElementById('submit-btn').textContent = enabled ? 'Add Portfolio Entry' : 'Submit Entry';
-
-            // Toggle required indicators for portfolio-specific fields
-            document.querySelectorAll('.portfolio-required').forEach(el => {
-                el.classList.toggle('hidden', !enabled);
-            });
-            document.querySelectorAll('.upwork-optional').forEach(el => {
-                el.classList.toggle('hidden', enabled);
-            });
-        }
+        });
 
         // Load filter options from database
         async function loadFilterOptions() {
             try {
                 const response = await axios.get(`${API_BASE}/stats/filter-options`);
-                const { task_types, platforms } = response.data;
-                
-                // Populate task type dropdown in form
-                const taskSelect = document.getElementById('task-type-select');
-                const defaultTaskTypes = [
-                    'complete website', 'enhance functionality', 'redesign website',
-                    'bug fixes', 'speed optimization', 'layout fixing', 'seo',
-                    'consultation', 'ai_ml', 'backend_api', 'frontend', 'mobile_app',
-                    'development', 'design', 'writing', 'marketing', 'support'
-                ];
-                const allTaskTypes = [...new Set([...defaultTaskTypes, ...task_types])].sort();
-                
-                // Format display name (capitalize, replace underscores with spaces)
-                const formatName = (t) => t.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                
-                taskSelect.innerHTML = '<option value="">Select...</option>' + 
-                    allTaskTypes.map(t => `<option value="${t}">${formatName(t)}</option>`).join('') +
-                    '<option value="other">Other (Custom)</option>';
+                const { platforms } = response.data;
                 
                 // Populate platform dropdown in form
                 const platformSelect = document.getElementById('portfolio-platform-select');
-                const defaultPlatforms = ['WordPress', 'Shopify', 'Webflow', 'React', 'illustrator', 'External'];
-                const allPlatforms = [...new Set([...defaultPlatforms, ...platforms])].sort();
+                const defaultPlatforms = ['WordPress', 'Shopify', 'Webflow', 'React', 'Vue', 'Angular', 'Node.js', 'Python', 'External'];
+                const allPlatforms = [...new Set([...defaultPlatforms, ...(platforms || [])])].sort();
                 
                 platformSelect.innerHTML = '<option value="">Select platform...</option>' + 
                     allPlatforms.map(p => `<option value="${p}">${p}</option>`).join('') +
@@ -1777,26 +1002,6 @@
 
         // Fallback default options
         function populateDefaultOptions() {
-            const taskSelect = document.getElementById('task-type-select');
-            taskSelect.innerHTML = `
-                <option value="">Select...</option>
-                <option value="ai_ml">AI/ML</option>
-                <option value="backend_api">Backend API</option>
-                <option value="bug fixes">Bug Fixes</option>
-                <option value="complete website">Complete Website</option>
-                <option value="consultation">Consultation</option>
-                <option value="design">Design</option>
-                <option value="development">Development</option>
-                <option value="enhance functionality">Enhance Functionality</option>
-                <option value="frontend">Frontend</option>
-                <option value="layout fixing">Layout Fixing</option>
-                <option value="mobile_app">Mobile App</option>
-                <option value="redesign website">Redesign Website</option>
-                <option value="seo">SEO</option>
-                <option value="speed optimization">Speed Optimization</option>
-                <option value="other">Other</option>
-            `;
-            
             const platformSelect = document.getElementById('portfolio-platform-select');
             platformSelect.innerHTML = `
                 <option value="">Select platform...</option>
@@ -1838,11 +1043,6 @@
         // === FORM ===
         function setupForm() {
             const form = document.getElementById('proposal-form');
-            const taskSelect = document.getElementById('task-type-select');
-            
-            taskSelect.addEventListener('change', () => {
-                document.getElementById('custom-task-group').classList.toggle('hidden', taskSelect.value !== 'other');
-            });
 
             // Auto-save on change
             form.addEventListener('input', debounce(saveFormToStorage, 1000));
@@ -1903,17 +1103,10 @@
                 alert('Please add at least one skill');
                 return;
             }
-
-            // Portfolio mode requires deliverables and portfolio URLs
-            if (isPortfolioMode) {
-                if (!currentDeliverables.length) {
-                    alert('Please add at least one deliverable');
-                    return;
-                }
-                if (!currentPortfolios.length) {
-                    alert('Please add at least one portfolio link');
-                    return;
-                }
+            
+            if (!currentDeliverables.length) {
+                alert('Please add at least one deliverable');
+                return;
             }
 
             const form = e.target;
@@ -1921,74 +1114,60 @@
             const editingId = document.getElementById('editing-contract-id').value;
             const isEditing = !!editingId;
             
-            // Build data object - adapt based on mode
-            let data;
+            // Build structured outcome
+            const outcomeStats = formData.get('outcome_stats')?.trim() || null;
+            const outcomeLoom = formData.get('outcome_loom')?.trim() || null;
+            const outcome = (outcomeStats || outcomeLoom) ? { stats: outcomeStats, loom_url: outcomeLoom } : null;
             
-            if (isPortfolioMode) {
-                // Portfolio mode: minimal required data with auto-generated identifiers
-                const timestamp = Date.now();
-                const skillsStr = currentSkills.slice(0, 3).join('-').substring(0, 30);
-                data = {
-                    company_name: `Portfolio-${skillsStr}-${timestamp}`.substring(0, 50),
-                    job_title: `Portfolio Entry`,
-                    job_description: `Portfolio entry showcasing expertise in: ${currentSkills.join(', ')}. Deliverables: ${currentDeliverables.join(', ')}.`,
-                    your_proposal_text: `This is a portfolio-based entry highlighting my skills and deliverables without platform-specific proposal data.`,
-                    industry: formData.get('industry')?.trim() || null,
-                    task_type: 'portfolio',
-                    project_status: 'completed',
-                    platform: formData.get('platform') || 'External',
-                    skills_required: currentSkills,
-                    start_date: null,
-                    end_date: null,
-                    urgent_adhoc: false,
-                    portfolio_urls: currentPortfolios,
-                    temporary_link: null,
-                    deliverables: currentDeliverables,
-                    outcomes: null,
-                    client_feedback_text: null,
-                    client_feedback_url: null,
-                    is_portfolio_entry: true
-                };
-            } else {
-                // Standard mode: full Upwork training data
-                data = {
-                    company_name: formData.get('company_name').trim(),
-                    job_title: formData.get('job_title').trim(),
-                    job_description: formData.get('job_description').trim(),
-                    your_proposal_text: formData.get('your_proposal_text').trim(),
-                    industry: formData.get('industry')?.trim() || null,
-                    task_type: formData.get('task_type') === 'other' ? formData.get('other_task_type').trim() : formData.get('task_type'),
-                    project_status: formData.get('project_status'),
-                    platform: formData.get('platform') || null,
-                    skills_required: currentSkills,
-                    start_date: formData.get('start_date') || null,
-                    end_date: formData.get('end_date') || null,
-                    urgent_adhoc: formData.get('urgent_adhoc') === 'on',
-                    portfolio_urls: currentPortfolios,
-                    temporary_link: null,
-                    deliverables: currentDeliverables,
-                    outcomes: formData.get('outcomes')?.trim() || null,
-                    client_feedback_text: formData.get('client_feedback_text')?.trim() || null,
-                    client_feedback_url: formData.get('client_feedback_url')?.trim() || null,
-                    is_portfolio_entry: false
-                };
-            }
+            // Build structured client feedback
+            const feedbackText = formData.get('feedback_text')?.trim() || null;
+            const feedbackUrl = formData.get('feedback_url')?.trim() || null;
+            const clientFeedback = (feedbackText || feedbackUrl) ? { text: feedbackText, url: feedbackUrl } : null;
+            
+            // Build data object for portfolio API
+            const data = {
+                client_name: formData.get('client_name')?.trim(),
+                industry: formData.get('industry')?.trim() || null,
+                platform: formData.get('platform') || null,
+                skills: currentSkills,
+                portfolio_urls: currentPortfolios.length ? currentPortfolios : null,
+                deliverables: currentDeliverables,
+                outcome: outcome,
+                client_feedback: clientFeedback
+            };
 
-            showProgress(isEditing ? 'Updating entry...' : 'Uploading data...', 'Storing in database');
+            showProgress(isEditing ? 'Updating entry...' : 'Adding portfolio entry...', 'Storing in database');
 
             try {
                 let response;
                 if (isEditing) {
-                    response = await axios.put(`${API_BASE}/update/${editingId}`, data);
+                    // For editing, use legacy endpoint
+                    const legacyData = {
+                        company_name: data.client_name,
+                        job_title: `Project for ${data.client_name}`,
+                        job_description: `Built for ${data.client_name}. Skills: ${data.skills.join(', ')}. Deliverables: ${data.deliverables.join(', ')}.`,
+                        your_proposal_text: 'Portfolio entry.',
+                        industry: data.industry,
+                        task_type: 'portfolio',
+                        project_status: 'completed',
+                        platform: data.platform || 'External',
+                        skills_required: data.skills,
+                        portfolio_urls: data.portfolio_urls || [],
+                        deliverables: data.deliverables,
+                        outcome: data.outcome,
+                        client_feedback_text: clientFeedback?.text,
+                        client_feedback_url: clientFeedback?.url,
+                        is_portfolio_entry: true
+                    };
+                    response = await axios.put(`${API_BASE}/update/${editingId}`, legacyData);
                 } else {
-                    response = await axios.post(`${API_BASE}/upload`, data);
+                    response = await axios.post(`${API_BASE}/portfolio`, data);
                 }
                 
                 if (response.status === 200 || response.status === 201) {
                     hideProgress();
-                    showToast(isEditing ? 'Entry updated successfully!' : (isPortfolioMode ? 'Portfolio entry added!' : 'Entry added successfully!'));
+                    showToast(isEditing ? 'Entry updated!' : 'Portfolio entry added!');
                     
-                    // Complete reset
                     form.reset();
                     currentSkills = [];
                     currentPortfolios = [];
@@ -1996,24 +1175,63 @@
                     renderSkills();
                     renderPortfolios();
                     renderDeliverables();
+                    updateSectionBadges();
                     localStorage.removeItem('training_form_draft');
                     
-                    // Reset edit mode
                     document.getElementById('editing-contract-id').value = '';
-                    document.getElementById('submit-btn').textContent = isPortfolioMode ? 'Add Portfolio Entry' : 'Submit Entry';
+                    document.getElementById('submit-btn').textContent = 'Add Portfolio Entry';
                     document.getElementById('cancel-edit-btn').classList.add('hidden');
-                    document.getElementById('form-title').textContent = isPortfolioMode ? 'New Portfolio Entry' : 'New Training Entry';
+                    document.getElementById('form-title').textContent = 'New Portfolio Entry';
                     
                     loadStats();
-                    
-                    // Refresh entries if we were editing
-                    if (isEditing) {
-                        loadEntries();
-                    }
+                    if (isEditing) loadEntries();
                 }
             } catch (error) {
                 hideProgress();
                 alert('Error: ' + (error.response?.data?.detail || error.message));
+            }
+        }
+
+        // Collapsible section toggle
+        function toggleSection(name) {
+            const section = document.getElementById(`section-${name}`);
+            section.classList.toggle('open');
+        }
+
+        // Update section badges based on content
+        function updateSectionBadges() {
+            // Categorization
+            const industry = document.getElementById('input-industry')?.value?.trim();
+            const platform = document.getElementById('portfolio-platform-select')?.value;
+            const catBadge = document.getElementById('badge-categorization');
+            if (catBadge) {
+                catBadge.textContent = (industry || platform) ? 'Filled' : 'Optional';
+                catBadge.classList.toggle('filled', !!(industry || platform));
+            }
+            
+            // Portfolio
+            const portBadge = document.getElementById('badge-portfolio');
+            if (portBadge) {
+                portBadge.textContent = currentPortfolios.length ? `${currentPortfolios.length} link${currentPortfolios.length > 1 ? 's' : ''}` : 'Optional';
+                portBadge.classList.toggle('filled', currentPortfolios.length > 0);
+            }
+            
+            // Outcome
+            const stats = document.getElementById('outcome-stats')?.value?.trim();
+            const loom = document.getElementById('outcome-loom')?.value?.trim();
+            const outBadge = document.getElementById('badge-outcome');
+            if (outBadge) {
+                outBadge.textContent = (stats || loom) ? 'Filled' : 'Recommended';
+                outBadge.classList.toggle('filled', !!(stats || loom));
+            }
+            
+            // Feedback
+            const fbText = document.getElementById('feedback-text')?.value?.trim();
+            const fbUrl = document.getElementById('feedback-url')?.value?.trim();
+            const fbBadge = document.getElementById('badge-feedback');
+            if (fbBadge) {
+                fbBadge.textContent = (fbText || fbUrl) ? 'Filled' : 'Optional';
+                fbBadge.classList.toggle('filled', !!(fbText || fbUrl));
             }
         }
 
@@ -2059,10 +1277,7 @@
             if (!confirm('Clear all form data?')) return;
             
             const form = document.getElementById('proposal-form');
-            // Preserve portfolio mode toggle
-            const portfolioModeState = document.getElementById('portfolio-mode-toggle').checked;
             form.reset();
-            document.getElementById('portfolio-mode-toggle').checked = portfolioModeState;
             
             currentSkills = [];
             currentPortfolios = [];
@@ -2070,6 +1285,11 @@
             renderSkills();
             renderPortfolios();
             renderDeliverables();
+            updateSectionBadges();
+            
+            // Close all collapsible sections
+            document.querySelectorAll('.collapsible-section').forEach(s => s.classList.remove('open'));
+            
             localStorage.removeItem('training_form_draft');
         }
 
@@ -2153,6 +1373,7 @@
                     </div>
                 `;
             }).join('');
+            updateSectionBadges();
         }
 
         // === DELIVERABLES ===
@@ -2189,6 +1410,15 @@
                     <button type="button" onclick="removeDeliverable('${item}')">×</button>
                 </div>
             `).join('');
+        }
+
+        // Setup badge update listeners for collapsible sections
+        function setupBadgeListeners() {
+            const fields = ['input-industry', 'portfolio-platform-select', 'outcome-stats', 'outcome-loom', 'feedback-text', 'feedback-url'];
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', updateSectionBadges);
+            });
         }
 
         // === STATS ===
@@ -2337,8 +1567,10 @@
                 buildDynamicFilters();
                 applyFilters();
             } catch (e) {
+                console.error('Error loading entries:', e.response?.data || e.message);
+                const errMsg = e.response?.data?.detail || e.message || 'Unknown error';
                 document.getElementById('entries-table').innerHTML = `
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-red-600">Error loading entries</td></tr>
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-red-600">Error: ${errMsg}</td></tr>
                 `;
             }
         }
@@ -2431,9 +1663,6 @@
                             <span class="badge badge-muted capitalize">${e.task_type || '-'}</span>
                         </td>
                         <td class="px-4 py-3 flex gap-2">
-                            <button onclick="openReviewAt(${start + idx})" class="btn-secondary text-xs py-1 px-3" title="Quick review">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline -mt-0.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            </button>
                             <button onclick="editEntry('${e.contract_id}')" class="btn-secondary text-xs py-1 px-3">Edit</button>
                             <button onclick="deleteEntry('${e.contract_id}', '${e.company_name}')" class="btn-danger">Delete</button>
                         </td>
@@ -2459,37 +1688,31 @@
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 document.getElementById('tab-upload').classList.add('active');
                 
-                // Fill form
-                const form = document.getElementById('proposal-form');
-                form.elements['company_name'].value = entry.company_name || '';
-                form.elements['job_title'].value = entry.job_title || '';
-                form.elements['industry'].value = entry.industry || '';
-                form.elements['project_status'].value = entry.project_status || 'completed';
-                form.elements['start_date'].value = entry.start_date || '';
-                form.elements['end_date'].value = entry.end_date || '';
-                form.elements['job_description'].value = entry.job_description || '';
-                form.elements['your_proposal_text'].value = entry.your_proposal_text || '';
-                form.elements['client_feedback_text'].value = entry.client_feedback_text || '';
-                form.elements['client_feedback_url'].value = entry.client_feedback_url || '';
-                form.elements['urgent_adhoc'].checked = entry.urgent_adhoc || false;
+                // Fill form - use new field names
+                document.getElementById('input-client-name').value = entry.company_name || entry.client_name || '';
+                document.getElementById('input-industry').value = entry.industry || '';
                 
-                // Task type - check if exists in options, add if not
-                const taskSelect = document.getElementById('task-type-select');
-                const taskValue = entry.task_type || '';
-                if (taskValue && ![...taskSelect.options].some(opt => opt.value === taskValue)) {
-                    // Add the task type if it doesn't exist in dropdown
-                    const newOption = document.createElement('option');
-                    newOption.value = taskValue;
-                    newOption.textContent = taskValue.charAt(0).toUpperCase() + taskValue.slice(1);
-                    taskSelect.insertBefore(newOption, taskSelect.querySelector('option[value="other"]'));
+                // Outcome fields - check new structured format first, then legacy
+                if (entry.outcome) {
+                    document.getElementById('outcome-stats').value = entry.outcome.stats || '';
+                    document.getElementById('outcome-loom').value = entry.outcome.loom_url || '';
+                } else if (entry.outcomes && typeof entry.outcomes === 'string') {
+                    // Legacy fallback - outcomes is a plain string
+                    document.getElementById('outcome-stats').value = entry.outcomes;
+                    document.getElementById('outcome-loom').value = '';
+                } else {
+                    document.getElementById('outcome-stats').value = '';
+                    document.getElementById('outcome-loom').value = '';
                 }
-                taskSelect.value = taskValue;
+                
+                // Client feedback
+                document.getElementById('feedback-text').value = entry.client_feedback_text || '';
+                document.getElementById('feedback-url').value = entry.client_feedback_url || '';
                 
                 // Platform - check if exists in options, add if not
                 const platformSelect = document.getElementById('portfolio-platform-select');
                 const platformValue = entry.platform || '';
                 if (platformValue && ![...platformSelect.options].some(opt => opt.value === platformValue)) {
-                    // Add the platform if it doesn't exist in dropdown
                     const newOption = document.createElement('option');
                     newOption.value = platformValue;
                     newOption.textContent = platformValue;
@@ -2497,7 +1720,17 @@
                 }
                 platformSelect.value = platformValue;
                 
-                // Skills\n                currentSkills = entry.skills_required || [];\n                renderSkills();\n                \n                // Portfolios\n                currentPortfolios = entry.portfolio_urls || [];\n                renderPortfolios();\n                \n                // Deliverables & Outcomes\n                currentDeliverables = entry.deliverables || [];\n                renderDeliverables();\n                form.elements['outcomes'].value = entry.outcomes || '';", "oldString": "                // Skills\n                currentSkills = entry.skills_required || [];\n                renderSkills();\n                \n                // Portfolios\n                currentPortfolios = entry.portfolio_urls || [];\n                renderPortfolios();\n                \n                // Temporary Link\n                document.getElementById('temporary-link-input').value = entry.temporary_link || '';\n                \n                // Deliverables & Outcomes\n                currentDeliverables = entry.deliverables || [];\n                renderDeliverables();\n                form.elements['outcomes'].value = entry.outcomes || '';
+                // Skills
+                currentSkills = entry.skills_required || [];
+                renderSkills();
+                
+                // Portfolios
+                currentPortfolios = entry.portfolio_urls || [];
+                renderPortfolios();
+                
+                // Deliverables
+                currentDeliverables = entry.deliverables || [];
+                renderDeliverables();
                 
                 // Set edit mode
                 document.getElementById('editing-contract-id').value = contractId;
@@ -2505,7 +1738,13 @@
                 document.getElementById('cancel-edit-btn').classList.remove('hidden');
                 
                 // Update form title
-                document.querySelector('#tab-upload h2').textContent = `Editing: ${entry.company_name}`;
+                document.getElementById('form-title').textContent = `Editing: ${entry.company_name || entry.client_name || 'Entry'}`;
+                
+                // Open collapsible sections that have data
+                if (entry.industry || entry.platform) toggleSection('categorization', true);
+                if (entry.portfolio_urls?.length) toggleSection('portfolio', true);
+                if (entry.outcome?.stats || entry.outcome?.loom_url || entry.outcomes) toggleSection('outcome', true);
+                if (entry.client_feedback_text || entry.client_feedback_url) toggleSection('feedback', true);
                 
                 // Scroll to top
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2520,9 +1759,9 @@
         function cancelEdit() {
             clearForm();
             document.getElementById('editing-contract-id').value = '';
-            document.getElementById('submit-btn').textContent = isPortfolioMode ? 'Add Portfolio Entry' : 'Submit Entry';
+            document.getElementById('submit-btn').textContent = 'Add Portfolio Entry';
             document.getElementById('cancel-edit-btn').classList.add('hidden');
-            document.getElementById('form-title').textContent = isPortfolioMode ? 'New Portfolio Entry' : 'New Training Entry';
+            document.getElementById('form-title').textContent = 'New Portfolio Entry';
         }
 
         async function deleteEntry(id, name) {
@@ -2562,676 +1801,6 @@
                 clearTimeout(timer);
                 timer = setTimeout(() => fn(...args), delay);
             };
-        }
-
-        // ========== REVIEW MODE ==========
-        let reviewIndex = 0;
-        let reviewData = [];
-        let reviewChanges = {}; // Track pending changes
-        let reviewCurrentEntry = null;
-        let reviewFullDataCache = {}; // Cache full entry data
-
-        async function openReviewMode() {
-            if (!entriesData.length) {
-                showToast('No entries to review');
-                return;
-            }
-            
-            reviewData = [...entriesData]; // Use filtered data
-            reviewIndex = 0;
-            reviewChanges = {};
-            reviewFullDataCache = {}; // Clear cache
-            
-            document.getElementById('review-total').textContent = reviewData.length;
-            document.getElementById('review-count').textContent = reviewData.length;
-            document.getElementById('review-jump').max = reviewData.length;
-            
-            document.getElementById('review-overlay').classList.add('show');
-            document.body.style.overflow = 'hidden';
-            
-            // Add keyboard listeners
-            document.addEventListener('keydown', handleReviewKeyboard);
-            
-            // Load first entry with full data
-            await loadAndRenderReviewEntry();
-        }
-
-        function closeReviewMode() {
-            if (Object.keys(reviewChanges).length > 0) {
-                if (!confirm('You have unsaved changes. Close anyway?')) return;
-            }
-            
-            document.getElementById('review-overlay').classList.remove('show');
-            document.body.style.overflow = '';
-            document.removeEventListener('keydown', handleReviewKeyboard);
-            reviewChanges = {};
-        }
-
-        // Open review at specific index (from table row click)
-        async function openReviewAt(idx) {
-            if (!entriesData.length) {
-                showToast('No entries to review');
-                return;
-            }
-            
-            reviewData = [...entriesData];
-            reviewIndex = Math.min(idx, reviewData.length - 1);
-            reviewChanges = {};
-            reviewFullDataCache = {}; // Clear cache
-            
-            document.getElementById('review-total').textContent = reviewData.length;
-            document.getElementById('review-count').textContent = reviewData.length;
-            document.getElementById('review-jump').max = reviewData.length;
-            
-            document.getElementById('review-overlay').classList.add('show');
-            document.body.style.overflow = 'hidden';
-            
-            document.addEventListener('keydown', handleReviewKeyboard);
-            
-            // Load entry with full data
-            await loadAndRenderReviewEntry();
-        }
-
-        // Fetch full entry data and render
-        async function loadAndRenderReviewEntry() {
-            const entry = reviewData[reviewIndex];
-            if (!entry) return;
-            
-            const contractId = entry.contract_id;
-            
-            // Show loading state
-            document.getElementById('review-content').innerHTML = `
-                <div class="review-card">
-                    <div class="review-section text-center py-12">
-                        <div class="loader mx-auto mb-4"></div>
-                        <p class="text-sm text-neutral-500">Loading entry data...</p>
-                    </div>
-                </div>
-            `;
-            
-            // Update navigation immediately
-            document.getElementById('review-current').textContent = reviewIndex + 1;
-            document.getElementById('review-jump').value = reviewIndex + 1;
-            document.getElementById('review-prev-btn').disabled = reviewIndex === 0;
-            document.getElementById('review-next-btn').disabled = reviewIndex === reviewData.length - 1;
-            
-            const progress = ((reviewIndex + 1) / reviewData.length) * 100;
-            document.getElementById('review-progress-bar').style.width = `${progress}%`;
-            
-            // Check cache first
-            if (reviewFullDataCache[contractId]) {
-                reviewCurrentEntry = reviewFullDataCache[contractId];
-                renderReviewEntry();
-                return;
-            }
-            
-            // Fetch full data from API
-            try {
-                const response = await axios.get(`${API_BASE}/${contractId}`);
-                const fullEntry = response.data;
-                
-                // Cache it
-                reviewFullDataCache[contractId] = fullEntry;
-                reviewCurrentEntry = fullEntry;
-                
-                renderReviewEntry();
-            } catch (e) {
-                console.error('Error loading entry:', e);
-                document.getElementById('review-content').innerHTML = `
-                    <div class="review-card">
-                        <div class="review-section text-center py-12">
-                            <p class="text-red-600 mb-2">Failed to load entry</p>
-                            <p class="text-sm text-neutral-500">${e.response?.data?.detail || e.message}</p>
-                            <button onclick="loadAndRenderReviewEntry()" class="btn-secondary mt-4">Retry</button>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        function handleReviewKeyboard(e) {
-            // Don't navigate if typing in an input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-                if (e.key === 'Escape') {
-                    e.target.blur();
-                }
-                return;
-            }
-            
-            switch(e.key) {
-                case 'ArrowLeft':
-                    e.preventDefault();
-                    reviewPrev();
-                    break;
-                case 'ArrowRight':
-                    e.preventDefault();
-                    reviewNext();
-                    break;
-                case 'Escape':
-                    closeReviewMode();
-                    break;
-                case 's':
-                case 'S':
-                    if (!e.ctrlKey && !e.metaKey) {
-                        e.preventDefault();
-                        saveReviewChanges();
-                    }
-                    break;
-            }
-        }
-
-        async function reviewPrev() {
-            if (reviewIndex > 0) {
-                reviewIndex--;
-                await loadAndRenderReviewEntry();
-            }
-        }
-
-        async function reviewNext() {
-            if (reviewIndex < reviewData.length - 1) {
-                reviewIndex++;
-                await loadAndRenderReviewEntry();
-            }
-        }
-
-        async function jumpToEntry(num) {
-            const idx = parseInt(num) - 1;
-            if (idx >= 0 && idx < reviewData.length) {
-                reviewIndex = idx;
-                await loadAndRenderReviewEntry();
-            }
-        }
-
-        function renderReviewEntry() {
-            const entry = reviewCurrentEntry; // Use the full entry data now
-            if (!entry) return;
-            
-            reviewCurrentEntry = entry;
-            const contractId = entry.contract_id;
-            
-            // Update navigation
-            document.getElementById('review-current').textContent = reviewIndex + 1;
-            document.getElementById('review-jump').value = reviewIndex + 1;
-            document.getElementById('review-prev-btn').disabled = reviewIndex === 0;
-            document.getElementById('review-next-btn').disabled = reviewIndex === reviewData.length - 1;
-            
-            // Update progress bar
-            const progress = ((reviewIndex + 1) / reviewData.length) * 100;
-            document.getElementById('review-progress-bar').style.width = `${progress}%`;
-            
-            // Get any pending changes for this entry
-            const changes = reviewChanges[contractId] || {};
-            const getValue = (field) => changes[field] !== undefined ? changes[field] : entry[field];
-            
-            // Build status badge
-            const status = getValue('project_status') || 'unknown';
-            const statusBadge = {
-                'completed': '<span class="review-badge review-badge-success">Completed</span>',
-                'ongoing': '<span class="review-badge review-badge-info">Ongoing</span>',
-                'cancelled': '<span class="review-badge review-badge-warning">Cancelled</span>'
-            }[status] || '<span class="review-badge review-badge-muted">Unknown</span>';
-            
-            // Build skills HTML
-            const skills = getValue('skills_required') || [];
-            const skillsHtml = skills.length ? 
-                skills.map(s => `<span class="review-skill">${escapeHtml(s)}<button onclick="removeReviewSkill('${escapeHtml(s)}')" title="Remove">×</button></span>`).join('') :
-                '<span class="text-neutral-400 text-sm">No skills added</span>';
-            
-            // Build portfolio links
-            const portfolios = getValue('portfolio_urls') || [];
-            const portfolioHtml = portfolios.length ?
-                portfolios.map(url => `<a href="${escapeHtml(url)}" target="_blank" class="review-url-link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>${truncateUrl(url)}</a>`).join('') :
-                '<span class="text-neutral-400 text-sm">No portfolio links</span>';
-            
-            // Build deliverables
-            const deliverables = getValue('deliverables') || [];
-            const deliverablesHtml = deliverables.length ?
-                deliverables.map(d => `<span class="review-skill">${escapeHtml(d)}<button onclick="removeReviewDeliverable('${escapeHtml(d)}')" title="Remove">×</button></span>`).join('') :
-                '<span class="text-neutral-400 text-sm">No deliverables listed</span>';
-            
-            document.getElementById('review-content').innerHTML = `
-                <div class="review-card" key="${contractId}">
-                    <!-- Header with Company & Status -->
-                    <div class="review-section bg-neutral-50">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1">
-                                <div class="review-field" onclick="editReviewField(this, 'company_name', 'text')">
-                                    <div class="review-field-label">Company</div>
-                                    <div class="review-field-value text-lg font-semibold">${escapeHtml(getValue('company_name') || '')}</div>
-                                    <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                </div>
-                                <div class="review-field mt-2" onclick="editReviewField(this, 'job_title', 'text')">
-                                    <div class="review-field-label">Job Title</div>
-                                    <div class="review-field-value">${escapeHtml(getValue('job_title') || '')}</div>
-                                    <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                ${statusBadge}
-                                <p class="text-xs text-neutral-400 mt-2">${contractId}</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Meta Grid -->
-                    <div class="review-section">
-                        <div class="review-section-title">Details</div>
-                        <div class="review-meta-grid">
-                            <div class="review-meta-item" onclick="editReviewField(this, 'industry', 'text')">
-                                <div class="review-field-label">Industry</div>
-                                <div class="review-field-value ${!getValue('industry') ? 'empty' : ''}">${escapeHtml(getValue('industry')) || 'Not set'}</div>
-                            </div>
-                            <div class="review-meta-item" onclick="editReviewField(this, 'task_type', 'text')">
-                                <div class="review-field-label">Task Type</div>
-                                <div class="review-field-value ${!getValue('task_type') ? 'empty' : ''}">${escapeHtml(getValue('task_type')) || 'Not set'}</div>
-                            </div>
-                            <div class="review-meta-item" onclick="editReviewField(this, 'platform', 'text')">
-                                <div class="review-field-label">Platform</div>
-                                <div class="review-field-value ${!getValue('platform') ? 'empty' : ''}">${escapeHtml(getValue('platform')) || 'Not set'}</div>
-                            </div>
-                            <div class="review-meta-item" onclick="editReviewSelect(this, 'project_status')">
-                                <div class="review-field-label">Status</div>
-                                <div class="review-field-value">${escapeHtml(getValue('project_status')) || 'Not set'}</div>
-                            </div>
-                        </div>
-                        <div class="review-meta-grid mt-4">
-                            <div class="review-meta-item" onclick="editReviewField(this, 'start_date', 'date')">
-                                <div class="review-field-label">Start Date</div>
-                                <div class="review-field-value ${!getValue('start_date') ? 'empty' : ''}">${getValue('start_date') || 'Not set'}</div>
-                            </div>
-                            <div class="review-meta-item" onclick="editReviewField(this, 'end_date', 'date')">
-                                <div class="review-field-label">End Date</div>
-                                <div class="review-field-value ${!getValue('end_date') ? 'empty' : ''}">${getValue('end_date') || 'Not set'}</div>
-                            </div>
-                            <div class="review-meta-item col-span-2">
-                                <div class="review-field-label">Urgent/Adhoc</div>
-                                <label class="flex items-center gap-2 cursor-pointer mt-1">
-                                    <input type="checkbox" ${getValue('urgent_adhoc') ? 'checked' : ''} onchange="updateReviewChange('urgent_adhoc', this.checked)" class="w-4 h-4 rounded">
-                                    <span class="text-sm text-neutral-600">Yes, this was urgent</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Skills -->
-                    <div class="review-section">
-                        <div class="review-section-title">Skills Required</div>
-                        <div class="review-skills" id="review-skills-container">
-                            ${skillsHtml}
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <input type="text" id="review-skill-input" placeholder="Add skill..." class="review-field-input flex-1" onkeypress="if(event.key==='Enter'){event.preventDefault();addReviewSkill();}">
-                            <button onclick="addReviewSkill()" class="btn-secondary text-xs">Add</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Deliverables -->
-                    <div class="review-section">
-                        <div class="review-section-title">Deliverables</div>
-                        <div class="review-skills" id="review-deliverables-container">
-                            ${deliverablesHtml}
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <input type="text" id="review-deliverable-input" placeholder="Add deliverable..." class="review-field-input flex-1" onkeypress="if(event.key==='Enter'){event.preventDefault();addReviewDeliverable();}">
-                            <button onclick="addReviewDeliverable()" class="btn-secondary text-xs">Add</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Portfolio URLs -->
-                    <div class="review-section">
-                        <div class="review-section-title">Portfolio Links</div>
-                        <div class="flex flex-wrap" id="review-portfolio-container">
-                            ${portfolioHtml}
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <input type="url" id="review-portfolio-input" placeholder="https://..." class="review-field-input flex-1" onkeypress="if(event.key==='Enter'){event.preventDefault();addReviewPortfolio();}">
-                            <button onclick="addReviewPortfolio()" class="btn-secondary text-xs">Add</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Temporary Link -->
-                    <div class="review-section">
-                        <div class="review-field" onclick="editReviewField(this, 'temporary_link', 'url')">
-                            <div class="review-section-title" style="margin-bottom:4px">Temporary Link</div>
-                            <div class="review-field-value ${!getValue('temporary_link') ? 'empty' : ''}">
-                                ${getValue('temporary_link') ? `<a href="${escapeHtml(getValue('temporary_link'))}" target="_blank" class="text-blue-600 hover:underline">${truncateUrl(getValue('temporary_link'))}</a>` : 'No temporary link'}
-                            </div>
-                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </div>
-                    </div>
-                    
-                    <!-- Two Column: Job Description & Proposal -->
-                    <div class="review-section">
-                        <div class="review-two-col">
-                            <div>
-                                <div class="review-section-title">Job Description</div>
-                                <div class="review-text-block" id="review-job-desc" onclick="editReviewTextarea(this, 'job_description')">
-                                    ${escapeHtml(getValue('job_description') || 'No description') || '<span class="text-neutral-400">No description</span>'}
-                                </div>
-                            </div>
-                            <div>
-                                <div class="review-section-title">Your Proposal</div>
-                                <div class="review-text-block" id="review-proposal" onclick="editReviewTextarea(this, 'your_proposal_text')">
-                                    ${escapeHtml(getValue('your_proposal_text') || 'No proposal') || '<span class="text-neutral-400">No proposal</span>'}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Outcomes -->
-                    <div class="review-section">
-                        <div class="review-field" onclick="editReviewField(this, 'outcomes', 'text')">
-                            <div class="review-section-title" style="margin-bottom:4px">Key Outcome</div>
-                            <div class="review-field-value ${!getValue('outcomes') ? 'empty' : ''}">${escapeHtml(getValue('outcomes')) || 'No outcome recorded'}</div>
-                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </div>
-                    </div>
-                    
-                    <!-- Client Feedback -->
-                    <div class="review-section">
-                        <div class="review-section-title">Client Feedback</div>
-                        <div class="review-field mb-3" onclick="editReviewTextarea(this, 'client_feedback_text')">
-                            <div class="review-field-label">Feedback Text</div>
-                            <div class="review-field-value ${!getValue('client_feedback_text') ? 'empty' : ''}">${escapeHtml(getValue('client_feedback_text')) || 'No feedback text'}</div>
-                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </div>
-                        <div class="review-field" onclick="editReviewField(this, 'client_feedback_url', 'url')">
-                            <div class="review-field-label">Feedback URL</div>
-                            <div class="review-field-value ${!getValue('client_feedback_url') ? 'empty' : ''}">
-                                ${getValue('client_feedback_url') ? `<a href="${escapeHtml(getValue('client_feedback_url'))}" target="_blank" class="text-blue-600 hover:underline">${truncateUrl(getValue('client_feedback_url'))}</a>` : 'No feedback URL'}
-                            </div>
-                            <svg class="review-edit-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            updateSaveButtonState();
-        }
-
-        function editReviewField(el, field, type = 'text') {
-            if (el.classList.contains('editing')) return;
-            
-            const valueEl = el.querySelector('.review-field-value');
-            const currentValue = getReviewValue(field) || '';
-            
-            el.classList.add('editing');
-            const originalHtml = valueEl.innerHTML;
-            
-            valueEl.innerHTML = `<input type="${type}" class="review-field-input" value="${escapeHtml(currentValue)}" onblur="saveReviewFieldEdit(this, '${field}')" onkeypress="if(event.key==='Enter'){this.blur();}">`;
-            valueEl.querySelector('input').focus();
-            valueEl.querySelector('input').select();
-        }
-
-        function editReviewSelect(el, field) {
-            if (el.classList.contains('editing')) return;
-            
-            const valueEl = el.querySelector('.review-field-value');
-            const currentValue = getReviewValue(field) || '';
-            
-            el.classList.add('editing');
-            
-            valueEl.innerHTML = `
-                <select class="review-field-input" onchange="saveReviewFieldEdit(this, '${field}')" onblur="saveReviewFieldEdit(this, '${field}')">
-                    <option value="">Select...</option>
-                    <option value="completed" ${currentValue === 'completed' ? 'selected' : ''}>Completed</option>
-                    <option value="ongoing" ${currentValue === 'ongoing' ? 'selected' : ''}>Ongoing</option>
-                    <option value="cancelled" ${currentValue === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                </select>
-            `;
-            valueEl.querySelector('select').focus();
-        }
-
-        function editReviewTextarea(el, field) {
-            if (el.classList.contains('editing')) return;
-            
-            const currentValue = getReviewValue(field) || '';
-            
-            el.classList.add('editing');
-            el.innerHTML = `<textarea class="review-field-input" style="min-height:150px;resize:vertical" onblur="saveReviewTextareaEdit(this, '${field}')">${escapeHtml(currentValue)}</textarea>`;
-            el.querySelector('textarea').focus();
-        }
-
-        function saveReviewFieldEdit(input, field) {
-            const value = input.value.trim();
-            updateReviewChange(field, value);
-            
-            // Re-render to show updated value
-            setTimeout(() => renderReviewEntry(), 50);
-        }
-
-        function saveReviewTextareaEdit(textarea, field) {
-            const value = textarea.value.trim();
-            updateReviewChange(field, value);
-            
-            setTimeout(() => renderReviewEntry(), 50);
-        }
-
-        function getReviewValue(field) {
-            const contractId = reviewCurrentEntry?.contract_id;
-            if (!contractId) return null;
-            
-            const changes = reviewChanges[contractId] || {};
-            return changes[field] !== undefined ? changes[field] : reviewCurrentEntry[field];
-        }
-
-        function updateReviewChange(field, value) {
-            const contractId = reviewCurrentEntry?.contract_id;
-            if (!contractId) return;
-            
-            if (!reviewChanges[contractId]) {
-                reviewChanges[contractId] = {};
-            }
-            
-            // Only track if different from original
-            if (value !== reviewCurrentEntry[field]) {
-                reviewChanges[contractId][field] = value;
-            } else {
-                delete reviewChanges[contractId][field];
-                if (Object.keys(reviewChanges[contractId]).length === 0) {
-                    delete reviewChanges[contractId];
-                }
-            }
-            
-            updateSaveButtonState();
-        }
-
-        function updateSaveButtonState() {
-            const hasChanges = Object.keys(reviewChanges).length > 0;
-            const btn = document.getElementById('review-save-btn');
-            btn.disabled = !hasChanges;
-            btn.textContent = hasChanges ? `Save Changes (${Object.keys(reviewChanges).length})` : 'Save Changes';
-        }
-
-        // Skills management in review mode
-        function addReviewSkill() {
-            const input = document.getElementById('review-skill-input');
-            const text = input.value.trim();
-            if (!text) return;
-            
-            const skills = getReviewValue('skills_required') || [];
-            const newSkills = text.split(',').map(s => s.trim()).filter(s => s && !skills.includes(s));
-            
-            if (newSkills.length) {
-                updateReviewChange('skills_required', [...skills, ...newSkills]);
-                renderReviewEntry();
-            }
-            input.value = '';
-        }
-
-        function removeReviewSkill(skill) {
-            const skills = getReviewValue('skills_required') || [];
-            updateReviewChange('skills_required', skills.filter(s => s !== skill));
-            renderReviewEntry();
-        }
-
-        // Deliverables management
-        function addReviewDeliverable() {
-            const input = document.getElementById('review-deliverable-input');
-            const text = input.value.trim();
-            if (!text) return;
-            
-            const items = getReviewValue('deliverables') || [];
-            const newItems = text.split(',').map(s => s.trim()).filter(s => s && !items.includes(s));
-            
-            if (newItems.length) {
-                updateReviewChange('deliverables', [...items, ...newItems]);
-                renderReviewEntry();
-            }
-            input.value = '';
-        }
-
-        function removeReviewDeliverable(item) {
-            const items = getReviewValue('deliverables') || [];
-            updateReviewChange('deliverables', items.filter(d => d !== item));
-            renderReviewEntry();
-        }
-
-        // Portfolio management
-        function addReviewPortfolio() {
-            const input = document.getElementById('review-portfolio-input');
-            const text = input.value.trim();
-            if (!text) return;
-            
-            try {
-                new URL(text);
-                const urls = getReviewValue('portfolio_urls') || [];
-                if (!urls.includes(text)) {
-                    updateReviewChange('portfolio_urls', [...urls, text]);
-                    renderReviewEntry();
-                }
-                input.value = '';
-            } catch {
-                showToast('Please enter a valid URL');
-            }
-        }
-
-        function removeReviewPortfolio(url) {
-            const urls = getReviewValue('portfolio_urls') || [];
-            updateReviewChange('portfolio_urls', urls.filter(u => u !== url));
-            renderReviewEntry();
-        }
-
-        async function saveReviewChanges() {
-            const changeCount = Object.keys(reviewChanges).length;
-            if (!changeCount) return;
-            
-            showProgress('Saving changes...', `Updating ${changeCount} entries`);
-            
-            let successCount = 0;
-            let errorCount = 0;
-            
-            for (const [contractId, changes] of Object.entries(reviewChanges)) {
-                try {
-                    // Get original entry from cache (full data)
-                    const original = reviewFullDataCache[contractId] || reviewData.find(e => e.contract_id === contractId);
-                    if (!original) continue;
-                    
-                    // Only send changed fields (API supports partial update)
-                    // Clean up empty values that would fail validation
-                    const data = {};
-                    for (const [key, value] of Object.entries(changes)) {
-                        // Skip empty strings for fields with min_length validation
-                        if ((key === 'job_description' || key === 'your_proposal_text') && (!value || value.length < 10)) {
-                            continue;
-                        }
-                        // Skip empty arrays for skills (min_items=1)
-                        if (key === 'skills_required' && (!value || value.length === 0)) {
-                            continue;
-                        }
-                        // Skip empty strings for required string fields
-                        if ((key === 'company_name' || key === 'job_title') && !value) {
-                            continue;
-                        }
-                        // Add valid changes
-                        data[key] = value;
-                    }
-                    
-                    // Skip if no valid changes after filtering
-                    if (Object.keys(data).length === 0) {
-                        console.log(`Skipping ${contractId} - no valid changes`);
-                        continue;
-                    }
-                    
-                    await axios.put(`${API_BASE}/update/${contractId}`, data);
-                    
-                    // Update cache with merged data
-                    if (reviewFullDataCache[contractId]) {
-                        reviewFullDataCache[contractId] = { ...reviewFullDataCache[contractId], ...changes };
-                    }
-                    
-                    // Update local list data
-                    const idx = reviewData.findIndex(e => e.contract_id === contractId);
-                    if (idx !== -1) {
-                        reviewData[idx] = { ...reviewData[idx], ...changes };
-                    }
-                    const cacheIdx = allEntriesCache.findIndex(e => e.contract_id === contractId);
-                    if (cacheIdx !== -1) {
-                        allEntriesCache[cacheIdx] = { ...allEntriesCache[cacheIdx], ...changes };
-                    }
-                    
-                    // Update current entry if it's the one we just saved
-                    if (reviewCurrentEntry?.contract_id === contractId) {
-                        reviewCurrentEntry = { ...reviewCurrentEntry, ...changes };
-                    }
-                    
-                    successCount++;
-                } catch (e) {
-                    console.error(`Error updating ${contractId}:`, e);
-                    errorCount++;
-                }
-            }
-            
-            hideProgress();
-            reviewChanges = {};
-            updateSaveButtonState();
-            renderReviewEntry();
-            renderEntries(); // Update table too
-            
-            if (errorCount) {
-                showToast(`Saved ${successCount}, failed ${errorCount}`);
-            } else {
-                showToast(`Saved ${successCount} entries`);
-            }
-        }
-
-        async function deleteCurrentReviewEntry() {
-            const entry = reviewCurrentEntry;
-            if (!entry) return;
-            
-            if (!confirm(`Delete "${entry.company_name}" and all its data?`)) return;
-            
-            try {
-                await axios.delete(`${API_BASE}/delete/${entry.contract_id}`);
-                
-                // Remove from all caches
-                delete reviewFullDataCache[entry.contract_id];
-                delete reviewChanges[entry.contract_id];
-                reviewData = reviewData.filter(e => e.contract_id !== entry.contract_id);
-                allEntriesCache = allEntriesCache.filter(e => e.contract_id !== entry.contract_id);
-                entriesData = entriesData.filter(e => e.contract_id !== entry.contract_id);
-                
-                // Update counts
-                document.getElementById('review-total').textContent = reviewData.length;
-                document.getElementById('review-count').textContent = reviewData.length;
-                
-                if (reviewData.length === 0) {
-                    closeReviewMode();
-                    showToast('All entries deleted');
-                } else {
-                    if (reviewIndex >= reviewData.length) {
-                        reviewIndex = reviewData.length - 1;
-                    }
-                    // Load next/previous entry
-                    await loadAndRenderReviewEntry();
-                    showToast('Entry deleted');
-                }
-                
-                renderEntries();
-                loadStats();
-            } catch (e) {
-                alert('Error: ' + (e.response?.data?.detail || e.message));
-            }
         }
 
         // Helper functions
