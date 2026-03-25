@@ -750,25 +750,29 @@ Extract all requirements using the provided function. Be thorough with 'do_not_a
         # ============ TRIGGER 2: INTEGRATION TYPE UNCLEAR ============
         integration_triggers = []
         
+        # Build exclusion context from must_not_propose (LLM already parsed negations)
+        excluded_topics = ' '.join(requirements.must_not_propose).lower() if requirements.must_not_propose else ''
+        
         # Moodle integration
-        if 'moodle' in job_lower:
+        if 'moodle' in job_lower and 'moodle' not in excluded_topics:
             if not any(connector in job_lower for connector in ['learndash', 'tutor lms', 'official moodle plugin', 'sso']):
                 triggers_detected.append("TRIGGER: Moodle mentioned but connector type unclear")
                 integration_triggers.append("Moodle connector (which plugin/integration?)")
         
         # LMS mentioned generically
-        if 'lms' in job_lower and 'moodle' not in job_lower:
+        if 'lms' in job_lower and 'moodle' not in job_lower and 'lms' not in excluded_topics:
             triggers_detected.append("TRIGGER: LMS mentioned but specific system unclear")
             integration_triggers.append("LMS system (which one?)")
         
-        # Payment gateway
-        if any(term in job_lower for term in ['payment', 'checkout', 'pay']):
+        # Payment gateway - skip if payment/store/commerce explicitly excluded
+        payment_excluded = any(ex in excluded_topics for ex in ['payment', 'store', 'paywall', 'checkout', 'commerce', 'membership'])
+        if not payment_excluded and any(term in job_lower for term in ['payment gateway', 'payment integration', 'accept payment', 'checkout system']):
             if not any(gateway in job_lower for gateway in ['stripe', 'paypal', 'square', 'woocommerce payments']):
                 triggers_detected.append("TRIGGER: Payment mentioned but gateway unclear")
                 integration_triggers.append("payment gateway (Stripe, PayPal, etc.?)")
         
         # API integration
-        if 'api' in job_lower and 'which api' not in job_lower:
+        if 'api' in job_lower and 'which api' not in job_lower and 'api' not in excluded_topics:
             integration_triggers.append("API type (REST, GraphQL, specific service?)")
         
         if integration_triggers:
