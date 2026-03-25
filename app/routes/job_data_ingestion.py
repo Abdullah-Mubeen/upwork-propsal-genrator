@@ -221,40 +221,40 @@ async def list_job_data(
     - Pagination info
     """
     try:
-        processor = get_processor()
-        training_repo = get_training_repo()
+        db = get_db()
+        collection = db.db["portfolio_items"]
         
-        # Build filter
+        # Build filter for portfolio_items schema
         filters = {}
         if industry:
             filters["industry"] = industry
-        if status:
-            filters["project_status"] = status
         if company:
-            filters["company_name"] = {"$regex": company, "$options": "i"}
+            filters["project_title"] = {"$regex": company, "$options": "i"}
         
-        # Get jobs using repository
-        jobs = training_repo.get_all(skip=skip, limit=limit, filters=filters)
-        total = training_repo.get_count()
+        # Get items from portfolio_items collection
+        cursor = collection.find(filters).sort("created_at", -1).skip(skip).limit(limit)
+        jobs = list(cursor)
+        total = collection.count_documents(filters)
         
+        # Map portfolio_items schema to legacy JobDataResponse format
         items = [
             JobDataResponse(
                 db_id=str(job["_id"]),
-                contract_id=job["contract_id"],
-                company_name=job["company_name"],
-                job_title=job["job_title"],
-                industry=job["industry"],
-                skills_required=job.get("skills_required"),
-                task_type=job.get("task_type"),
+                contract_id=job.get("item_id", str(job["_id"])),
+                company_name=job.get("project_title", ""),
+                job_title=job.get("project_title", ""),
+                industry=job.get("industry", "general"),
+                skills_required=job.get("skills", []),
+                task_type=job.get("industry"),  # Use industry as task_type
                 platform=job.get("platform"),
-                project_status=job.get("project_status", "completed"),
-                urgent_adhoc=job.get("urgent_adhoc", False),
-                start_date=job.get("start_date"),
-                end_date=job.get("end_date"),
+                project_status="completed",
+                urgent_adhoc=False,
+                start_date=None,
+                end_date=None,
                 portfolio_url=job.get("portfolio_url"),
-                is_portfolio_entry=job.get("is_portfolio_entry", False),
-                created_at=job.get("created_at", datetime.utcnow().isoformat()),
-                updated_at=job.get("updated_at")
+                is_portfolio_entry=True,
+                created_at=job.get("created_at", datetime.utcnow()).isoformat() if isinstance(job.get("created_at"), datetime) else str(job.get("created_at", datetime.utcnow().isoformat())),
+                updated_at=job.get("updated_at").isoformat() if isinstance(job.get("updated_at"), datetime) else job.get("updated_at")
             )
             for job in jobs
         ]
@@ -298,41 +298,54 @@ async def get_job_data(
     - All metadata and feedback
     """
     try:
-        processor = get_processor()
+        db = get_db()
+        collection = db.db["portfolio_items"]
         
-        job_data = processor.get_job_with_chunks(contract_id)
+        # Search by item_id (new schema) or _id as fallback
+        job_data = collection.find_one({"item_id": contract_id})
+        if not job_data:
+            # Try by ObjectId if it looks like one
+            from bson import ObjectId
+            try:
+                job_data = collection.find_one({"_id": ObjectId(contract_id)})
+            except:
+                pass
         
+        if not job_data:
+            raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
+        
+        # Map portfolio_items schema to legacy response format
         return JobDataDetailResponse(
             db_id=str(job_data["_id"]),
-            contract_id=job_data["contract_id"],
-            company_name=job_data["company_name"],
-            job_title=job_data["job_title"],
-            job_description=job_data["job_description"],
-            your_proposal_text=job_data["your_proposal_text"],
-            skills_required=job_data["skills_required"],
-            industry=job_data["industry"],
-            project_status=job_data.get("project_status", "completed"),
-            start_date=job_data.get("start_date"),
-            end_date=job_data.get("end_date"),
+            contract_id=job_data.get("item_id", str(job_data["_id"])),
+            company_name=job_data.get("project_title", ""),
+            job_title=job_data.get("project_title", ""),
+            job_description="",  # Not in new schema
+            your_proposal_text="",  # Not in new schema
+            skills_required=job_data.get("skills", []),
+            industry=job_data.get("industry", "general"),
+            project_status="completed",
+            start_date=None,
+            end_date=None,
             portfolio_url=job_data.get("portfolio_url"),
-            portfolio_urls=job_data.get("portfolio_urls"),
-            temporary_link=job_data.get("temporary_link"),
-            client_feedback_url=job_data.get("client_feedback_url"),
-            client_feedback_text=job_data.get("client_feedback_text"),
-            task_type=job_data.get("task_type"),
+            portfolio_urls=[job_data.get("portfolio_url")] if job_data.get("portfolio_url") else [],
+            temporary_link=None,
+            client_feedback_url=job_data.get("client_feedback", {}).get("url") if isinstance(job_data.get("client_feedback"), dict) else None,
+            client_feedback_text=job_data.get("client_feedback", {}).get("text") if isinstance(job_data.get("client_feedback"), dict) else job_data.get("client_feedback"),
+            task_type=job_data.get("industry"),
             platform=job_data.get("platform"),
-            urgent_adhoc=job_data.get("urgent_adhoc", False),
-            is_portfolio_entry=job_data.get("is_portfolio_entry", False),
+            urgent_adhoc=False,
+            is_portfolio_entry=True,
             deliverables=job_data.get("deliverables", []),
             outcome=job_data.get("outcome"),
-            created_at=job_data.get("created_at", datetime.utcnow().isoformat()),
-            updated_at=job_data.get("updated_at"),
-            chunks_count=job_data.get("chunks_count"),
-            embedded_chunks_count=job_data.get("embedded_chunks_count")
+            created_at=job_data.get("created_at", datetime.utcnow()).isoformat() if isinstance(job_data.get("created_at"), datetime) else str(job_data.get("created_at", "")),
+            updated_at=job_data.get("updated_at").isoformat() if isinstance(job_data.get("updated_at"), datetime) else job_data.get("updated_at"),
+            chunks_count=1,
+            embedded_chunks_count=1
         )
     
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error retrieving job data: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve job data")
@@ -373,108 +386,131 @@ async def update_job_data(
     **Note:** Chunks and embeddings will be regenerated if content changes.
     """
     try:
-        processor = get_processor()
-        training_repo = get_training_repo()
+        db = get_db()
+        collection = db.db["portfolio_items"]
         
-        # Check if job exists
-        existing = training_repo.get_by_contract_id(contract_id)
+        # Check if job exists by item_id
+        existing = collection.find_one({"item_id": contract_id})
         if not existing:
             raise HTTPException(status_code=404, detail=f"Job not found: {contract_id}")
         
-        # Build update dict (only non-None values)
-        update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+        # Build update dict from request (only non-None values)
+        request_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
         
-        if not update_dict:
+        if not request_dict:
             raise HTTPException(status_code=400, detail="No fields to update")
         
-        # Convert HttpUrl to string if present
-        if "client_feedback_url" in update_dict and update_dict["client_feedback_url"] is not None:
-            update_dict["client_feedback_url"] = str(update_dict["client_feedback_url"])
+        # Map legacy field names to new portfolio_items schema
+        update_dict = {}
         
-        # Convert OutcomeData to dict if present (for MongoDB)
-        if "outcome" in update_dict and update_dict["outcome"] is not None:
-            if hasattr(update_dict["outcome"], "model_dump"):
-                update_dict["outcome"] = update_dict["outcome"].model_dump()
+        # Map company_name -> project_title
+        if "company_name" in request_dict:
+            update_dict["project_title"] = request_dict["company_name"]
+        
+        # Map skills_required -> skills
+        if "skills_required" in request_dict:
+            update_dict["skills"] = request_dict["skills_required"]
+        
+        # Direct mappings
+        if "industry" in request_dict:
+            update_dict["industry"] = request_dict["industry"]
+        if "platform" in request_dict:
+            update_dict["platform"] = request_dict["platform"]
+        if "deliverables" in request_dict:
+            update_dict["deliverables"] = request_dict["deliverables"]
+        
+        # Handle portfolio_urls -> portfolio_url (take first)
+        if "portfolio_urls" in request_dict and request_dict["portfolio_urls"]:
+            update_dict["portfolio_url"] = request_dict["portfolio_urls"][0] if request_dict["portfolio_urls"] else None
+        
+        # Handle outcome
+        if "outcome" in request_dict and request_dict["outcome"] is not None:
+            if hasattr(request_dict["outcome"], "model_dump"):
+                update_dict["outcome"] = request_dict["outcome"].model_dump()
+            else:
+                update_dict["outcome"] = request_dict["outcome"]
+        
+        # Handle client feedback
+        if "client_feedback_text" in request_dict or "client_feedback_url" in request_dict:
+            update_dict["client_feedback"] = {
+                "text": request_dict.get("client_feedback_text"),
+                "url": str(request_dict["client_feedback_url"]) if request_dict.get("client_feedback_url") else None
+            }
         
         # Add updated timestamp
-        update_dict["updated_at"] = datetime.utcnow().isoformat()
+        update_dict["updated_at"] = datetime.utcnow()
         
         logger.info(f"Updating {contract_id} with: {list(update_dict.keys())}")
         
-        # Update in database using repository (pass contract_id as string, not dict)
-        training_repo.update(contract_id, update_dict)
+        # Update in database
+        result = collection.update_one(
+            {"item_id": contract_id},
+            {"$set": update_dict}
+        )
         
-        # Get db instance for direct collection access (legacy)
-        db = get_db()
+        if result.modified_count == 0:
+            logger.warning(f"No fields modified for {contract_id}")
         
-        # Check if content changed - if so, regenerate chunks/embeddings
-        content_fields = ["job_description", "your_proposal_text", "skills_required", "deliverables", "client_feedback_text"]
+        # Check if content changed - if so, regenerate Pinecone embedding
+        content_fields = ["skills", "deliverables", "project_title", "industry"]
         content_changed = any(f in update_dict for f in content_fields)
         
         if content_changed:
-            logger.info(f"Content changed for {contract_id}, regenerating chunks...")
+            logger.info(f"Content changed for {contract_id}, regenerating Pinecone vector...")
             
-            # Delete old vectors from Pinecone FIRST
             pinecone_service = get_pinecone_service()
             if pinecone_service:
                 try:
-                    vectors_deleted = pinecone_service.delete_by_contract(contract_id)
-                    logger.info(f"Deleted {vectors_deleted} old vectors from Pinecone for {contract_id}")
-                except Exception as e:
-                    logger.warning(f"Error deleting old Pinecone vectors: {str(e)}")
-            
-            # Delete old chunks and embeddings from MongoDB using chunk_repo
-            chunk_repo = get_chunk_repo()
-            chunk_repo.collection.delete_many({"contract_id": contract_id})
-            db.db["embeddings"].delete_many({"contract_id": contract_id})
-            
-            # Regenerate chunks and embeddings (without re-storing the job)
-            chunks_count, chunk_ids = processor.process_and_chunk_job(contract_id)
-            embeddings_count, failed = processor.process_and_embed_chunks(contract_id)
-            
-            # Save to Pinecone - both chunk embeddings AND proposal embedding
-            if pinecone_service:
-                try:
-                    # Get updated job data for proposal embedding
-                    updated_job = processor.get_job_with_chunks(contract_id)
+                    # Delete old vector
+                    pinecone_service.delete_by_contract(contract_id)
                     
-                    # Save proposal embedding directly to Pinecone
-                    # This is the main way data gets to Pinecone (the chunking stub returns 0 chunks)
-                    proposal_saved = processor.save_proposal_to_pinecone(
-                        contract_id, 
-                        updated_job, 
-                        save_to_pinecone=True
-                    )
-                    if proposal_saved:
-                        logger.info(f"✓ Proposal embedding saved to Pinecone for {contract_id}")
-                    
-                    # Also save chunk embeddings if any exist
-                    if embeddings_count > 0:
-                        pinecone_count = processor.save_embeddings_to_pinecone(contract_id)
-                        logger.info(f"Saved {pinecone_count} chunk vectors to Pinecone for {contract_id}")
+                    # Get updated item and re-embed
+                    updated_item = collection.find_one({"item_id": contract_id})
+                    if updated_item:
+                        from app.utils.openai_service import OpenAIService
+                        from app.config import settings
+                        import os
+                        
+                        api_key_openai = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
+                        openai_service = OpenAIService(api_key_openai)
+                        
+                        # Build embedding text
+                        embed_text = f"{updated_item.get('project_title', '')} {' '.join(updated_item.get('skills', []))} {' '.join(updated_item.get('deliverables', []))} {updated_item.get('industry', '')}"
+                        embedding = openai_service.get_embedding(embed_text)
+                        
+                        if embedding:
+                            metadata = {
+                                "item_id": contract_id,
+                                "project_title": updated_item.get("project_title", ""),
+                                "skills": updated_item.get("skills", []),
+                                "industry": updated_item.get("industry", ""),
+                                "deliverables": updated_item.get("deliverables", [])
+                            }
+                            pinecone_service.upsert_vectors([(contract_id, embedding, metadata)])
+                            logger.info(f"✓ Re-embedded {contract_id} to Pinecone")
                 except Exception as e:
-                    logger.warning(f"Error saving to Pinecone: {str(e)}")
+                    logger.warning(f"Error updating Pinecone: {str(e)}")
         
-        # Get updated job for response
-        stored_job = processor.get_job_with_chunks(contract_id)
+        # Get updated item for response
+        stored_job = collection.find_one({"item_id": contract_id})
         
         response_data = JobDataResponse(
             db_id=str(stored_job["_id"]),
             contract_id=contract_id,
-            company_name=stored_job["company_name"],
-            job_title=stored_job["job_title"],
+            company_name=stored_job.get("project_title", ""),
+            job_title=stored_job.get("project_title", ""),
             industry=stored_job.get("industry"),
-            skills_required=stored_job.get("skills_required"),
-            task_type=stored_job.get("task_type"),
+            skills_required=stored_job.get("skills", []),
+            task_type=stored_job.get("industry"),
             platform=stored_job.get("platform"),
-            project_status=stored_job.get("project_status", "completed"),
-            urgent_adhoc=stored_job.get("urgent_adhoc", False),
-            start_date=stored_job.get("start_date"),
-            end_date=stored_job.get("end_date"),
+            project_status="completed",
+            urgent_adhoc=False,
+            start_date=None,
+            end_date=None,
             portfolio_url=stored_job.get("portfolio_url"),
-            is_portfolio_entry=stored_job.get("is_portfolio_entry", False),
-            created_at=stored_job.get("created_at"),
-            updated_at=stored_job.get("updated_at")
+            is_portfolio_entry=True,
+            created_at=stored_job.get("created_at").isoformat() if isinstance(stored_job.get("created_at"), datetime) else str(stored_job.get("created_at", "")),
+            updated_at=stored_job.get("updated_at").isoformat() if isinstance(stored_job.get("updated_at"), datetime) else str(stored_job.get("updated_at", ""))
         )
         
         logger.info(f"✅ Updated job: {contract_id}")
@@ -483,7 +519,7 @@ async def update_job_data(
             status="success",
             db_id=str(stored_job["_id"]),
             contract_id=contract_id,
-            message=f"Job updated successfully" + (" (chunks regenerated)" if content_changed else ""),
+            message=f"Job updated successfully" + (" (re-embedded)" if content_changed else ""),
             data=response_data
         )
     
@@ -519,27 +555,43 @@ async def delete_job_data(
     - `contract_id`: Contract ID to delete
     
     **Cascading Deletes:**
-    - Training data record
-    - All chunks created from this job
-    - All embeddings for those chunks
+    - Portfolio item record
+    - Pinecone vector
     
     **Returns:**
     - Count of deleted items
     """
     try:
-        processor = get_processor()
+        db = get_db()
+        collection = db.db["portfolio_items"]
         
-        jobs_deleted, chunks_deleted = processor.delete_job_and_chunks(contract_id)
+        # Check if exists
+        existing = collection.find_one({"item_id": contract_id})
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Contract not found: {contract_id}")
+        
+        # Delete from Pinecone first
+        pinecone_service = get_pinecone_service()
+        if pinecone_service:
+            try:
+                pinecone_service.delete_by_contract(contract_id)
+                logger.info(f"Deleted Pinecone vector for {contract_id}")
+            except Exception as e:
+                logger.warning(f"Error deleting from Pinecone: {str(e)}")
+        
+        # Delete from MongoDB
+        result = collection.delete_one({"item_id": contract_id})
+        jobs_deleted = result.deleted_count
         
         return DeleteResponse(
             status="success",
             deleted_count=jobs_deleted,
-            chunks_deleted=chunks_deleted,
-            message=f"Deleted {jobs_deleted} job and {chunks_deleted} associated chunks"
+            chunks_deleted=0,
+            message=f"Deleted portfolio item and Pinecone vector"
         )
     
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"Contract not found: {contract_id}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting job data: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete job data")
@@ -739,14 +791,14 @@ async def get_filter_options(
     try:
         db = get_db()
         
-        # Get all jobs
-        all_jobs = list(db.db["training_data"].find({}, {"task_type": 1, "platform": 1, "_id": 0}))
+        # Get all portfolio items
+        all_jobs = list(db.db["portfolio_items"].find({}, {"industry": 1, "platform": 1, "_id": 0}))
         
-        # Extract unique task types (non-null)
+        # Extract unique industries as task types (migration unified these)
         task_types = sorted(list(set(
-            job.get("task_type") 
+            job.get("industry") 
             for job in all_jobs 
-            if job.get("task_type")
+            if job.get("industry")
         )))
         
         # Extract unique platforms (non-null)

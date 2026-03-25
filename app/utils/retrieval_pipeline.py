@@ -530,7 +530,7 @@ class RetrievalPipeline:
         from app.utils.metadata_extractor import MetadataExtractor
 
         ranked = []
-        pinecone_scores = {}  # contract_id -> semantic score from Pinecone
+        pinecone_scores = {}  # item_id -> semantic score from Pinecone (or contract_id for legacy)
 
         # Try to use Pinecone semantic search for better ranking
         if use_semantic_search and self.pinecone_service:
@@ -559,15 +559,18 @@ class RetrievalPipeline:
                         include_metadata=True
                     )
                     
-                    # Build contract_id -> score mapping from Pinecone results
+                    # Build item_id -> score mapping from Pinecone results
+                    # New portfolio namespace uses item_id, fallback to contract_id for legacy
                     for result in pinecone_results:
-                        contract_id = result.get("metadata", {}).get("contract_id")
-                        if contract_id:
-                            # Keep highest score for each contract
-                            current_score = pinecone_scores.get(contract_id, 0)
-                            pinecone_scores[contract_id] = max(current_score, result.get("score", 0))
+                        metadata = result.get("metadata", {})
+                        # Try item_id first (new schema), then contract_id (legacy)
+                        entry_id = metadata.get("item_id") or metadata.get("contract_id")
+                        if entry_id:
+                            # Keep highest score for each entry
+                            current_score = pinecone_scores.get(entry_id, 0)
+                            pinecone_scores[entry_id] = max(current_score, result.get("score", 0))
                     
-                    logger.info(f"  → Pinecone returned {len(pinecone_scores)} unique contracts with scores")
+                    logger.info(f"  → Pinecone returned {len(pinecone_scores)} unique portfolio items with scores")
             except Exception as e:
                 logger.warning(f"  ⚠ Pinecone semantic search failed, using metadata only: {e}")
 

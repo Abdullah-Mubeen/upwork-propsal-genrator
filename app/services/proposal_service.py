@@ -412,21 +412,16 @@ class ProposalService:
         return job_data.get("industry", "general")
     
     def _get_historical_jobs(self, org_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get historical jobs - from portfolio_items if org_id, else training_data."""
+        """Get historical jobs from portfolio_items collection."""
         if not self.db:
             return []
         try:
-            # Try new portfolio_items if org_id provided
-            if org_id:
-                from app.infra.mongodb.repositories import get_portfolio_repo
-                portfolio_repo = get_portfolio_repo()
-                items = portfolio_repo.list_by_org(org_id)
-                if items:
-                    # Convert portfolio items to job-like format for retrieval
-                    return [self._portfolio_to_job_format(item) for item in items]
-            
-            # Fall back to training_data (backward compatible)
-            return list(self.db.db.training_data.find({}))
+            # Fetch from portfolio_items collection
+            items = list(self.db.db.portfolio_items.find({}))
+            if items:
+                # Convert portfolio items to job-like format for retrieval
+                return [self._portfolio_to_job_format(item) for item in items]
+            return []
         except Exception as e:
             logger.error(f"Error fetching historical jobs: {e}")
             return []
@@ -445,6 +440,7 @@ class ProposalService:
             "client_feedback_text": item.get("client_feedback", ""),
             "duration_days": item.get("duration_days"),
             "project_status": "completed",
+            "is_portfolio_entry": True,  # All portfolio_items are portfolio entries
         }
     
     def _get_freelancer_profile(self, org_id: str, profile_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -615,12 +611,12 @@ class ProposalService:
                 for tech in tech_keywords:
                     if tech in text:
                         try:
-                            # Query portfolio or training data
-                            collection = self.db.db.portfolio_items if org_id else self.db.db.training_data
-                            query = {"skills": {"$regex": tech, "$options": "i"}} if org_id else {
+                            # Query portfolio_items collection
+                            collection = self.db.db.portfolio_items
+                            query = {
                                 "$or": [
-                                    {"skills_required": {"$regex": tech, "$options": "i"}},
-                                    {"job_title": {"$regex": tech, "$options": "i"}}
+                                    {"skills": {"$regex": tech, "$options": "i"}},
+                                    {"project_title": {"$regex": tech, "$options": "i"}}
                                 ]
                             }
                             count = collection.count_documents(query)

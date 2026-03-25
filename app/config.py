@@ -17,7 +17,7 @@ class Settings:
     PINECONE_ENVIRONMENT: str = os.getenv("PINECONE_ENVIRONMENT", "us-east-1")
     PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX", "proposal-engine")
     PINECONE_HOST: str = os.getenv("PINECONE_HOST", "")  # e.g., https://proposal-engine-923istz.svc.aped-4627-b74a.pinecone.io
-    PINECONE_NAMESPACE: str = os.getenv("PINECONE_NAMESPACE", "proposals")
+    PINECONE_NAMESPACE: str = os.getenv("PINECONE_NAMESPACE", "portfolio")
     PINECONE_DIMENSION: int = int(os.getenv("PINECONE_DIMENSION", "3072"))  # Must match text-embedding-3-large dimensions
     
     # OpenAI Configuration

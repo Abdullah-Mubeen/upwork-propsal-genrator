@@ -608,8 +608,8 @@ class JobDataProcessor:
                 logger.warning(f"Error getting DB stats: {db_error}")
                 stats = {}
             
-            # Get all jobs for detailed analysis
-            all_jobs = list(self.db.db["training_data"].find({}))
+            # Get all items from portfolio_items collection (new unified collection)
+            all_jobs = list(self.db.db["portfolio_items"].find({}))
             total_jobs = len(all_jobs)
             
             if total_jobs == 0:
@@ -619,8 +619,8 @@ class JobDataProcessor:
                     "chunks_embedded": 0,
                     "chunks_pending": 0,
                     "avg_proposal_length": 0,
-                    "completion_rate": 0.0,
-                    "success_rate": 0.0,
+                    "completion_rate": 100.0,
+                    "success_rate": 100.0,
                     "avg_satisfaction_score": 0.0,
                     "by_status": {},
                     "by_industry": {},
@@ -628,19 +628,12 @@ class JobDataProcessor:
                     "by_task_type": {}
                 }
             
-            # Proposal metrics
-            avg_proposal_length = sum(len(j.get("your_proposal_text", "")) for j in all_jobs) // max(total_jobs, 1)
+            # All portfolio items are completed
+            avg_proposal_length = 0  # No proposal text in new schema
+            completion_rate = 100.0  # All portfolio items are completed
             
-            # Completion rate
-            completed = len([j for j in all_jobs if j.get("project_status") == "completed"])
-            completion_rate = round((completed / total_jobs * 100) if total_jobs > 0 else 0, 1)
-            
-            # Status breakdown
-            status_stats = {}
-            for status in ["completed", "ongoing", "cancelled"]:
-                count = len([j for j in all_jobs if j.get("project_status") == status])
-                if count > 0:
-                    status_stats[status] = count
+            # Status breakdown - all completed in new schema
+            status_stats = {"completed": total_jobs}
             
             # Industry breakdown (only non-null)
             industry_stats = {}
@@ -648,10 +641,10 @@ class JobDataProcessor:
                 industry = job.get("industry") or "Unspecified"
                 industry_stats[industry] = industry_stats.get(industry, 0) + 1
             
-            # Top skills (flatten and count)
+            # Top skills (from new schema: "skills" field)
             all_skills = []
             for job in all_jobs:
-                all_skills.extend(job.get("skills_required", []))
+                all_skills.extend(job.get("skills", []))
             
             skill_counts = {}
             for skill in all_skills:
@@ -660,31 +653,20 @@ class JobDataProcessor:
             top_skills = sorted(skill_counts.items(), key=lambda x: x[1], reverse=True)
             top_skills = [skill for skill, count in top_skills[:15]]
             
-            # Task type breakdown
+            # Task type breakdown - use industry as proxy
             task_stats = {}
             for job in all_jobs:
-                task = job.get("task_type", "other")
+                task = job.get("industry") or "other"
                 task_stats[task] = task_stats.get(task, 0) + 1
             
-            # Average satisfaction score - safely handle None
-            satisfaction_scores = [
-                float(j.get("client_satisfaction", 0)) 
-                for j in all_jobs 
-                if j.get("client_satisfaction") is not None and isinstance(j.get("client_satisfaction"), (int, float))
-            ]
-            avg_satisfaction = round(sum(satisfaction_scores) / len(satisfaction_scores) if satisfaction_scores else 0, 1)
+            # Average satisfaction - portfolio items don't have ratings
+            avg_satisfaction = 0.0
+            success_rate = 100.0  # All are successful completed projects
             
-            # Success rate (completed with positive feedback)
-            successful_jobs = len([
-                j for j in all_jobs 
-                if j.get("project_status") == "completed" and (j.get("client_satisfaction") or 0) >= 4
-            ])
-            success_rate = round((successful_jobs / total_jobs * 100) if total_jobs > 0 else 0, 1)
-            
-            # Get chunk stats safely
-            total_chunks = stats.get("total_chunks") if isinstance(stats.get("total_chunks"), int) else 0
-            chunks_embedded = stats.get("chunks_embedded") if isinstance(stats.get("chunks_embedded"), int) else 0
-            chunks_pending = (total_chunks - chunks_embedded) if total_chunks >= chunks_embedded else 0
+            # No chunks in new system - single vector per item
+            total_chunks = total_jobs  # 1 embedding per portfolio item
+            chunks_embedded = total_jobs
+            chunks_pending = 0
             
             return {
                 "total_jobs": total_jobs,

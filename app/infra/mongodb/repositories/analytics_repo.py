@@ -43,13 +43,9 @@ class AnalyticsRepository:
         """Get comprehensive database statistics across all collections."""
         try:
             return {
-                "training_data_count": self.db["training_data"].count_documents({}),
-                "total_chunks": self.db["chunks"].count_documents({}),
-                "chunks_embedded": self.db["chunks"].count_documents({"embedding_status": "completed"}),
-                "chunks_pending": self.db["chunks"].count_documents({"embedding_status": "pending"}),
-                "total_embeddings": self.db["embeddings"].count_documents({}),
-                "total_proposals": self.db["proposals"].count_documents({}),
+                "portfolio_items_count": self.db["portfolio_items"].count_documents({}),
                 "total_feedback": self.db["feedback_data"].count_documents({}),
+                "sent_proposals": self.db["sent_proposals"].count_documents({}),
                 "cached_embeddings": self.db["embedding_cache"].count_documents({})
             }
         except Exception as e:
@@ -57,13 +53,13 @@ class AnalyticsRepository:
             return {}
     
     def get_industry_statistics(self) -> Dict[str, int]:
-        """Get training data statistics by industry."""
+        """Get portfolio statistics by industry."""
         try:
             pipeline = [
                 {"$group": {"_id": "$industry", "count": {"$sum": 1}}},
                 {"$sort": {"count": -1}}
             ]
-            results = list(self.db["training_data"].aggregate(pipeline))
+            results = list(self.db["portfolio_items"].aggregate(pipeline))
             return {item["_id"]: item["count"] for item in results}
         except Exception as e:
             logger.error(f"Error getting industry statistics: {e}")

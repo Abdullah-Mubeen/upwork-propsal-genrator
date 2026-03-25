@@ -14,7 +14,7 @@ class PineconeService:
         api_key: str,
         environment: str = "us-east-1",
         index_name: str = "proposal-engine",
-        namespace: str = "proposals",
+        namespace: str = "portfolio",
         dimension: int = 3072
     ):
         """

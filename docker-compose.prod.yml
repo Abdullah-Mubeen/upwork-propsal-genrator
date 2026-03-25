@@ -30,7 +30,7 @@ services:
       - PINECONE_INDEX=${PINECONE_INDEX}
       - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
       - PINECONE_HOST=${PINECONE_HOST}
-      - PINECONE_NAMESPACE=proposals
+      - PINECONE_NAMESPACE=portfolio
       - PINECONE_DIMENSION=3072
       # Chunking & Retrieval
       - CHUNK_SIZE=1024
