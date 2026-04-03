@@ -19,6 +19,7 @@ from app.routes.profile import router as profile_router
 from app.routes.portfolio import router as portfolio_router
 from app.routes.analytics import router as analytics_router
 from app.routes.admin import router as admin_router
+from app.routes.lab import router as lab_router
 from app.middleware.auth import verify_api_key
 
 logging.basicConfig(level=logging.INFO)
@@ -79,6 +80,7 @@ app.include_router(profile_router)
 app.include_router(portfolio_router)
 app.include_router(analytics_router)
 app.include_router(admin_router)
+app.include_router(lab_router)
 
 # Serve frontend static files - mount AFTER API routes to avoid conflicts
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
