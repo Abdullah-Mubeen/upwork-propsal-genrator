@@ -1,6 +1,6 @@
 // ===== CHANGE THIS LINE TO SWITCH ENVIRONMENTS =====
-// const BASE_URL = 'https://ml.genproposals.com';  // PRODUCTION
-const BASE_URL = 'http://localhost:8000';           // LOCAL DEV - switch before deploy!
+const BASE_URL = 'https://ml.genproposals.com';  // PRODUCTION
+// const BASE_URL = 'http://localhost:8000';           // LOCAL DEV - switch before deploy!
 // ===================================================
 
 // Main API endpoint
